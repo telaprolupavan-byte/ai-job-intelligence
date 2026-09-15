@@ -3,12 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from database import get_db
-from dependencies import get_current_user
-from models import Resume, ResumeVersion, User
-from schemas import ResumeDetailResponse, ResumeResponse
-from services.resume_parser import extract_resume_text
-from services.resume_service import save_uploaded_resume
+from apps.api.database import get_db
+from apps.api.dependencies import get_current_user
+from apps.api.models import Resume, ResumeVersion, User
+from apps.api.schemas import ResumeDetailResponse, ResumeResponse
+from apps.api.services.resume_parser import extract_resume_text
+from apps.api.services.resume_service import save_uploaded_resume
 
 
 router = APIRouter(
