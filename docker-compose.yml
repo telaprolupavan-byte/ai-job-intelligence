@@ -1,0 +1,34 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+    container_name: ai-job-intelligence-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app
+    environment:
+      DATABASE_URL: postgresql+psycopg://jobintel:jobintel@db:5432/jobintel
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    container_name: ai-job-intelligence-db
+    environment:
+      POSTGRES_USER: jobintel
+      POSTGRES_PASSWORD: jobintel
+      POSTGRES_DB: jobintel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobintel -d jobintel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
