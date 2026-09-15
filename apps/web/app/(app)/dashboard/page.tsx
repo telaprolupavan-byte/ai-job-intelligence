@@ -112,7 +112,7 @@ export default function DashboardPage() {
         <Sidebar />
 
         <div className="min-w-0 flex-1">
-          <DashboardHeader email={dashboard.user.email} />
+          <DashboardHeader  />
 
           <div className="relative overflow-hidden">
             {/* Technical atmosphere */}

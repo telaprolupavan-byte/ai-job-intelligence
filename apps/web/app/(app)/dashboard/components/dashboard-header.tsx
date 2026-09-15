@@ -1,21 +1,35 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-import { logout } from "@/lib/auth";
+import { getCurrentUser, logout } from "@/lib/auth";
 
 type Props = {
   email: string;
 };
 
-export default function DashboardHeader({ email }: Props) {
+export default function DashboardHeader() {
+
   const router = useRouter();
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    getCurrentUser()
+      .then((user) => {
+        setEmail(user.email);
+      })
+      .catch(() => {
+        setEmail("");
+      });
+  }, []);
 
   function handleLogout() {
-    logout();
-    router.replace("/login");
-  }
 
+    logout();
+
+    router.replace("/login");
+
+  }
   return (
     <header className="flex items-center justify-between border-b border-[#1A3048] bg-[#05070A] px-5 py-4 md:px-8 lg:px-10">
       <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#5E7187]">
