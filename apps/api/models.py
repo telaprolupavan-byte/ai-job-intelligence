@@ -496,6 +496,64 @@ class ResumeAnalysis(Base):
     )
 
 
+class ResumeAIAnalysis(Base):
+    __tablename__ = "resume_ai_analyses"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    resume_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("resume_versions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    analysis_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    analyzer_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    model_provider: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    model_name: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    prompt_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    analysis_result: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+
 class ResumeRecommendation(Base):
     __tablename__ = "resume_recommendations"
 
