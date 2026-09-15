@@ -4,10 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, logout } from "@/lib/auth";
 
-type Props = {
-  email: string;
-};
-
 export default function DashboardHeader() {
 
   const router = useRouter();
