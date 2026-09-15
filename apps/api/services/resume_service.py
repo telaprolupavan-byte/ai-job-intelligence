@@ -1,9 +1,7 @@
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile, status
-
-from models import Resume, ResumeVersion
 
 
 BASE_DIR = Path(__file__).resolve().parents[3]

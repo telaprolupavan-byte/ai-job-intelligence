@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
 
-from config import settings
+from apps.api.config import settings
 
 
 password_hash = PasswordHash.recommended()
