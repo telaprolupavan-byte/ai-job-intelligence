@@ -7,3 +7,6 @@ python-multipart
 alembic
 pwdlib[argon2]
 email-validator
+python-jose
+pymupdf
+python-docx
