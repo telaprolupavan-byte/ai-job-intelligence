@@ -6,6 +6,7 @@ from apps.api.routers.dashboard import router as dashboard_router
 from apps.api.routers.preferences import router as preferences_router
 from apps.api.routers.profile import router as profile_router
 from apps.api.routers.resumes import router as resumes_router
+from apps.api.routers.jobs import router as jobs_router
 
 app = FastAPI(
     title="AI Job Intelligence API",
@@ -28,6 +29,7 @@ app.include_router(profile_router)
 app.include_router(preferences_router)
 app.include_router(resumes_router)
 app.include_router(dashboard_router)
+app.include_router(jobs_router)
 
 
 @app.get("/health")

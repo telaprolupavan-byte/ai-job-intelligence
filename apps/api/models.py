@@ -342,6 +342,11 @@ class Job(Base):
         String(255),
     )
 
+    identity_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        index=True,
+    )
+
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
