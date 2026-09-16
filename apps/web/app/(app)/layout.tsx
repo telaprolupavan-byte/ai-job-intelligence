@@ -1,5 +1,6 @@
 import Sidebar from "./dashboard/components/sidebar";
 import DashboardHeader from "./dashboard/components/dashboard-header";
+import AuthGate from "./auth-gate";
 
 export default function AppLayout({
   children,
@@ -7,16 +8,18 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#05070A] text-[#F2F5F8]">
-      <Sidebar />
+    <AuthGate>
+      <div className="min-h-screen bg-[#05070A] text-[#F2F5F8]">
+        <Sidebar />
 
-      <div className="min-h-screen md:pl-64">
-        <DashboardHeader />
+        <div className="min-h-screen md:pl-64">
+          <DashboardHeader />
 
-        <main className="min-h-[calc(100vh-...]">
-          {children}
-        </main>
+          <main className="min-h-screen">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthGate>
   );
 }

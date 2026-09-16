@@ -7,8 +7,6 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { getDashboard, DashboardData } from "@/lib/dashboard";
 
-import Sidebar from "./components/sidebar";
-import DashboardHeader from "./components/dashboard-header";
 import IntelligenceCard from "./components/intelligence-card";
 import QuickActions from "./components/quick-actions";
 import Opportunities from "./components/opportunities";
@@ -98,7 +96,9 @@ export default function DashboardPage() {
       ? "READY · 80% TARGET"
       : dashboard.ats.status === "needs_improvement"
         ? "NEEDS IMPROVEMENT"
-        : "NOT CHECKED";
+        : dashboard.ats.status === "not_checked"
+          ? "NOT CHECKED"
+          : "MODULE NOT AVAILABLE";
 
   const resumeValue =
     dashboard.resume.status === "ready" ? "READY" : "NOT READY";
@@ -108,13 +108,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#05070A] text-[#F2F5F8]">
-      <div className="flex min-h-screen">
-        <Sidebar />
-
-        <div className="min-w-0 flex-1">
-          <DashboardHeader  />
-
-          <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden">
             {/* Technical atmosphere */}
             <div className="pointer-events-none absolute inset-0 opacity-40">
               <div className="absolute left-[15%] top-0 h-[500px] w-[500px] rounded-full bg-[#0B4EA2]/10 blur-[120px]" />
@@ -152,16 +146,16 @@ export default function DashboardPage() {
                     </h1>
 
                     <p className="mt-6 max-w-xl text-sm leading-7 text-[#8D9AAA] md:text-base">
-                      Your career intelligence system is ready. Track your
-                      resume, ATS readiness, opportunities, and applications
-                      from one command center.
+                      Your career intelligence system is ready. Start with
+                      resume intelligence while job discovery, ATS analysis,
+                      and application tracking are being built.
                     </p>
 
                     <Link
-                      href="/jobs"
+                      href="/resume"
                       className="mt-8 inline-flex items-center gap-4 bg-[#E50920] px-6 py-4 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#FF1E32]"
                     >
-                      Start Applying
+                      Analyze Your Resume
                       <span>→</span>
                     </Link>
                   </div>
@@ -181,8 +175,8 @@ export default function DashboardPage() {
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <IntelligenceCard
                     label="Today's Jobs"
-                    value={String(dashboard.jobs.new)}
-                    detail={`${dashboard.jobs.full_time} FULL-TIME · ${dashboard.jobs.contract} CONTRACT`}
+                    value="—"
+                    detail="MODULE NOT AVAILABLE"
                     accent="red"
                   />
 
@@ -202,8 +196,8 @@ export default function DashboardPage() {
 
                   <IntelligenceCard
                     label="Applications"
-                    value={String(dashboard.applications.applied)}
-                    detail={`${dashboard.applications.in_review} IN REVIEW · ${dashboard.applications.interview} INTERVIEW`}
+                    value="—"
+                    detail="MODULE NOT AVAILABLE"
                     accent="blue"
                   />
                 </div>
@@ -234,8 +228,6 @@ export default function DashboardPage() {
                 </div>
               </footer>
             </div>
-          </div>
-        </div>
       </div>
     </main>
   );
