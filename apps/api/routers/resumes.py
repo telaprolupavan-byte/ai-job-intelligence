@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from apps.api.database import get_db
 from apps.api.dependencies import get_current_user
-from apps.api.models import Resume, ResumeVersion, User
+from apps.api.models import Resume, ResumeAIAnalysis, ResumeVersion, User
 from apps.api.schemas import (
     ResumeDetailResponse,
     ResumeResponse,
@@ -14,6 +14,10 @@ from apps.api.schemas import (
 from apps.api.services.resume_parser import extract_resume_text
 from apps.api.services.resume_service import save_uploaded_resume
 from apps.api.services.resume_validation import validate_resume_text
+from apps.api.services.resume_ai.service import (
+    ResumeAIServiceError,
+    analyze_resume_version,
+)
 
 
 router = APIRouter(
@@ -161,3 +165,61 @@ def get_resume(
         original_text=resume.original_text,
         created_at=resume.created_at.isoformat(),
     )
+
+
+@router.post(
+    "/versions/{resume_version_id}/ai-analysis",
+)
+def create_resume_ai_analysis(
+    resume_version_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        return analyze_resume_version(
+            db=db,
+            user_id=current_user.id,
+            resume_version_id=resume_version_id,
+        )
+    except ResumeAIServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/versions/{resume_version_id}/ai-analysis",
+)
+def get_resume_ai_analysis(
+    resume_version_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    analysis = (
+        db.query(ResumeAIAnalysis)
+        .filter(
+            ResumeAIAnalysis.resume_version_id == resume_version_id,
+            ResumeAIAnalysis.user_id == current_user.id,
+        )
+        .order_by(ResumeAIAnalysis.created_at.desc())
+        .first()
+    )
+
+    if analysis is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume AI analysis not found.",
+        )
+
+    return {
+        "id": str(analysis.id),
+        "resume_version_id": str(analysis.resume_version_id),
+        "analysis_version": analysis.analysis_version,
+        "analyzer_version": analysis.analyzer_version,
+        "model_provider": analysis.model_provider,
+        "model_name": analysis.model_name,
+        "prompt_version": analysis.prompt_version,
+        "analysis_result": analysis.analysis_result,
+        "created_at": analysis.created_at,
+    }

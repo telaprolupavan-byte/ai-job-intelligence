@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from apps.api.models import ResumeAIAnalysis, ResumeVersion
@@ -19,6 +20,10 @@ ANALYZER_VERSION = "1.0"
 
 class ResumeAIServiceError(RuntimeError):
     """Application-level error for resume AI analysis failures."""
+
+    def __init__(self, message: str, *, status_code: int = 500) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def _serialize_deterministic_analysis(
@@ -82,14 +87,16 @@ def analyze_resume_version(
 
     if resume_version is None:
         raise ResumeAIServiceError(
-            "Resume version not found."
+            "Resume version not found.",
+            status_code=404,
         )
 
     resume_text = resume_version.content_text.strip()
 
     if not resume_text:
         raise ResumeAIServiceError(
-            "Resume version contains no readable text."
+            "Resume version contains no readable text.",
+            status_code=422,
         )
 
     deterministic_analysis = analyze_resume_deterministically(
@@ -100,22 +107,25 @@ def analyze_resume_version(
         deterministic_analysis
     )
 
-    provider = create_resume_ai_provider()
-
-    interpreter = ResumeAIInterpreter(provider)
-
-    interpretation = interpreter.analyze(
-        resume_text=resume_text,
-        deterministic_analysis=deterministic_payload,
-    )
-
-    result_payload = {
-        **interpretation.result,
-        "analysis_version": interpretation.analysis_version,
-        "resume_version_id": str(resume_version_id),
-    }
-
-    result = ResumeAIResult.model_validate(result_payload)
+    try:
+        provider = create_resume_ai_provider()
+        interpreter = ResumeAIInterpreter(provider)
+        interpretation = interpreter.analyze(
+            resume_text=resume_text,
+            deterministic_analysis=deterministic_payload,
+        )
+        result_payload = {
+            **interpretation.result,
+            "analysis_version": interpretation.analysis_version,
+            "resume_version_id": str(resume_version_id),
+        }
+        result = ResumeAIResult.model_validate(result_payload)
+    except (ValidationError, RuntimeError, ValueError) as exc:
+        db.rollback()
+        raise ResumeAIServiceError(
+            "Unable to generate a valid resume AI analysis.",
+            status_code=503,
+        ) from exc
 
     analysis_record = ResumeAIAnalysis(
         user_id=user_id,

@@ -100,3 +100,13 @@ class ResumeDetailResponse(BaseModel):
     filename: str
     original_text: str | None
     created_at: str
+
+class ResumeValidationResponse(BaseModel):
+    id: str
+    filename: str
+    created_at: str
+    valid: bool
+    word_count: int
+    character_count: int
+    section_matches: list[str]
+    warnings: list[str]
