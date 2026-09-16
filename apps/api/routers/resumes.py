@@ -6,9 +6,14 @@ from sqlalchemy.orm import Session
 from apps.api.database import get_db
 from apps.api.dependencies import get_current_user
 from apps.api.models import Resume, ResumeVersion, User
-from apps.api.schemas import ResumeDetailResponse, ResumeResponse
+from apps.api.schemas import (
+    ResumeDetailResponse,
+    ResumeResponse,
+    ResumeValidationResponse,
+)
 from apps.api.services.resume_parser import extract_resume_text
 from apps.api.services.resume_service import save_uploaded_resume
+from apps.api.services.resume_validation import validate_resume_text
 
 
 router = APIRouter(
@@ -19,7 +24,7 @@ router = APIRouter(
 
 @router.post(
     "/upload",
-    response_model=ResumeDetailResponse,
+    response_model=ResumeValidationResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_resume(
@@ -29,35 +34,67 @@ async def upload_resume(
 ):
     stored_filename, storage_path = await save_uploaded_resume(file)
 
-    original_text = extract_resume_text(storage_path)
+    try:
+        original_text = extract_resume_text(storage_path)
+        validation = validate_resume_text(original_text)
 
-    resume = Resume(
-        user_id=current_user.id,
-        filename=file.filename,
-        storage_path=str(storage_path),
-        original_text=original_text,
-    )
+        if not validation.valid:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": (
+                        "The uploaded document could not be validated "
+                        "as a usable resume."
+                    ),
+                    "warnings": validation.warnings,
+                },
+            )
 
-    db.add(resume)
-    db.flush()
+        resume = Resume(
+            user_id=current_user.id,
+            filename=file.filename,
+            storage_path=str(storage_path),
+            original_text=original_text,
+        )
 
-    version = ResumeVersion(
-        resume_id=resume.id,
-        name="Original",
-        content_text=original_text,
-        is_master=True,
-    )
+        db.add(resume)
+        db.flush()
 
-    db.add(version)
-    db.commit()
-    db.refresh(resume)
+        version = ResumeVersion(
+            resume_id=resume.id,
+            name="Original",
+            content_text=original_text,
+            is_master=True,
+        )
 
-    return ResumeDetailResponse(
-        id=str(resume.id),
-        filename=resume.filename,
-        original_text=resume.original_text,
-        created_at=resume.created_at.isoformat(),
-    )
+        db.add(version)
+        db.commit()
+        db.refresh(resume)
+
+        return ResumeValidationResponse(
+            id=str(resume.id),
+            filename=resume.filename,
+            created_at=resume.created_at.isoformat(),
+            valid=validation.valid,
+            word_count=validation.word_count,
+            character_count=validation.character_count,
+            section_matches=validation.section_matches,
+            warnings=validation.warnings,
+        )
+
+    except HTTPException:
+        db.rollback()
+        storage_path.unlink(missing_ok=True)
+        raise
+
+    except Exception:
+        db.rollback()
+        storage_path.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to process the uploaded resume.",
+        )
 
 
 @router.get(

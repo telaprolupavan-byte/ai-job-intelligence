@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pymupdf as fitz
 from docx import Document
-
 from fastapi import HTTPException, status
 
 
@@ -10,12 +9,13 @@ def extract_pdf_text(path: Path) -> str:
     try:
         document = fitz.open(path)
 
-        pages = [
-            page.get_text()
-            for page in document
-        ]
-
-        document.close()
+        try:
+            pages = [
+                page.get_text()
+                for page in document
+            ]
+        finally:
+            document.close()
 
         return "\n".join(pages).strip()
 
@@ -30,13 +30,26 @@ def extract_docx_text(path: Path) -> str:
     try:
         document = Document(path)
 
-        paragraphs = [
-            paragraph.text
-            for paragraph in document.paragraphs
-            if paragraph.text.strip()
-        ]
+        content: list[str] = []
 
-        return "\n".join(paragraphs).strip()
+        for paragraph in document.paragraphs:
+            text = paragraph.text.strip()
+
+            if text:
+                content.append(text)
+
+        for table in document.tables:
+            for row in table.rows:
+                cells = [
+                    cell.text.strip()
+                    for cell in row.cells
+                    if cell.text.strip()
+                ]
+
+                if cells:
+                    content.append(" | ".join(cells))
+
+        return "\n".join(content).strip()
 
     except Exception as exc:
         raise HTTPException(
