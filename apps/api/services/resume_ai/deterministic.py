@@ -128,6 +128,7 @@ SKILL_CATALOG = {
     "scikit-learn",
     "pandas",
     "numpy",
+    "xgboost",
     "spark",
     "hadoop",
     "aws",
@@ -181,7 +182,6 @@ QUANTIFICATION_PATTERNS = [
     re.compile(r"\b\d+(?:\.\d+)?\s*%"),
     re.compile(r"\b\d+(?:\.\d+)?\s*(?:k|m|b)\b", re.IGNORECASE),
     re.compile(r"\b\d+(?:,\d{3})+(?:\.\d+)?\b"),
-    re.compile(r"\b\d+(?:\.\d+)?\b"),
     re.compile(
         r"\b(?:reduced|increased|improved|saved|cut|accelerated|"
         r"processed|served|handled|supported|generated|trained|"
@@ -408,7 +408,12 @@ def detect_weak_language(text: str) -> list[dict]:
     findings: list[dict] = []
 
     for phrase in WEAK_PHRASES:
-        occurrences = lowered.count(phrase)
+        occurrences = len(
+            re.findall(
+                rf"(?<!\w){re.escape(phrase)}(?!\w)",
+                lowered,
+            )
+        )
 
         if occurrences:
             findings.append(
@@ -668,7 +673,11 @@ def _project_signals(
                 {
                     "text": line,
                     "has_technology_signal": any(
-                        skill in line.lower()
+                        re.search(
+                            rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])",
+                            line,
+                            re.IGNORECASE,
+                        )
                         for skill in SKILL_CATALOG
                     ),
                     "has_quantification": bool(
@@ -720,7 +729,7 @@ def _career_signals(
                 "managed",
                 "mentored",
             )
-            if phrase in lowered
+            if re.search(rf"(?<!\w){phrase}(?!\w)", lowered)
         ],
     }
 

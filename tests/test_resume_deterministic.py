@@ -56,3 +56,43 @@ def test_resume_deterministic_analysis():
         skill.lower() == "python"
         for skill in result.skills
     )
+
+
+def test_deterministic_analysis_does_not_treat_contact_numbers_as_metrics():
+    result = analyze_resume_deterministically(
+        """
+        Jane Doe
+        jane@example.com
+        555-123-4567
+        EXPERIENCE
+        - Built internal tools.
+        """
+    )
+
+    assert result.quantified_evidence == []
+    assert result.bullets[0].has_quantification is False
+
+
+def test_deterministic_analysis_handles_empty_and_short_input():
+    empty_result = analyze_resume_deterministically("")
+    short_result = analyze_resume_deterministically("Python")
+
+    assert empty_result.word_count == 0
+    assert empty_result.sections == []
+    assert empty_result.bullets == []
+    assert short_result.skills == ["python"]
+    assert short_result.structural_findings
+
+
+def test_skill_evidence_distinguishes_skills_only_from_demonstrated():
+    result = analyze_resume_deterministically(
+        """
+        SKILLS
+        Python, Rust
+        EXPERIENCE
+        - Built Python services.
+        """
+    )
+
+    assert result.skill_evidence["python"]["status"] == "demonstrated"
+    assert result.skill_evidence["rust"]["status"] == "skills_only"
