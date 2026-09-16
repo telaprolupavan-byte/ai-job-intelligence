@@ -1,4 +1,4 @@
-fastapi
+stapi
 uvicorn[standard]
 pydantic-settings
 sqlalchemy
@@ -10,3 +10,4 @@ email-validator
 python-jose
 pymupdf
 python-docx
+openai
