@@ -101,6 +101,14 @@ class ResumeDetailResponse(BaseModel):
     original_text: str | None
     created_at: str
 
+
+class ResumeVersionResponse(BaseModel):
+    id: str
+    resume_id: str
+    name: str
+    is_master: bool
+    created_at: str
+
 class ResumeValidationResponse(BaseModel):
     id: str
     filename: str

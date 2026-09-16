@@ -1,6 +1,16 @@
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -19,7 +29,12 @@ export async function apiRequest<T>(
     const message =
       data?.detail ?? "Something went wrong. Please try again.";
 
-    throw new Error(message);
+    throw new ApiError(
+      typeof message === "string"
+        ? message
+        : message?.message ?? "Something went wrong. Please try again.",
+      response.status,
+    );
   }
 
   return data as T;

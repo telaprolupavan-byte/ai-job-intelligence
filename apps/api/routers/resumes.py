@@ -9,6 +9,7 @@ from apps.api.models import Resume, ResumeAIAnalysis, ResumeVersion, User
 from apps.api.schemas import (
     ResumeDetailResponse,
     ResumeResponse,
+    ResumeVersionResponse,
     ResumeValidationResponse,
 )
 from apps.api.services.resume_parser import extract_resume_text
@@ -165,6 +166,54 @@ def get_resume(
         original_text=resume.original_text,
         created_at=resume.created_at.isoformat(),
     )
+
+
+@router.get(
+    "/{resume_id}/versions",
+    response_model=list[ResumeVersionResponse],
+)
+def list_resume_versions(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        resume_uuid = UUID(resume_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume not found",
+        )
+
+    resume = (
+        db.query(Resume)
+        .filter(
+            Resume.id == resume_uuid,
+            Resume.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if resume is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume not found",
+        )
+
+    return [
+        ResumeVersionResponse(
+            id=str(version.id),
+            resume_id=str(version.resume_id),
+            name=version.name,
+            is_master=version.is_master,
+            created_at=version.created_at.isoformat(),
+        )
+        for version in sorted(
+            resume.versions,
+            key=lambda version: version.created_at,
+            reverse=True,
+        )
+    ]
 
 
 @router.post(

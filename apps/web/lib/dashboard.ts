@@ -11,18 +11,13 @@ export type DashboardData = {
   };
   ats: {
     score: number | null;
-    status: "pass" | "needs_improvement" | "not_checked";
+    status: "pass" | "needs_improvement" | "not_checked" | "not_available";
   };
   jobs: {
-    new: number;
-    full_time: number;
-    contract: number;
+    available: boolean;
   };
   applications: {
-    applied: number;
-    in_review: number;
-    interview: number;
-    offers: number;
+    available: boolean;
   };
 };
 
