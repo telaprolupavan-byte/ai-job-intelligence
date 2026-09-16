@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -631,4 +631,61 @@ class SearchRun(Base):
     status: Mapped[str] = mapped_column(
         String(50),
         default="running",
+    )
+
+
+class JobMatchResult(Base):
+    __tablename__ = "job_match_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("jobs.id"),
+        nullable=False,
+        index=True,
+    )
+
+    resume_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("resume_versions.id"),
+        nullable=False,
+        index=True,
+    )
+
+    engine_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    score: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    confidence: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    result: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
