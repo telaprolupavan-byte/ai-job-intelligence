@@ -6,7 +6,6 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
-    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -384,52 +383,6 @@ class Job(Base):
     )
 
 
-class JobMatch(Base):
-    __tablename__ = "job_matches"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-    )
-
-    job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("jobs.id", ondelete="CASCADE"),
-    )
-
-    resume_version_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("resume_versions.id", ondelete="SET NULL"),
-    )
-
-    match_score: Mapped[float] = mapped_column(
-        Float,
-    )
-
-    ats_score: Mapped[float] = mapped_column(
-        Float,
-    )
-
-    priority: Mapped[str | None] = mapped_column(
-        String(50),
-    )
-
-    explanation: Mapped[dict | None] = mapped_column(
-        JSONB,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-    )
-
-
 class SavedJob(Base):
     __tablename__ = "saved_jobs"
 
@@ -452,56 +405,6 @@ class SavedJob(Base):
     status: Mapped[str] = mapped_column(
         String(50),
         default="saved",
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-    )
-
-
-class ResumeAnalysis(Base):
-    __tablename__ = "resume_analyses"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-    )
-
-    resume_version_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("resume_versions.id", ondelete="CASCADE"),
-    )
-
-    job_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("jobs.id", ondelete="SET NULL"),
-    )
-
-    ats_score: Mapped[float] = mapped_column(
-        Float,
-    )
-
-    keyword_alignment: Mapped[float | None] = mapped_column(
-        Float,
-    )
-
-    requirement_coverage: Mapped[float | None] = mapped_column(
-        Float,
-    )
-
-    structure_score: Mapped[float | None] = mapped_column(
-        Float,
-    )
-
-    title_alignment: Mapped[float | None] = mapped_column(
-        Float,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -565,81 +468,6 @@ class ResumeAIAnalysis(Base):
         DateTime,
         default=datetime.utcnow,
         nullable=False,
-    )
-
-
-class ResumeRecommendation(Base):
-    __tablename__ = "resume_recommendations"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-    )
-
-    job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("jobs.id", ondelete="CASCADE"),
-    )
-
-    resume_version_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("resume_versions.id", ondelete="CASCADE"),
-    )
-
-    recommendation_type: Mapped[str] = mapped_column(
-        String(100),
-    )
-
-    original_text: Mapped[str | None] = mapped_column(
-        Text,
-    )
-
-    suggested_text: Mapped[str | None] = mapped_column(
-        Text,
-    )
-
-    reason: Mapped[str | None] = mapped_column(
-        Text,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-    )
-
-
-class SearchRun(Base):
-    __tablename__ = "search_runs"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-    )
-
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime,
-    )
-
-    jobs_found: Mapped[int] = mapped_column(
-        Integer,
-        default=0,
-    )
-
-    status: Mapped[str] = mapped_column(
-        String(50),
-        default="running",
     )
 
 
