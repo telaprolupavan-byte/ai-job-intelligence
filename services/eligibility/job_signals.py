@@ -73,12 +73,18 @@ def extract_work_authorization_signals(
 
     sponsorship_available: bool | None = None
 
-    if any(pattern.search(text) for pattern in _SPONSORSHIP_AVAILABLE_PATTERNS):
-        sponsorship_available = True
-    elif any(
+    # Unavailable patterns are checked first: an explicit negative
+    # statement like "No visa sponsorship available" would otherwise also
+    # satisfy the "available" pattern's bare "visa sponsorship ...
+    # available" substring match, silently flipping a negative statement
+    # into a positive signal. A negative statement is always the more
+    # specific/decisive read, so it takes precedence.
+    if any(
         pattern.search(text) for pattern in _SPONSORSHIP_UNAVAILABLE_PATTERNS
     ):
         sponsorship_available = False
+    elif any(pattern.search(text) for pattern in _SPONSORSHIP_AVAILABLE_PATTERNS):
+        sponsorship_available = True
 
     return WorkAuthorizationSignals(
         sponsorship_available=sponsorship_available,

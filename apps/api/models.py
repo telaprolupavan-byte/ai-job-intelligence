@@ -620,6 +620,84 @@ class JobIntelligence(Base):
     )
 
 
+class JobEligibilityResult(Base):
+    """The persisted Hard Eligibility snapshot for one (user, job) pair
+    (AJI-011).
+
+    Unlike `JobMatchResult`/`JobIntelligence`/`ResumeAIAnalysis` (insert-
+    only history, kept so a past AI-derived analysis stays stable even if
+    later recomputed), this table is upsert-latest: one row per
+    `(user_id, job_id)`, overwritten in place whenever eligibility is
+    (re)evaluated. Hard Eligibility is a deterministic pre-filter over
+    live, mutable `Preference`/`Profile`/`Job` data with no AI cost to
+    recompute, so a future consumer (AJI-012/AJI-013) only ever wants the
+    *current* status ("is this job eligible for this user right now?"),
+    never a historical trail of past evaluations — see
+    docs/ARCHITECTURE.md for the full rationale.
+    """
+
+    __tablename__ = "job_eligibility_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    engine_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    # The full structured result: checks (constraint/status/reason),
+    # failed_constraints, unknown_constraints, reasons — see
+    # services/eligibility/contracts.py::EligibilityResult.
+    result: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "job_id",
+            name="uq_job_eligibility_result_user_job",
+        ),
+    )
+
+
 class JobMatchResult(Base):
     __tablename__ = "job_match_results"
 

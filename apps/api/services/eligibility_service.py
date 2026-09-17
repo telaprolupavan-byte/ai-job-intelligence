@@ -16,13 +16,23 @@ UserEligibilityCriteria exactly once and reuses it across every job, and
 never issues a database query per job — callers are expected to have
 already loaded the ``jobs`` list (e.g. from the existing paginated job
 listing query in apps/api/routers/jobs.py).
+
+Persistence: evaluate_job_eligibility()/evaluate_jobs_eligibility() stay
+pure (no DB writes) so existing callers/tests are unaffected.
+evaluate_and_persist_job_eligibility() additionally upserts the result
+into JobEligibilityResult (one row per (user_id, job_id), overwritten in
+place — see that model's docstring for why this is upsert-latest rather
+than insert-only history) so a future AJI-012/AJI-013 pipeline step can
+read a job's current hard-eligibility status without recomputing it.
 """
 
 from __future__ import annotations
 
 from uuid import UUID
 
-from apps.api.models import Job, Preference, Profile, User
+from sqlalchemy.orm import Session
+
+from apps.api.models import Job, JobEligibilityResult, Preference, Profile, User
 from services.eligibility.contracts import (
     EligibilityResult,
     JobEligibilitySignals,
@@ -130,3 +140,76 @@ def evaluate_jobs_eligibility(
         job.id: evaluate_eligibility(criteria, _build_job_signals(job))
         for job in jobs
     }
+
+
+def _result_to_json(result: EligibilityResult) -> dict:
+    return {
+        "checks": [
+            {
+                "constraint": check.constraint,
+                "status": check.status.value,
+                "reason": check.reason,
+            }
+            for check in result.checks
+        ],
+        "failed_constraints": result.failed_constraints,
+        "unknown_constraints": result.unknown_constraints,
+        "reasons": result.reasons,
+    }
+
+
+def _persist_eligibility_result(
+    db: Session,
+    *,
+    user_id: UUID,
+    job_id: UUID,
+    result: EligibilityResult,
+) -> JobEligibilityResult:
+    record = (
+        db.query(JobEligibilityResult)
+        .filter(
+            JobEligibilityResult.user_id == user_id,
+            JobEligibilityResult.job_id == job_id,
+        )
+        .first()
+    )
+
+    if record is None:
+        record = JobEligibilityResult(
+            user_id=user_id,
+            job_id=job_id,
+        )
+        db.add(record)
+
+    record.status = result.status.value
+    record.engine_version = result.engine_version
+    record.result = _result_to_json(result)
+
+    db.commit()
+    db.refresh(record)
+
+    return record
+
+
+def evaluate_and_persist_job_eligibility(
+    *,
+    db: Session,
+    current_user: User,
+    job: Job,
+) -> tuple[EligibilityResult, JobEligibilityResult]:
+    """
+    Evaluate a single job's hard eligibility for the authenticated user
+    and upsert the structured result into JobEligibilityResult, so a
+    later AJI-012/AJI-013 consumer can read the job's current
+    hard-eligibility status without recomputing it.
+    """
+    result = evaluate_job_eligibility(current_user=current_user, job=job)
+
+    record = _persist_eligibility_result(
+        db,
+        user_id=current_user.id,
+        job_id=job.id,
+        result=result,
+    )
+
+    return result, record

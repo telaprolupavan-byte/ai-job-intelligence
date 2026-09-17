@@ -90,3 +90,15 @@ def test_sponsorship_available_language_does_not_set_authorization_required():
 
     assert signals.sponsorship_available is True
     assert signals.authorization_required is False
+
+
+def test_negated_sponsorship_available_phrase_is_not_read_as_available():
+    # "No visa sponsorship available" contains the literal substring
+    # "visa sponsorship ... available" that the positive pattern matches
+    # on, but the leading negation makes this an explicit *unavailable*
+    # statement — it must never be misread as the opposite.
+    signals = extract_work_authorization_signals(
+        "No visa sponsorship available for this role."
+    )
+
+    assert signals.sponsorship_available is False

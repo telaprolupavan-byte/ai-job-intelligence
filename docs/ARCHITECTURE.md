@@ -154,13 +154,20 @@ Match scores.
   `evaluate_jobs_eligibility()` builds the user's criteria exactly once
   and reuses it across every job — no N+1 queries, no re-parsing job text
   per constraint.
-- `GET /jobs/{job_id}/eligibility` (authenticated) — returns the result
-  for one job. Not persisted: eligibility is recalculated query-time from
-  current Preference/Profile/Job data, since there is no concrete need
-  yet for historical eligibility snapshots (unlike `JobMatchResult`/
-  `ResumeAIAnalysis`, which are insert-only artifacts by design). The
-  public `GET /jobs` listing is unchanged and never includes personalized
-  eligibility data — only the authenticated per-job endpoint does.
+- `GET /jobs/{job_id}/eligibility` (authenticated) — recalculates the
+  result query-time from current Preference/Profile/Job data (evaluation
+  is deterministic and cheap, so there is no staleness risk in always
+  recomputing), then upserts it into `JobEligibilityResult` — one row per
+  `(user_id, job_id)`, overwritten in place on every (re-)evaluation, not
+  insert-only history like `JobMatchResult`/`ResumeAIAnalysis`/
+  `JobIntelligence`. Eligibility has no AI cost to recompute and a future
+  consumer only ever wants the *current* status, so keeping a full
+  history has no concrete use yet (unlike those AI-derived artifacts,
+  where a past analysis must stay stable). This makes a job's current
+  hard-eligibility status queryable by a later AJI-012/AJI-013 pipeline
+  step without recomputing it. The public `GET /jobs` listing is
+  unchanged and never includes personalized eligibility data — only the
+  authenticated per-job endpoint does.
 
 ### Hard constraints vs. soft preferences
 
