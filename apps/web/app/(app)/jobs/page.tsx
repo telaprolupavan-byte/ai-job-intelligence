@@ -4,10 +4,14 @@ import { Suspense, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import {
+  calculateAtsAlignment,
   calculateJobMatch,
   generateJobIntelligence,
   getJobEligibility,
   getJobs,
+  type AtsAlignmentResult,
+  type AtsAlignmentStatus,
+  type AtsRequirementResult,
   type Job,
   type JobEligibilityResult,
   type JobIntelligenceData,
@@ -105,6 +109,13 @@ function JobsPageInner() {
   const [eligibilityErrors, setEligibilityErrors] = useState<
     Record<string, string>
   >({});
+  const [atsResults, setAtsResults] = useState<
+    Record<string, AtsAlignmentResult>
+  >({});
+  const [atsLoadingIds, setAtsLoadingIds] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [atsErrors, setAtsErrors] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
 
   // Keeps the URL in sync with the active search so a refresh, a shared
@@ -209,6 +220,40 @@ function JobsPageInner() {
       }));
     } finally {
       setMatchingJobIds((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
+    }
+  }
+
+  async function handleCalculateAts(jobId: string) {
+    setAtsLoadingIds((current) => ({ ...current, [jobId]: true }));
+    setAtsErrors((current) => {
+      const next = { ...current };
+      delete next[jobId];
+      return next;
+    });
+
+    try {
+      const result = await calculateAtsAlignment(jobId);
+
+      setAtsResults((current) => ({
+        ...current,
+        [jobId]: result,
+      }));
+    } catch (err) {
+      console.error(err);
+
+      setAtsErrors((current) => ({
+        ...current,
+        [jobId]:
+          err instanceof Error
+            ? err.message
+            : "Unable to calculate ATS Alignment.",
+      }));
+    } finally {
+      setAtsLoadingIds((current) => {
         const next = { ...current };
         delete next[jobId];
         return next;
@@ -505,6 +550,10 @@ function JobsPageInner() {
                 )}
                 eligibilityError={eligibilityErrors[job.id]}
                 onCheckEligibility={handleCheckEligibility}
+                ats={atsResults[job.id]}
+                isCalculatingAts={Boolean(atsLoadingIds[job.id])}
+                atsError={atsErrors[job.id]}
+                onCalculateAts={handleCalculateAts}
               />
             ))}
           </div>
@@ -595,6 +644,10 @@ function JobCard({
   isCheckingEligibility,
   eligibilityError,
   onCheckEligibility,
+  ats,
+  isCalculatingAts,
+  atsError,
+  onCalculateAts,
 }: {
   job: Job;
   match?: JobMatchResult;
@@ -609,6 +662,10 @@ function JobCard({
   isCheckingEligibility: boolean;
   eligibilityError?: string;
   onCheckEligibility: (jobId: string) => void;
+  ats?: AtsAlignmentResult;
+  isCalculatingAts: boolean;
+  atsError?: string;
+  onCalculateAts: (jobId: string) => void;
 }) {
   const visibleMatches = [
     ...(match?.must_have_matches ?? []),
@@ -792,22 +849,55 @@ function JobCard({
               )}
             </div>
 
-            {/* ATS READINESS */}
+            {/* ATS ALIGNMENT (AJI-013) */}
             <div className="rounded-lg border border-app-border bg-app-bg p-4">
-              <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
-                ATS Readiness
-              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
+                    ATS Alignment
+                  </div>
 
-              <div className="mt-2 text-3xl font-bold text-app-faint">
-                Not calculated
+                  <div className="mt-2 text-3xl font-bold text-app-text">
+                    {ats ? `${Math.round(ats.overall_score)}%` : "—"}
+                  </div>
+
+                  {ats && (
+                    <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-app-faint">
+                      Confidence: {ats.confidence}
+                    </div>
+                  )}
+                </div>
+
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  loading={isCalculatingAts}
+                  onClick={() => onCalculateAts(job.id)}
+                >
+                  {isCalculatingAts
+                    ? "Analyzing..."
+                    : ats
+                      ? "Recalculate"
+                      : "Calculate ATS Alignment"}
+                </AppButton>
               </div>
 
               <p className="mt-2 text-xs leading-5 text-app-faint">
-                ATS Readiness is a separate resume analysis and is not
-                derived from Job Match.
+                How well your resume demonstrates this JD&apos;s
+                requirements — not a prediction of whether you&apos;ll get
+                the job, and not derived from Job Match.
               </p>
+
+              {atsError && (
+                <p className="mt-3 text-xs leading-5 text-app-danger-text">
+                  {atsError}
+                </p>
+              )}
             </div>
           </div>
+
+          {/* ATS ALIGNMENT DETAILS */}
+          {ats && <AtsAlignmentPanel result={ats} />}
 
           {/* MATCH DETAILS */}
           {match && (
@@ -1071,6 +1161,122 @@ function JobIntelligencePanel({
       />
     </div>
   );
+}
+
+function AtsAlignmentPanel({ result }: { result: AtsAlignmentResult }) {
+  const mustHave = result.requirement_results.filter(
+    (item) => item.category === "must_have",
+  );
+  const preferred = result.requirement_results.filter(
+    (item) => item.category === "preferred",
+  );
+
+  return (
+    <div className="mt-4 rounded-lg border border-app-border bg-app-bg p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
+          Requirement Alignment
+        </div>
+        <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-app-faint">
+          Must-Have {result.must_have_matched}/{result.must_have_total} ·
+          Preferred {result.preferred_matched}/{result.preferred_total}
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-4 lg:grid-cols-2">
+        <AtsRequirementGroup
+          title="Must-Have Requirements"
+          items={mustHave}
+          emptyLabel="No must-have requirements detected."
+        />
+        <AtsRequirementGroup
+          title="Preferred Requirements"
+          items={preferred}
+          emptyLabel="No preferred requirements detected."
+        />
+      </div>
+    </div>
+  );
+}
+
+function AtsRequirementGroup({
+  title,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  items: AtsRequirementResult[];
+  emptyLabel: string;
+}) {
+  return (
+    <div className="rounded-lg border border-app-border p-3">
+      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+        {title}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-2 text-xs text-app-faint">{emptyLabel}</p>
+      ) : (
+        <ul className="mt-2 space-y-3">
+          {items.map((item) => (
+            <li key={item.requirement_id} className="text-xs">
+              <div className="flex items-start gap-2">
+                <span
+                  aria-hidden="true"
+                  className={`mt-0.5 ${atsStatusColor(item.status)}`}
+                >
+                  {atsStatusIcon(item.status)}
+                </span>
+
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-app-text">
+                      {item.requirement_text}
+                    </span>
+                    <span className="font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
+                      {formatValue(item.status)}
+                    </span>
+                  </div>
+
+                  <p className="mt-1 leading-5 text-app-faint">
+                    {item.explanation}
+                  </p>
+
+                  {item.resume_evidence && (
+                    <p className="mt-0.5 leading-5 text-app-dim">
+                      {item.resume_evidence}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function atsStatusIcon(status: AtsAlignmentStatus): string {
+  switch (status) {
+    case "matched":
+      return "✓";
+    case "partial":
+      return "◐";
+    default:
+      return "✕";
+  }
+}
+
+function atsStatusColor(status: AtsAlignmentStatus): string {
+  switch (status) {
+    case "matched":
+      return "text-app-blue";
+    case "partial":
+      return "text-app-dim";
+    default:
+      return "text-app-red";
+  }
 }
 
 function RequirementList({

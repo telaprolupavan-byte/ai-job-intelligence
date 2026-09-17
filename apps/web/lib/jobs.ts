@@ -307,6 +307,65 @@ export async function getJobEligibility(
   return data as JobEligibilityResult;
 }
 
+export type AtsAlignmentStatus = "matched" | "partial" | "missing";
+
+export type AtsRequirementCategory = "must_have" | "preferred";
+
+export type AtsRequirementResult = {
+  requirement_id: string;
+  requirement_type: "skill" | "experience" | "education" | "certification";
+  category: AtsRequirementCategory;
+  requirement_text: string;
+  status: AtsAlignmentStatus;
+  jd_evidence: string;
+  resume_evidence: string | null;
+  explanation: string;
+  confidence: "high" | "medium" | "low";
+};
+
+export type AtsAlignmentResult = {
+  id: string;
+  job_id: string;
+  resume_version_id: string;
+  job_intelligence_id: string;
+  engine_version: string;
+  overall_score: number;
+  confidence: "high" | "medium" | "low";
+  scoring_version: string;
+  must_have_total: number;
+  must_have_matched: number;
+  preferred_total: number;
+  preferred_matched: number;
+  requirement_results: AtsRequirementResult[];
+  created_at: string;
+};
+
+export async function calculateAtsAlignment(
+  jobId: string,
+): Promise<AtsAlignmentResult> {
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/ats`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to calculate ATS Alignment.";
+
+    throw new Error(message);
+  }
+
+  return data as AtsAlignmentResult;
+}
+
 export async function calculateJobMatch(
   jobId: string,
 ): Promise<JobMatchResult> {

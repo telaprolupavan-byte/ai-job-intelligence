@@ -16,16 +16,18 @@ export default function Page() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-app-muted">
-          How well a specific resume version aligns with a specific job
-          description — separate from Job Match.
+          How well a specific resume version demonstrates a specific job
+          description&apos;s requirements — separate from Job Match. This is
+          AJI&apos;s own estimate, not the employer&apos;s proprietary ATS
+          score, and it is not a prediction of whether you&apos;ll be hired.
         </p>
 
         <div className="mt-6">
           <EmptyState
             icon={ClipboardList}
-            title="ATS Alignment is coming soon"
-            description="This module is on the AJI roadmap and will appear here once it ships. Until then, every job shows 'Not calculated' rather than an estimated score."
-            action={<AppButton href="/dashboard">← Back to Dashboard</AppButton>}
+            title="Calculate ATS Alignment from a job listing"
+            description="ATS Alignment is calculated per job against your resume. Open a job on the Jobs page and use its 'Calculate ATS Alignment' action to see matched, partial, and missing requirements with supporting evidence."
+            action={<AppButton href="/jobs">Go to Jobs →</AppButton>}
           />
         </div>
       </Container>
