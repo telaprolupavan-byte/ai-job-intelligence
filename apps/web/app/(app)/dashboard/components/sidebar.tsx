@@ -2,59 +2,56 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const navigation = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Jobs", href: "/jobs" },
-  { label: "Applications", href: "/applications" },
-  { label: "Resume", href: "/resume" },
-  { label: "ATS Analysis", href: "/ats" },
-];
+import { primaryNavItems, secondaryNavItems } from "@/lib/nav-items";
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden min-h-screen w-64 shrink-0 border-r border-[#1A3048] bg-[#05070A] lg:flex lg:flex-col">
-      <div className="border-b border-[#1A3048] px-6 py-7">
-        <Link href="/" className="block">
-          <div className="font-mono text-xs tracking-[0.25em] text-[#1677E8]">
+    <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-app-border bg-app-bg lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:flex-col">
+      <div className="border-b border-app-border px-6 py-7">
+        <Link href="/" className="app-focus-ring block">
+          <div className="font-mono text-xs tracking-[0.25em] text-app-blue">
             AI / JOB
           </div>
 
-          <div className="mt-1 text-xl font-bold tracking-tight text-[#F2F5F8]">
+          <div className="mt-1 text-xl font-bold tracking-tight text-app-text">
             INTELLIGENCE
           </div>
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-8">
-        <div className="mb-4 px-3 font-mono text-[10px] uppercase tracking-[0.25em] text-[#5E7187]">
-          Command Center
+      <nav className="flex-1 px-3 py-8" aria-label="Primary">
+        <div className="mb-4 px-3 font-mono text-[10px] uppercase tracking-[0.25em] text-app-faint">
+          Navigation
         </div>
 
         <div className="space-y-1">
-          {navigation.map((item) => {
+          {primaryNavItems.map((item) => {
             const active = pathname === item.href;
+            const Icon = item.icon;
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group relative flex items-center gap-3 px-3 py-3 text-sm transition ${
+                aria-current={active ? "page" : undefined}
+                className={`app-focus-ring group relative flex items-center gap-3 px-3 py-3 text-sm transition ${
                   active
-                    ? "bg-[#0B1626] text-[#F2F5F8]"
-                    : "text-[#8D9AAA] hover:bg-[#07111F] hover:text-[#F2F5F8]"
+                    ? "bg-app-panel text-app-text"
+                    : "text-app-muted hover:bg-app-panel-strong hover:text-app-text"
                 }`}
               >
                 {active && (
-                  <span className="absolute left-0 top-0 h-full w-[3px] bg-[#E50920]" />
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0 top-0 h-full w-[3px] bg-app-red"
+                  />
                 )}
 
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    active ? "bg-[#E50920]" : "bg-[#29425F]"
-                  }`}
+                <Icon
+                  className={`h-4 w-4 shrink-0 ${active ? "text-app-red" : "text-app-faint group-hover:text-app-muted"}`}
+                  aria-hidden="true"
                 />
 
                 {item.label}
@@ -64,13 +61,27 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="border-t border-[#1A3048] p-5">
-        <Link
-          href="/settings"
-          className="text-xs text-[#8D9AAA] transition hover:text-[#F2F5F8]"
-        >
-          Settings →
-        </Link>
+      <div className="border-t border-app-border p-3">
+        {secondaryNavItems.map((item) => {
+          const active = pathname === item.href;
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={`app-focus-ring flex items-center gap-3 px-3 py-3 text-sm transition ${
+                active
+                  ? "bg-app-panel text-app-text"
+                  : "text-app-muted hover:bg-app-panel-strong hover:text-app-text"
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {item.label}
+            </Link>
+          );
+        })}
       </div>
     </aside>
   );

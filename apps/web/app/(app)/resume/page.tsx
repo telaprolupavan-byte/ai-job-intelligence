@@ -4,6 +4,13 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest, ApiError, API_URL } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
+import Container from "@/components/app/container";
+import AppButton from "@/components/app/app-button";
+import ErrorState from "@/components/app/error-state";
+import EmptyState from "@/components/app/empty-state";
+import Badge from "@/components/app/badge";
+import { PanelSkeleton } from "@/components/app/skeleton";
+import { FileText, UploadCloud, CheckCircle2 } from "lucide-react";
 
 type Resume = {
   id: string;
@@ -572,10 +579,10 @@ export default function Page() {
     : undefined;
 
   return (
-    <main className="min-h-screen bg-[#05070A] px-6 py-10 text-[#F2F5F8]">
-      <div className="mx-auto w-full max-w-6xl">
-        <header className="border-b border-[#1A3048] pb-8">
-          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#E50920]">
+    <main className="min-h-screen bg-app-bg text-app-text">
+      <Container>
+        <header className="border-b border-app-border pb-8">
+          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
             Intelligence Module / AJI-005
           </div>
 
@@ -583,19 +590,20 @@ export default function Page() {
             Resume Intelligence
           </h1>
 
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#8D9AAA]">
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-app-muted">
             Manage multiple resumes and versions, and run evidence-backed
             analysis of positioning, skills, experience, technical depth,
             structure, and improvement priorities.
           </p>
         </header>
 
-        <section className="mt-8 border border-[#1A3048] bg-[#0B1626] p-6">
-          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#71849A]">
+        <section className="mt-8 border border-app-border bg-app-panel p-6">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
+            <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
             Upload Resume
           </div>
 
-          <p className="mt-2 text-sm text-[#8D9AAA]">
+          <p className="mt-2 text-sm text-app-muted">
             {resumes.length === 0
               ? "No resume uploaded. Upload a PDF or DOCX to get started."
               : "Upload a new PDF or DOCX as a separate resume, or add it as a new version of an existing resume below."}
@@ -613,17 +621,17 @@ export default function Page() {
                   accept=".pdf,.docx"
                   onChange={handleFileSelected}
                   disabled={uploading}
-                  className="w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm text-[#F2F5F8] outline-none file:mr-4 file:border-0 file:bg-[#1A3048] file:px-3 file:py-1.5 file:text-xs file:font-bold file:uppercase file:tracking-wider file:text-[#F2F5F8] focus:border-[#1677E8] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none file:mr-4 file:border-0 file:bg-app-border file:px-3 file:py-1.5 file:text-xs file:font-bold file:uppercase file:tracking-wider file:text-app-text focus:border-app-blue disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </label>
 
-              <button
+              <AppButton
                 type="submit"
                 disabled={!selectedFile || uploading}
-                className="bg-[#E50920] px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#FF1E32] disabled:cursor-not-allowed disabled:opacity-50"
+                loading={uploading}
               >
                 {uploading ? "Uploading..." : "Upload"}
-              </button>
+              </AppButton>
             </div>
 
             {resumes.length > 0 && (
@@ -631,7 +639,7 @@ export default function Page() {
                 <div>
                   <label
                     htmlFor="upload-target"
-                    className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#8D9AAA]"
+                    className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted"
                   >
                     Add as
                   </label>
@@ -642,7 +650,7 @@ export default function Page() {
                       setUploadTargetResumeId(event.target.value)
                     }
                     disabled={uploading}
-                    className="mt-2 w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm text-[#F2F5F8] outline-none focus:border-[#1677E8]"
+                    className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                   >
                     <option value="">New Resume</option>
                     {resumes.map((resume) => (
@@ -657,7 +665,7 @@ export default function Page() {
                   <div>
                     <label
                       htmlFor="upload-version-name"
-                      className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#8D9AAA]"
+                      className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted"
                     >
                       Version Label (optional)
                     </label>
@@ -671,7 +679,7 @@ export default function Page() {
                       disabled={uploading}
                       placeholder="e.g. Updated, Tailored"
                       maxLength={255}
-                      className="mt-2 w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm text-[#F2F5F8] outline-none focus:border-[#1677E8]"
+                      className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                     />
                   </div>
                 )}
@@ -680,56 +688,58 @@ export default function Page() {
           </form>
 
           {selectedFile && !uploading && (
-            <div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
+            <div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-app-faint">
               SELECTED FILE: {selectedFile.name}
             </div>
           )}
 
           {uploadError && (
-            <div className="mt-5 border border-[#E50920]/40 bg-[#E50920]/5 p-4">
-              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#E50920]">
-                Upload Error
-              </div>
-
-              <p className="mt-2 text-sm text-[#F2F5F8]">{uploadError}</p>
+            <div className="mt-5">
+              <ErrorState title="Upload Error" message={uploadError} />
             </div>
           )}
 
           {uploadSuccess && (
-            <div className="mt-5 border border-[#1677E8]/40 bg-[#1677E8]/5 p-4">
-              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#1677E8]">
+            <div className="mt-5 flex items-start gap-3 border border-app-blue/40 bg-app-blue/5 p-4">
+              <CheckCircle2
+                className="mt-0.5 h-4 w-4 shrink-0 text-app-blue"
+                aria-hidden="true"
+              />
+              <div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
                 {uploadSuccess.duplicate
                   ? "Resume Already Exists"
                   : "Resume Stored Successfully"}
               </div>
 
-              <p className="mt-2 text-sm text-[#F2F5F8]">
+              <p className="mt-2 text-sm text-app-text">
                 {uploadSuccess.duplicate
                   ? `This exact resume content already exists as "${uploadSuccess.version_name}" (${uploadSuccess.word_count} words). No duplicate was created.`
                   : `${uploadSuccess.filename} was stored as "${uploadSuccess.version_name}" (${uploadSuccess.word_count} words).`}
               </p>
+              </div>
             </div>
           )}
         </section>
 
-        <section className="mt-8 border border-[#1A3048] bg-[#0B1626] p-6">
-          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#71849A]">
+        <section className="mt-8 border border-app-border bg-app-panel p-6">
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
             My Resumes
           </div>
 
           {isPending && resumes.length === 0 ? (
-            <div className="mt-6 font-mono text-xs uppercase tracking-wider text-[#5E7187]">
-              Loading resumes...
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <PanelSkeleton key={index} lines={2} />
+              ))}
             </div>
           ) : resumes.length === 0 ? (
             <div className="mt-6">
-              <div className="text-lg font-semibold">
-                No resume uploaded
-              </div>
-
-              <p className="mt-2 text-sm text-[#8D9AAA]">
-                Upload a resume before running Resume Intelligence analysis.
-              </p>
+              <EmptyState
+                icon={FileText}
+                title="No resume uploaded"
+                description="Upload a resume before running Resume Intelligence analysis."
+              />
             </div>
           ) : (
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -743,29 +753,29 @@ export default function Page() {
                     onClick={() => selectResume(resume.id)}
                     className={`border p-5 text-left transition ${
                       isSelected
-                        ? "border-[#1677E8] bg-[#1677E8]/10"
-                        : "border-[#1A3048] bg-[#05070A] hover:border-[#294B70]"
+                        ? "border-app-blue bg-app-blue/10"
+                        : "border-app-border bg-app-bg hover:border-app-border-strong"
                     }`}
                   >
                     <div className="truncate text-base font-semibold">
                       {resume.filename}
                     </div>
 
-                    <div className="mt-2 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
+                    <div className="mt-2 font-mono text-[9px] uppercase tracking-wider text-app-faint">
                       Uploaded{" "}
                       {new Date(resume.created_at).toLocaleDateString()}
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className="border border-[#294B70] px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[#8D9AAA]">
+                      <Badge>
                         {resume.version_count}{" "}
                         {resume.version_count === 1 ? "version" : "versions"}
-                      </span>
+                      </Badge>
 
                       {resume.master_version_name && (
-                        <span className="border border-[#1677E8]/60 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[#1677E8]">
+                        <Badge tone="blue">
                           Master: {resume.master_version_name}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   </button>
@@ -775,20 +785,16 @@ export default function Page() {
           )}
 
           {error && (
-            <div className="mt-5 border border-[#E50920]/40 bg-[#E50920]/5 p-4">
-              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#E50920]">
-                Error
-              </div>
-
-              <p className="mt-2 text-sm text-[#F2F5F8]">{error}</p>
+            <div className="mt-5">
+              <ErrorState message={error} />
             </div>
           )}
         </section>
 
         {selectedResume && (
           <>
-            <section className="mt-8 border border-[#1A3048] bg-[#0B1626] p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#71849A]">
+            <section className="mt-8 border border-app-border bg-app-panel p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
                 Selected Resume
               </div>
 
@@ -797,10 +803,10 @@ export default function Page() {
               </h2>
 
               {selectedVersion && (
-                <div className="mt-2 flex flex-wrap items-center gap-3 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
+                <div className="mt-2 flex flex-wrap items-center gap-3 font-mono text-[9px] uppercase tracking-wider text-app-faint">
                   <span>{selectedVersion.name}</span>
                   {selectedVersion.is_master && (
-                    <span className="text-[#1677E8]">Master</span>
+                    <span className="text-app-blue">Master</span>
                   )}
                   <span>
                     Created{" "}
@@ -811,8 +817,8 @@ export default function Page() {
                   <span
                     className={
                       selectedVersion.has_analysis
-                        ? "text-[#1677E8]"
-                        : "text-[#5E7187]"
+                        ? "text-app-blue"
+                        : "text-app-faint"
                     }
                   >
                     AI Analysis:{" "}
@@ -826,7 +832,7 @@ export default function Page() {
               <div className="mt-5">
                 <label
                   htmlFor="resume-version"
-                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#8D9AAA]"
+                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-muted"
                 >
                   Resume Version
                 </label>
@@ -839,7 +845,7 @@ export default function Page() {
                     setAnalysis(null);
                     setShowExtractedText(false);
                   }}
-                  className="mt-2 w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm text-[#F2F5F8] outline-none focus:border-[#1677E8]"
+                  className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                 >
                   {versions.map((version) => (
                     <option key={version.id} value={version.id}>
@@ -851,11 +857,11 @@ export default function Page() {
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                <button
-                  type="button"
+                <AppButton
+                  variant="secondary"
                   onClick={handleView}
                   disabled={!selectedVersion || fileActionBusy !== null}
-                  className="border border-[#294B70] px-5 py-3 text-xs font-bold uppercase tracking-[0.15em] text-[#F2F5F8] transition hover:border-[#1677E8] disabled:cursor-not-allowed disabled:opacity-50"
+                  loading={fileActionBusy === "view"}
                 >
                   {fileActionBusy === "view"
                     ? "Opening..."
@@ -864,56 +870,55 @@ export default function Page() {
                       : showExtractedText
                         ? "Hide Extracted Text"
                         : "View Extracted Text"}
-                </button>
+                </AppButton>
 
-                <button
-                  type="button"
+                <AppButton
+                  variant="secondary"
                   onClick={handleDownload}
                   disabled={!selectedVersion || fileActionBusy !== null}
-                  className="border border-[#294B70] px-5 py-3 text-xs font-bold uppercase tracking-[0.15em] text-[#F2F5F8] transition hover:border-[#1677E8] disabled:cursor-not-allowed disabled:opacity-50"
+                  loading={fileActionBusy === "download"}
                 >
                   {fileActionBusy === "download"
                     ? "Downloading..."
                     : "Download"}
-                </button>
+                </AppButton>
 
-                <button
-                  type="button"
+                <AppButton
                   onClick={analyzeResume}
                   disabled={!selectedVersionId || analyzing}
-                  className="bg-[#E50920] px-5 py-3 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#FF1E32] disabled:cursor-not-allowed disabled:opacity-50"
+                  loading={analyzing}
                 >
                   {analyzing ? "Analyzing Resume..." : "Analyze Resume"}
-                </button>
+                </AppButton>
               </div>
 
               {fileActionError && (
-                <div className="mt-5 border border-[#E50920]/40 bg-[#E50920]/5 p-4">
-                  <p className="text-sm text-[#F2F5F8]">{fileActionError}</p>
+                <div className="mt-5">
+                  <ErrorState message={fileActionError} />
                 </div>
               )}
 
               {showExtractedText &&
                 selectedVersion &&
                 !isPdf(selectedVersion.original_filename) && (
-                  <div className="mt-5 border border-[#1A3048] bg-[#05070A] p-4">
-                    <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                  <div className="mt-5 border border-app-border bg-app-bg p-4">
+                    <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                       Extracted DOCX Content (not the original file layout)
                     </div>
-                    <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs leading-6 text-[#C7D0DA]">
+                    <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs leading-6 text-app-body">
                       {selectedVersion.content_text}
                     </pre>
                   </div>
                 )}
             </section>
 
-            <section className="mt-8 border border-[#1A3048] bg-[#0B1626] p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#71849A]">
+            <section className="mt-8 border border-app-border bg-app-panel p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
                 Version History
               </div>
 
               {versions.length === 0 ? (
-                <p className="mt-5 text-sm text-[#5E7187]">
+                <p className="mt-5 text-sm text-app-faint">
                   No versions found for this resume.
                 </p>
               ) : (
@@ -923,28 +928,28 @@ export default function Page() {
                       key={version.id}
                       className={`flex flex-wrap items-center justify-between gap-3 border p-4 ${
                         version.id === selectedVersionId
-                          ? "border-[#1677E8] bg-[#1677E8]/5"
-                          : "border-[#1A3048]"
+                          ? "border-app-blue bg-app-blue/5"
+                          : "border-app-border"
                       }`}
                     >
                       <div>
                         <div className="text-sm font-semibold">
                           {version.name}
                           {version.is_master && (
-                            <span className="ml-2 font-mono text-[9px] uppercase tracking-wider text-[#1677E8]">
+                            <span className="ml-2 font-mono text-[9px] uppercase tracking-wider text-app-blue">
                               Master
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
+                        <div className="mt-1 font-mono text-[9px] uppercase tracking-wider text-app-faint">
                           {version.original_filename} · Created{" "}
                           {new Date(version.created_at).toLocaleDateString()}
                           {" · "}
                           <span
                             className={
                               version.has_analysis
-                                ? "text-[#1677E8]"
-                                : "text-[#5E7187]"
+                                ? "text-app-blue"
+                                : "text-app-faint"
                             }
                           >
                             {version.has_analysis
@@ -962,7 +967,7 @@ export default function Page() {
                           setShowExtractedText(false);
                         }}
                         disabled={version.id === selectedVersionId}
-                        className="border border-[#294B70] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#F2F5F8] transition hover:border-[#1677E8] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="border border-app-border-strong px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-app-text transition hover:border-app-blue disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {version.id === selectedVersionId
                           ? "Selected"
@@ -978,14 +983,14 @@ export default function Page() {
 
         {analysis && (
           <div className="mt-8 space-y-8">
-            <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+            <section className="border border-app-border bg-app-panel p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Resume Intelligence
               </div>
 
-              <div className="mt-4 grid gap-4 border border-[#1A3048] bg-[#05070A] p-4 sm:grid-cols-2">
+              <div className="mt-4 grid gap-4 border border-app-border bg-app-bg p-4 sm:grid-cols-2">
                 <div>
-                  <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                     Resume
                   </div>
                   <div className="mt-1 text-sm font-semibold">
@@ -996,7 +1001,7 @@ export default function Page() {
                 </div>
 
                 <div>
-                  <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                     Version
                   </div>
                   <div className="mt-1 text-sm font-semibold">
@@ -1010,8 +1015,8 @@ export default function Page() {
               </div>
             </section>
 
-            <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+            <section className="border border-app-border bg-app-panel p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Resume Review
               </div>
 
@@ -1027,12 +1032,12 @@ export default function Page() {
                 />
               </div>
 
-              <div className="mt-6 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
+              <div className="mt-6 font-mono text-[9px] uppercase tracking-wider text-app-faint">
                 Findings
               </div>
 
               {analysis.review.findings.length === 0 ? (
-                <p className="mt-5 text-sm text-[#8D9AAA]">
+                <p className="mt-5 text-sm text-app-muted">
                   No findings were returned for this analysis.
                 </p>
               ) : (
@@ -1040,18 +1045,18 @@ export default function Page() {
                   {analysis.review.findings.map((finding, index) => (
                     <article
                       key={`${finding.category}-${index}`}
-                      className="border border-[#1A3048] bg-[#05070A] p-5"
+                      className="border border-app-border bg-app-bg p-5"
                     >
                       <div className="flex flex-wrap items-center gap-3">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#E50920]">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-red">
                           {finding.priority}
                         </span>
 
-                        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                           {finding.category}
                         </span>
 
-                        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                           CONFIDENCE: {finding.confidence}
                         </span>
                       </div>
@@ -1087,8 +1092,8 @@ export default function Page() {
               </div>
             </section>
 
-            <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+            <section className="border border-app-border bg-app-panel p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Resume Decoding
               </div>
 
@@ -1115,18 +1120,18 @@ export default function Page() {
                   entries={analysis.decoding.work_history}
                   render={(entry) => (
                     <>
-                      <div className="text-sm font-semibold text-[#F2F5F8]">
+                      <div className="text-sm font-semibold text-app-text">
                         {[entry.title, entry.company]
                           .filter(Boolean)
                           .join(" · ") || "Unlabeled role"}
                       </div>
                       {entry.duration && (
-                        <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                        <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                           {entry.duration}
                         </div>
                       )}
                       {entry.summary && (
-                        <p className="mt-2 text-sm leading-6 text-[#C7D0DA]">
+                        <p className="mt-2 text-sm leading-6 text-app-body">
                           {entry.summary}
                         </p>
                       )}
@@ -1139,18 +1144,18 @@ export default function Page() {
                   entries={analysis.decoding.education}
                   render={(entry) => (
                     <>
-                      <div className="text-sm font-semibold text-[#F2F5F8]">
+                      <div className="text-sm font-semibold text-app-text">
                         {[entry.credential, entry.field_of_study]
                           .filter(Boolean)
                           .join(" · ") || "Unlabeled credential"}
                       </div>
                       {entry.institution && (
-                        <div className="mt-1 text-sm text-[#C7D0DA]">
+                        <div className="mt-1 text-sm text-app-body">
                           {entry.institution}
                         </div>
                       )}
                       {entry.graduation && (
-                        <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                        <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                           {entry.graduation}
                         </div>
                       )}
@@ -1163,14 +1168,14 @@ export default function Page() {
                   entries={analysis.decoding.projects}
                   render={(entry) => (
                     <>
-                      <div className="text-sm font-semibold text-[#F2F5F8]">
+                      <div className="text-sm font-semibold text-app-text">
                         {entry.name}
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-[#C7D0DA]">
+                      <p className="mt-2 text-sm leading-6 text-app-body">
                         {entry.description}
                       </p>
                       {entry.technologies.length > 0 && (
-                        <div className="mt-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                        <div className="mt-2 font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                           {entry.technologies.join(" • ")}
                         </div>
                       )}
@@ -1191,13 +1196,13 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="mt-8 border border-[#1A3048] bg-[#05070A] p-5">
-                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#71849A]">
+              <div className="mt-8 border border-app-border bg-app-bg p-5">
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
                   Skills
                 </div>
 
                 {analysis.decoding.skills.length === 0 ? (
-                  <p className="mt-4 text-sm text-[#5E7187]">
+                  <p className="mt-4 text-sm text-app-faint">
                     No skills identified.
                   </p>
                 ) : (
@@ -1205,17 +1210,17 @@ export default function Page() {
                     {analysis.decoding.skills.map((skill, index) => (
                       <li
                         key={`${skill.skill}-${index}`}
-                        className="border-l border-[#294B70] pl-4"
+                        className="border-l border-app-border-strong pl-4"
                       >
                         <div className="flex flex-wrap items-center gap-3">
-                          <span className="text-sm font-semibold text-[#F2F5F8]">
+                          <span className="text-sm font-semibold text-app-text">
                             {skill.skill}
                           </span>
                           <span
                             className={`font-mono text-[9px] uppercase tracking-[0.15em] ${
                               skill.demonstrated
-                                ? "text-[#1677E8]"
-                                : "text-[#5E7187]"
+                                ? "text-app-blue"
+                                : "text-app-faint"
                             }`}
                           >
                             {skill.demonstrated
@@ -1223,7 +1228,7 @@ export default function Page() {
                               : "Skills Only"}
                           </span>
                         </div>
-                        <p className="mt-1 text-sm leading-6 text-[#C7D0DA]">
+                        <p className="mt-1 text-sm leading-6 text-app-body">
                           {skill.evidence}
                         </p>
                       </li>
@@ -1233,8 +1238,8 @@ export default function Page() {
               </div>
             </section>
 
-            <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+            <section className="border border-app-border bg-app-panel p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Position Identification
               </div>
 
@@ -1266,7 +1271,7 @@ export default function Page() {
             </section>
           </div>
         )}
-      </div>
+      </Container>
     </main>
   );
 }
@@ -1279,8 +1284,8 @@ function InfoBlock({
   value: string;
 }) {
   return (
-    <div className="border border-[#1A3048] bg-[#05070A] p-5">
-      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+    <div className="border border-app-border bg-app-bg p-5">
+      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
         {label}
       </div>
 
@@ -1297,13 +1302,13 @@ function ListBlock({
   items: string[];
 }) {
   return (
-    <div className="border border-[#1A3048] bg-[#05070A] p-5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#71849A]">
+    <div className="border border-app-border bg-app-bg p-5">
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
         {title}
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-4 text-sm text-[#5E7187]">
+        <p className="mt-4 text-sm text-app-faint">
           No items identified.
         </p>
       ) : (
@@ -1311,7 +1316,7 @@ function ListBlock({
           {items.map((item, index) => (
             <li
               key={`${item}-${index}`}
-              className="border-l border-[#294B70] pl-4 text-sm leading-6 text-[#C7D0DA]"
+              className="border-l border-app-border-strong pl-4 text-sm leading-6 text-app-body"
             >
               {item}
             </li>
@@ -1332,13 +1337,13 @@ function EntryListBlock<T>({
   render: (entry: T) => React.ReactNode;
 }) {
   return (
-    <div className="border border-[#1A3048] bg-[#05070A] p-5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#71849A]">
+    <div className="border border-app-border bg-app-bg p-5">
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
         {title}
       </div>
 
       {entries.length === 0 ? (
-        <p className="mt-4 text-sm text-[#5E7187]">
+        <p className="mt-4 text-sm text-app-faint">
           No items identified.
         </p>
       ) : (
@@ -1346,7 +1351,7 @@ function EntryListBlock<T>({
           {entries.map((entry, index) => (
             <li
               key={index}
-              className="border-l border-[#294B70] pl-4"
+              className="border-l border-app-border-strong pl-4"
             >
               {render(entry)}
             </li>
@@ -1365,13 +1370,13 @@ function RoleListBlock({
   roles: { role: string; rationale: string }[];
 }) {
   return (
-    <div className="border border-[#1A3048] bg-[#05070A] p-5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#71849A]">
+    <div className="border border-app-border bg-app-bg p-5">
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
         {title}
       </div>
 
       {roles.length === 0 ? (
-        <p className="mt-4 text-sm text-[#5E7187]">
+        <p className="mt-4 text-sm text-app-faint">
           No roles identified.
         </p>
       ) : (
@@ -1379,12 +1384,12 @@ function RoleListBlock({
           {roles.map((role, index) => (
             <li
               key={`${role.role}-${index}`}
-              className="border-l border-[#294B70] pl-4"
+              className="border-l border-app-border-strong pl-4"
             >
-              <div className="text-sm font-semibold text-[#F2F5F8]">
+              <div className="text-sm font-semibold text-app-text">
                 {role.role}
               </div>
-              <p className="mt-1 text-sm leading-6 text-[#C7D0DA]">
+              <p className="mt-1 text-sm leading-6 text-app-body">
                 {role.rationale}
               </p>
             </li>
@@ -1404,11 +1409,11 @@ function FindingField({
 }) {
   return (
     <div className="mt-5">
-      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
         {label}
       </div>
 
-      <p className="mt-2 text-sm leading-6 text-[#C7D0DA]">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-app-body">{value}</p>
     </div>
   );
 }

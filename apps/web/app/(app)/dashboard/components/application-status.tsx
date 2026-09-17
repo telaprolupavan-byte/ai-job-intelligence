@@ -1,3 +1,6 @@
+import { ListChecks } from "lucide-react";
+import Panel from "@/components/app/panel";
+
 type Props = {
   applications: {
     available: boolean;
@@ -6,16 +9,23 @@ type Props = {
 
 export default function ApplicationStatus({ applications }: Props) {
   return (
-    <section className="border border-[#1A3048] bg-[#0B1626] p-5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#5E7187]">
+    <Panel>
+      <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-faint">
         Application Status
       </div>
 
-      <div className="mt-6 border border-[#1A3048] bg-[#05070A] p-5 text-sm leading-6 text-[#8D9AAA]">
-        {applications.available
-          ? "Application tracking data is available."
-          : "Application tracking is not available yet."}
+      <div className="mt-6 flex items-start gap-3 border border-app-border bg-app-bg p-5">
+        <ListChecks
+          className="mt-0.5 h-4 w-4 shrink-0 text-app-soft"
+          aria-hidden="true"
+        />
+
+        <p className="text-sm leading-6 text-app-muted">
+          {applications.available
+            ? "Application tracking data is available."
+            : "Application tracking isn't available yet. This module is on the AJI roadmap."}
+        </p>
       </div>
-    </section>
+    </Panel>
   );
 }

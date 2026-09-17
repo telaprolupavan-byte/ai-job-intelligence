@@ -1,35 +1,23 @@
-import Link from "next/link";
+import { ClipboardList } from "lucide-react";
+import Container from "@/components/app/container";
+import EmptyState from "@/components/app/empty-state";
+import AppButton from "@/components/app/app-button";
 
 export default function Page() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#05070A] px-6 text-[#F2F5F8]">
-      <div className="w-full max-w-lg border border-[#1A3048] bg-[#0B1626] p-8">
-        <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#E50920]">
+    <main className="flex min-h-screen items-center justify-center bg-app-bg px-6 text-app-text">
+      <Container size="narrow" className="py-0">
+        <div className="mb-6 text-center font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
           Intelligence Module
         </div>
 
-        <h1 className="mt-4 text-4xl font-bold tracking-tight">
-          Coming Soon
-        </h1>
-
-        <p className="mt-4 text-sm leading-7 text-[#8D9AAA]">
-          This module is part of the AI Job Intelligence roadmap and will be
-          activated in a future feature release.
-        </p>
-
-        <div className="mt-6 border-t border-[#1A3048] pt-5">
-          <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#1677E8]">
-            SYSTEM / MODULE OFFLINE
-          </div>
-        </div>
-
-        <Link
-          href="/dashboard"
-          className="mt-7 inline-flex bg-[#E50920] px-5 py-3 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#FF1E32]"
-        >
-          ← Back to Dashboard
-        </Link>
-      </div>
+        <EmptyState
+          icon={ClipboardList}
+          title="ATS Alignment is coming soon"
+          description="ATS Alignment will score how well a specific resume version aligns with a specific job description, separate from Job Match. It's on the AJI roadmap and will appear here once it ships."
+          action={<AppButton href="/dashboard">← Back to Dashboard</AppButton>}
+        />
+      </Container>
     </main>
   );
 }

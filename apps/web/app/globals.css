@@ -63,6 +63,38 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /*
+   * Application-shell design tokens.
+   *
+   * The authenticated app (dashboard, jobs, resume, settings) has always
+   * used this navy/red/blue "command center" palette rather than the
+   * --background/--primary tokens above (those govern the marketing site
+   * and auth pages). These values are unchanged from what already
+   * rendered — this block only gives the existing colors names so they
+   * stop being copy-pasted as raw hex through every component.
+   */
+  --color-app-bg: #05070a;
+  --color-app-panel: #0b1626;
+  --color-app-panel-strong: #07111f;
+  --color-app-surface: #05070a;
+  --color-app-border: #1a3048;
+  --color-app-border-strong: #294b70;
+  --color-app-border-soft: #29496a;
+  --color-app-text: #f2f5f8;
+  --color-app-body: #c7d0da;
+  --color-app-muted: #8d9aaa;
+  --color-app-soft: #71849a;
+  --color-app-faint: #5e7187;
+  --color-app-dim: #506174;
+  --color-app-red: #e50920;
+  --color-app-red-hover: #ff1e32;
+  --color-app-red-soft: #8b0b18;
+  --color-app-blue: #1677e8;
+  --color-app-blue-soft: #0b4ea2;
+  --color-app-danger-bg: #18090d;
+  --color-app-danger-border: #6b1a26;
+  --color-app-danger-text: #f2a0aa;
 }
 
 * {
@@ -140,4 +172,44 @@ body {
 ::selection {
   background: #c8101e;
   color: #ffffff;
+}
+
+/* App-shell focus ring, consistent everywhere an interactive element
+   doesn't already define its own :focus-visible treatment. */
+.app-focus-ring:focus-visible {
+  outline: 2px solid var(--color-app-blue);
+  outline-offset: 2px;
+}
+
+@keyframes app-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.app-skeleton {
+  background-color: var(--color-app-panel-strong);
+  animation: app-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .app-skeleton {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

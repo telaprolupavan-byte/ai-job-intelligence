@@ -75,7 +75,7 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full border border-border bg-surface px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -95,7 +95,7 @@ export default function RegisterPage() {
                 minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full border border-border bg-surface px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="Minimum 8 characters"
               />
             </div>
@@ -117,13 +117,16 @@ export default function RegisterPage() {
                 onChange={(event) =>
                   setConfirmPassword(event.target.value)
                 }
-                className="w-full border border-border bg-surface px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="Repeat your password"
               />
             </div>
 
             {error && (
-              <div className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-foreground">
+              <div
+                role="alert"
+                className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-foreground"
+              >
                 {error}
               </div>
             )}

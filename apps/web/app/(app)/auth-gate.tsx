@@ -35,8 +35,15 @@ export default function AuthGate({
 
   if (!authorized) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#05070A] text-[#1677E8]">
-        <div className="font-mono text-xs uppercase tracking-[0.25em]">
+      <main className="flex min-h-screen items-center justify-center bg-app-bg text-app-blue">
+        <div
+          role="status"
+          className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.25em]"
+        >
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 animate-pulse rounded-full bg-app-blue"
+          />
           Verifying session...
         </div>
       </main>

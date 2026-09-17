@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 type Props = {
   label: string;
   value: string;
   detail: string;
   accent?: "red" | "blue";
+  href?: string;
 };
 
 export default function IntelligenceCard({
@@ -10,16 +13,19 @@ export default function IntelligenceCard({
   value,
   detail,
   accent = "red",
+  href,
 }: Props) {
-  const accentClass =
-    accent === "red" ? "text-[#E50920]" : "text-[#1677E8]";
+  const accentClass = accent === "red" ? "text-app-red" : "text-app-blue";
 
-  return (
-    <div className="group relative overflow-hidden border border-[#1A3048] bg-[#0B1626] p-5 transition hover:border-[#294B70]">
-      <div className="absolute right-0 top-0 h-16 w-16 translate-x-8 -translate-y-8 rounded-full bg-[#1677E8]/10 blur-2xl transition group-hover:bg-[#1677E8]/20" />
+  const content = (
+    <>
+      <div
+        aria-hidden="true"
+        className="absolute right-0 top-0 h-16 w-16 translate-x-8 -translate-y-8 rounded-full bg-app-blue/10 blur-2xl transition group-hover:bg-app-blue/20"
+      />
 
       <div className="relative">
-        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#71849A]">
+        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
           {label}
         </div>
 
@@ -27,10 +33,23 @@ export default function IntelligenceCard({
           {value}
         </div>
 
-        <div className="mt-2 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
+        <div className="mt-2 font-mono text-[9px] uppercase tracking-wider text-app-faint">
           {detail}
         </div>
       </div>
-    </div>
+    </>
   );
+
+  const className =
+    "app-focus-ring group relative block overflow-hidden border border-app-border bg-app-panel p-5 transition hover:border-app-border-strong";
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }
