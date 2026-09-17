@@ -9,6 +9,38 @@ from apps.api.services.resume_ai.providers.openai_provider import (
 )
 
 
+def test_provider_analysis_schema_is_openai_strict_compatible():
+    """Guards against the invalid_json_schema regression: every object in
+    the ProviderAnalysis schema must disallow additional properties and
+    mark every declared property as required, exactly as OpenAI's
+    Structured Outputs "strict" mode enforces it. A bare `dict[str, Any]`
+    field would fail this check because it serializes with
+    `additionalProperties: true`, which OpenAI rejects.
+    """
+    from openai.lib._pydantic import to_strict_json_schema
+
+    schema = to_strict_json_schema(ProviderAnalysis)
+
+    def check(node, path=()):
+        if isinstance(node, dict):
+            if node.get("type") == "object":
+                assert node.get("additionalProperties") is False, (
+                    f"additionalProperties must be false at {path}"
+                )
+                properties = node.get("properties", {})
+                required = node.get("required", [])
+                assert set(properties.keys()) == set(required), (
+                    f"every property must be required at {path}"
+                )
+            for key, value in node.items():
+                check(value, path + (key,))
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                check(value, path + (str(index),))
+
+    check(schema)
+
+
 def test_openai_provider_metadata():
     provider = OpenAIResumeProvider(
         api_key="test-key",
