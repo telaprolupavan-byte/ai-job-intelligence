@@ -513,6 +513,113 @@ class ResumeAIAnalysis(Base):
     )
 
 
+class JobIntelligence(Base):
+    """A single versioned Job Intelligence snapshot (AJI-012).
+
+    Insert-only, like `ResumeAIAnalysis`: a new row is created whenever the
+    job's observable content (`content_fingerprint`) or the
+    analyzer/prompt pipeline version changes. Historical snapshots are
+    never overwritten, so past ATS/Match analysis built on an older
+    snapshot stays stable even if the live job posting is edited later.
+
+    This table is intentionally shared, job-scoped data (no `user_id`):
+    it answers "what does this job require?", not anything
+    user-specific. Personalized data (eligibility, Job Match, ATS
+    Alignment) must never be stored here — see docs/ARCHITECTURE.md.
+    """
+
+    __tablename__ = "job_intelligence"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    content_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    # A snapshot of the exact observable job fields this analysis was
+    # computed from, captured at analysis time. Preserved independently
+    # of the live `Job` row so a later edit/rediscovery of the job never
+    # silently changes what a historical snapshot says it analyzed.
+    raw_jd_snapshot: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    source: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    source_url: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+
+    # See docs/ARCHITECTURE.md's "Analysis/scoring versioning convention"
+    # (AJI-011). Job Intelligence is AI-derived (deterministic extraction
+    # feeds a schema-constrained AI semantic decoding stage), so it
+    # follows the analysis/analyzer/prompt + model_provider/model_name
+    # convention, like `ResumeAIAnalysis`.
+    analysis_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    analyzer_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    prompt_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    model_provider: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    model_name: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    # "complete" (deterministic + AI semantics both succeeded) or
+    # "partial" (the AI semantic decoding stage failed/was unavailable,
+    # so only deterministically-extracted fields are populated). Never
+    # "failed" — a failed extraction is not persisted at all.
+    extraction_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="complete",
+    )
+
+    structured_intelligence: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
 class JobMatchResult(Base):
     __tablename__ = "job_match_results"
 

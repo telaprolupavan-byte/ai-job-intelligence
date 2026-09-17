@@ -113,6 +113,156 @@ export type JobMatchResult = {
   preferred_gaps: SkillEvidence[];
 };
 
+export type JobIntelligenceSkill = {
+  canonical_skill: string;
+  level: "required" | "preferred";
+  evidence_text: string;
+  confidence: "high" | "medium" | "low";
+};
+
+export type JobIntelligenceExperience = {
+  level: "required" | "preferred";
+  minimum_years: number | null;
+  maximum_years: number | null;
+  area: string | null;
+  context: string | null;
+  evidence_text: string;
+  confidence: "high" | "medium" | "low";
+};
+
+export type JobIntelligenceEducation = {
+  level: "required" | "preferred";
+  degree_level: string | null;
+  field_of_study: string | null;
+  evidence_text: string;
+  confidence: "high" | "medium" | "low";
+};
+
+export type JobIntelligenceCertification = {
+  level: "required" | "preferred";
+  name: string;
+  evidence_text: string;
+  confidence: "high" | "medium" | "low";
+};
+
+export type JobIntelligenceResponsibility = {
+  description: string;
+  evidence_text: string;
+};
+
+export type JobIntelligenceData = {
+  identity: {
+    original_title: string;
+    normalized_title: string | null;
+    role_family: string | null;
+    seniority: string | null;
+  };
+  employment: {
+    employment_type: string;
+    evidence_text: string | null;
+  };
+  location: {
+    raw_location: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    additional_locations: string[];
+    remote_type: string;
+    work_arrangement_text: string | null;
+    relocation_mentioned: boolean;
+  };
+  required_skills: JobIntelligenceSkill[];
+  preferred_skills: JobIntelligenceSkill[];
+  required_experience: JobIntelligenceExperience[];
+  preferred_experience: JobIntelligenceExperience[];
+  education: JobIntelligenceEducation[];
+  certifications: JobIntelligenceCertification[];
+  responsibilities: JobIntelligenceResponsibility[];
+  authorization: {
+    sponsorship: string;
+    citizenship: string;
+    clearance: string;
+    work_authorization: string;
+  };
+  compensation: {
+    salary_min: number | null;
+    salary_max: number | null;
+    currency: string | null;
+    period: string;
+    evidence_text: string | null;
+  };
+  domain: {
+    value: string | null;
+    confidence: string | null;
+  };
+};
+
+export type JobIntelligenceResponse = {
+  id: string;
+  job_id: string;
+  analysis_version: string;
+  extraction_status: string;
+  created_at: string;
+  intelligence: JobIntelligenceData;
+};
+
+function authHeaders(): Record<string, string> {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("ai_job_intelligence_token")
+      : null;
+
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function getJobIntelligence(
+  jobId: string,
+): Promise<JobIntelligenceResponse> {
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/intelligence`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to load Job Intelligence.";
+
+    throw new Error(message);
+  }
+
+  return data as JobIntelligenceResponse;
+}
+
+export async function generateJobIntelligence(
+  jobId: string,
+): Promise<JobIntelligenceResponse> {
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/intelligence`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to generate Job Intelligence.";
+
+    throw new Error(message);
+  }
+
+  return data as JobIntelligenceResponse;
+}
+
 export async function calculateJobMatch(
   jobId: string,
 ): Promise<JobMatchResult> {
