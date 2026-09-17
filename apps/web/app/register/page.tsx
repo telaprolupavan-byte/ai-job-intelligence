@@ -40,11 +40,11 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10 text-foreground">
+    <main className="min-h-screen bg-app-bg px-6 py-10 text-app-text">
       <div className="mx-auto flex min-h-[85vh] max-w-6xl items-center justify-center">
         <div className="w-full max-w-md">
           <div className="mb-10">
-            <p className="mono mb-4 text-xs uppercase tracking-[0.25em] text-primary">
+            <p className="mono mb-4 text-xs uppercase tracking-[0.25em] text-app-red">
               01 / CREATE ACCOUNT
             </p>
 
@@ -52,7 +52,7 @@ export default function RegisterPage() {
               Start your job intelligence.
             </h1>
 
-            <p className="mt-5 text-sm leading-6 text-muted-foreground">
+            <p className="mt-5 text-sm leading-6 text-app-muted">
               Create your account to build your personalized job search,
               resume intelligence, and application workflow.
             </p>
@@ -62,7 +62,7 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="email"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-muted-foreground"
+                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
               >
                 Email
               </label>
@@ -73,7 +73,7 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
                 placeholder="you@example.com"
               />
             </div>
@@ -81,7 +81,7 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="password"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-muted-foreground"
+                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
               >
                 Password
               </label>
@@ -93,7 +93,7 @@ export default function RegisterPage() {
                 minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
                 placeholder="Minimum 8 characters"
               />
             </div>
@@ -101,7 +101,7 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="confirm-password"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-muted-foreground"
+                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
               >
                 Confirm Password
               </label>
@@ -115,7 +115,7 @@ export default function RegisterPage() {
                 onChange={(event) =>
                   setConfirmPassword(event.target.value)
                 }
-                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
                 placeholder="Repeat your password"
               />
             </div>
@@ -123,7 +123,7 @@ export default function RegisterPage() {
             {error && (
               <div
                 role="alert"
-                className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-foreground"
+                className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm text-app-text"
               >
                 {error}
               </div>
@@ -138,11 +138,11 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-muted-foreground">
+          <p className="mt-8 text-center text-sm text-app-muted">
             Already have an account?{" "}
             <Link
               href="/login"
-              className="text-foreground underline underline-offset-4 hover:text-primary"
+              className="text-app-text underline underline-offset-4 hover:text-app-red"
             >
               Sign in
             </Link>

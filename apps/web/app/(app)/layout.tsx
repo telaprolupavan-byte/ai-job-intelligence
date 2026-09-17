@@ -12,7 +12,7 @@ export default function AppLayout({
       <div className="min-h-screen bg-app-bg text-app-text">
         <Sidebar />
 
-        <div className="lg:pl-64">
+        <div className="lg:pl-[220px]">
           <DashboardHeader />
 
           <main>{children}</main>
