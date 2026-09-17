@@ -45,10 +45,8 @@ function LoginForm() {
               02 / AUTHENTICATION
             </p>
 
-            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              WELCOME
-              <br />
-              BACK.
+            <h1 className="font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight sm:text-5xl">
+              Welcome back.
             </h1>
 
             <p className="mt-5 text-sm leading-6 text-muted-foreground">
@@ -71,7 +69,7 @@ function LoginForm() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -90,7 +88,7 @@ function LoginForm() {
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="Your password"
               />
             </div>
@@ -98,7 +96,7 @@ function LoginForm() {
             {registered && (
               <div
                 role="status"
-                className="border border-border bg-card px-4 py-3 text-sm"
+                className="rounded-lg border border-border bg-card px-4 py-3 text-sm"
               >
                 Account created. Sign in to continue.
               </div>
@@ -107,7 +105,7 @@ function LoginForm() {
             {error && (
               <div
                 role="alert"
-                className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm"
+                className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm"
               >
                 {error}
               </div>
@@ -116,7 +114,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-lg bg-crimson-fill px-5 py-3 text-sm font-medium text-white transition hover:bg-crimson-fill-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "AUTHENTICATING..." : "SIGN IN →"}
             </button>

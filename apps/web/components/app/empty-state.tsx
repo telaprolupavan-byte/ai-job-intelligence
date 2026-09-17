@@ -18,13 +18,13 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`border border-app-border bg-app-panel px-6 py-14 text-center ${className ?? ""}`}
+      className={`rounded-xl border border-app-border bg-app-panel px-6 py-9 text-center ${className ?? ""}`}
     >
-      <div className="mx-auto flex h-11 w-11 items-center justify-center border border-app-border-strong text-app-soft">
-        <Icon className="h-5 w-5" aria-hidden="true" />
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg border border-app-border-strong text-app-soft">
+        <Icon className="h-4 w-4" aria-hidden="true" />
       </div>
 
-      <h3 className="mt-5 text-lg font-semibold text-app-text">{title}</h3>
+      <h3 className="mt-4 text-base font-semibold text-app-text">{title}</h3>
 
       {description && (
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-app-muted">
@@ -32,7 +32,7 @@ export default function EmptyState({
         </p>
       )}
 
-      {action && <div className="mt-6 flex justify-center">{action}</div>}
+      {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
   );
 }

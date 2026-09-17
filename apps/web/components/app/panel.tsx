@@ -6,6 +6,7 @@ type PanelProps = {
   padding?: "none" | "sm" | "md" | "lg";
   strong?: boolean;
   interactive?: boolean;
+  glass?: boolean;
   as?: "div" | "section" | "article" | "form";
 };
 
@@ -22,6 +23,7 @@ export default function Panel({
   padding = "md",
   strong = false,
   interactive = false,
+  glass = false,
   as = "section",
 }: PanelProps) {
   const Tag = as;
@@ -29,8 +31,8 @@ export default function Panel({
   return (
     <Tag
       className={cn(
-        "border border-app-border",
-        strong ? "bg-app-panel-strong" : "bg-app-panel",
+        "overflow-hidden rounded-xl border border-app-border",
+        glass ? "glass-panel" : strong ? "bg-app-panel-strong" : "bg-app-panel",
         PADDING_CLASS[padding],
         interactive &&
           "transition-colors hover:border-app-border-strong",

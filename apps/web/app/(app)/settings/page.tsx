@@ -169,7 +169,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-app-bg text-app-text">
+      <div className="bg-app-bg text-app-text">
         <Container size="narrow">
           <Skeleton className="h-8 w-40" />
           <Skeleton className="mt-4 h-10 w-64" />
@@ -178,28 +178,28 @@ export default function SettingsPage() {
             <Skeleton className="h-40 w-full" />
           </div>
         </Container>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-app-bg text-app-text">
+    <div className="bg-app-bg text-app-text">
       <Container size="narrow">
-        <header className="border-b border-app-border pb-8">
+        <header className="border-b border-app-border pb-6">
           <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
             Account / Preferences
           </div>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight">
+          <h1 className="mt-3 font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight sm:text-3xl">
             Settings
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-app-muted">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-app-muted">
             Keep your profile and job-search preferences current so later
             intelligence modules can use accurate inputs.
           </p>
         </header>
 
-        <form onSubmit={saveSettings} className="mt-8 space-y-8">
-          <section className="border border-app-border bg-app-panel p-6">
+        <form onSubmit={saveSettings} className="mt-8 space-y-6">
+          <section className="rounded-xl border border-app-border bg-app-panel p-6">
             <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
               Profile
             </h2>
@@ -250,7 +250,7 @@ export default function SettingsPage() {
                     target_titles: splitList(event.target.value),
                   })
                 }
-                className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
+                className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
                 placeholder="Machine Learning Engineer, Data Scientist"
               />
             </label>
@@ -265,12 +265,12 @@ export default function SettingsPage() {
                   setProfile({ ...profile, summary: event.target.value })
                 }
                 rows={4}
-                className="mt-2 w-full resize-y border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
+                className="mt-2 w-full resize-y rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
               />
             </label>
           </section>
 
-          <section className="border border-app-border bg-app-panel p-6">
+          <section className="rounded-xl border border-app-border bg-app-panel p-6">
             <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
               Job preferences
             </h2>
@@ -325,7 +325,7 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section className="border border-app-border bg-app-panel p-6">
+          <section className="rounded-xl border border-app-border bg-app-panel p-6">
             <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
               Hard eligibility
             </h2>
@@ -385,7 +385,7 @@ export default function SettingsPage() {
                     enforce_minimum_experience: event.target.checked,
                   })
                 }
-                className="h-4 w-4 border border-app-border-strong bg-app-bg"
+                className="h-4 w-4 rounded border border-app-border-strong bg-app-bg"
               />
               <span className="text-sm text-app-text">
                 Rule out jobs whose stated minimum years of experience
@@ -397,13 +397,13 @@ export default function SettingsPage() {
           {message && (
             <p
               role="status"
-              className="border border-app-blue/40 bg-app-blue/10 p-4 text-sm text-app-text"
+              className="rounded-lg border border-app-blue/40 bg-app-blue/10 p-4 text-sm text-app-text"
             >
               {message}
             </p>
           )}
           {error && (
-            <p role="alert" className="border border-app-red/40 bg-app-red/10 p-4 text-sm text-app-text">
+            <p role="alert" className="rounded-lg border border-app-red/40 bg-app-red/10 p-4 text-sm text-app-text">
               {error}
             </p>
           )}
@@ -413,7 +413,7 @@ export default function SettingsPage() {
           </AppButton>
         </form>
       </Container>
-    </main>
+    </div>
   );
 }
 
@@ -443,7 +443,7 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
+        className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
       />
     </label>
   );
@@ -487,7 +487,7 @@ function TriStateField({
         onChange={(event) =>
           onChange(selectValueToTriState(event.target.value))
         }
-        className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
+        className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
       >
         <option value="">Prefer not to say / unspecified</option>
         <option value="true">Yes</option>

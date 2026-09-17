@@ -12,10 +12,10 @@ export default function AppLayout({
       <div className="min-h-screen bg-app-bg text-app-text">
         <Sidebar />
 
-        <div className="min-h-screen lg:pl-64">
+        <div className="lg:pl-64">
           <DashboardHeader />
 
-          <main className="min-h-screen">{children}</main>
+          <main>{children}</main>
         </div>
       </div>
     </AuthGate>

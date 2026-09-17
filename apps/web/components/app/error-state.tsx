@@ -17,7 +17,7 @@ export default function ErrorState({
   return (
     <div
       role="alert"
-      className={`border border-app-danger-border bg-app-danger-bg p-5 ${className ?? ""}`}
+      className={`rounded-xl border border-app-danger-border bg-app-danger-bg p-5 ${className ?? ""}`}
     >
       <div className="flex items-start gap-3">
         <AlertTriangle

@@ -1,34 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  --background: #070707;
+  --background: #0b0e14;
   --foreground: #f2f2f2;
 
-  --card: #0e0e0e;
+  --card: #11151d;
   --card-foreground: #f2f2f2;
 
-  --popover: #0e0e0e;
+  --popover: #11151d;
   --popover-foreground: #f2f2f2;
 
-  --primary: #c8101e;
+  --primary: #ff3b30;
   --primary-foreground: #ffffff;
 
-  --secondary: #171717;
+  --secondary: #171b24;
   --secondary-foreground: #f2f2f2;
 
-  --muted: #151515;
-  --muted-foreground: #858585;
+  --muted: #151920;
+  --muted-foreground: #8b95a6;
 
-  --accent: #191919;
+  --accent: #191d26;
   --accent-foreground: #f2f2f2;
 
-  --destructive: #c8101e;
+  --destructive: #ff3b30;
 
-  --border: #242424;
-  --input: #242424;
-  --ring: #c8101e;
+  --border: #232937;
+  --input: #232937;
+  --ring: #ff3b30;
 
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 }
 
 @theme inline {
@@ -64,37 +64,71 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-syne);
+  --font-mono: var(--font-jetbrains-mono);
+
   /*
-   * Application-shell design tokens.
+   * Application-shell design tokens — "Cyber-Spidey" system.
    *
-   * The authenticated app (dashboard, jobs, resume, settings) has always
-   * used this navy/red/blue "command center" palette rather than the
-   * --background/--primary tokens above (those govern the marketing site
-   * and auth pages). These values are unchanged from what already
-   * rendered — this block only gives the existing colors names so they
-   * stop being copy-pasted as raw hex through every component.
+   * Palette decision (see PR/report for full rationale): the previous
+   * navy-tinted command-center palette is replaced with a neutral deep
+   * "tech void" scale plus three deliberate accents — AI Crimson
+   * (primary action), Neural Blue (interaction/intelligence), and
+   * Spider-Sense Amber (prediction/warning only, new — nothing used
+   * amber before). Surfaces are desaturated so the accents stay
+   * meaningful instead of competing with a colored background.
    */
-  --color-app-bg: #05070a;
-  --color-app-panel: #0b1626;
-  --color-app-panel-strong: #07111f;
-  --color-app-surface: #05070a;
-  --color-app-border: #1a3048;
-  --color-app-border-strong: #294b70;
-  --color-app-border-soft: #29496a;
-  --color-app-text: #f2f5f8;
-  --color-app-body: #c7d0da;
-  --color-app-muted: #8d9aaa;
-  --color-app-soft: #71849a;
-  --color-app-faint: #5e7187;
-  --color-app-dim: #506174;
-  --color-app-red: #e50920;
-  --color-app-red-hover: #ff1e32;
-  --color-app-red-soft: #8b0b18;
-  --color-app-blue: #1677e8;
-  --color-app-blue-soft: #0b4ea2;
-  --color-app-danger-bg: #18090d;
-  --color-app-danger-border: #6b1a26;
-  --color-app-danger-text: #f2a0aa;
+  --color-app-bg: #0b0e14;
+  --color-app-panel: #11151d;
+  --color-app-panel-strong: #161b26;
+  --color-app-surface: #0e1219;
+  --color-app-border: #232937;
+  --color-app-border-strong: #35405a;
+  --color-app-border-soft: #2a3245;
+  --color-app-text: #f4f6f9;
+  --color-app-body: #c9d0dc;
+  --color-app-muted: #96a1b5;
+  --color-app-soft: #7a8598;
+  /*
+   * #626d82 and #4e576a (this token's original values) read as
+   * "dimmer" but drop to 3.7:1 / 2.7:1 against these dark surfaces —
+   * short of WCAG AA's 4.5:1 for the real metadata/evidence text they
+   * were used on. Both are raised to the same accessible floor; use
+   * app-faint for the lighter step in the hierarchy.
+   */
+  --color-app-faint: #7080a0;
+  --color-app-dim: #7080a0;
+
+  /* AI Crimson — primary CTA, critical actions/status */
+  --color-app-red: #ff3b30;
+  --color-app-red-hover: #ff564b;
+  --color-app-red-soft: #3a1512;
+
+  /*
+   * White text set directly on #ff3b30 only reaches a 3.55:1 contrast
+   * ratio — short of WCAG AA's 4.5:1 for the ~12px button labels used
+   * throughout the app. This deepened shade is reserved for filled
+   * button backgrounds (bg-crimson-fill) so white labels stay
+   * accessible; every other crimson use (text, icons, borders, glow,
+   * badges, the sidebar's active indicator) keeps the true #ff3b30.
+   */
+  --color-crimson-fill: #d9281f;
+  --color-crimson-fill-hover: #c21f18;
+
+  /* Neural Blue — interaction, intelligence, data, selected nav */
+  --color-app-blue: #0a84ff;
+  --color-app-blue-hover: #3d9dff;
+  --color-app-blue-soft: #0c2545;
+
+  /* Spider-Sense Amber — predictions/warnings/risk ONLY */
+  --color-app-amber: #ff9500;
+  --color-app-amber-hover: #ffaa33;
+  --color-app-amber-soft: #3a2508;
+
+  --color-app-danger-bg: #22100f;
+  --color-app-danger-border: #66271f;
+  --color-app-danger-text: #ffb3ab;
 }
 
 * {
@@ -119,58 +153,78 @@ body {
   background-size: 48px 48px;
 }
 
-/* Subtle radial red atmosphere */
+/* Subtle radial crimson atmosphere */
 .red-atmosphere {
   background:
     radial-gradient(
       circle at 50% 30%,
-      rgba(200, 16, 30, 0.12),
+      rgba(255, 59, 48, 0.1),
       transparent 42%
     );
 }
 
-/* Very subtle network/web effect */
+/* Very subtle web/network effect — decorative only, never tied to data */
 .web-atmosphere {
   background-image:
     radial-gradient(
       circle at center,
       transparent 0,
       transparent 120px,
-      rgba(200, 16, 30, 0.035) 121px,
+      rgba(10, 132, 255, 0.035) 121px,
       transparent 122px
     ),
     radial-gradient(
       circle at center,
       transparent 0,
       transparent 240px,
-      rgba(200, 16, 30, 0.025) 241px,
+      rgba(255, 59, 48, 0.025) 241px,
       transparent 242px
     ),
     radial-gradient(
       circle at center,
       transparent 0,
       transparent 360px,
-      rgba(200, 16, 30, 0.02) 361px,
+      rgba(10, 132, 255, 0.02) 361px,
       transparent 362px
     );
 }
 
 .red-glow {
   box-shadow:
-    0 0 30px rgba(200, 16, 30, 0.12),
-    0 0 80px rgba(200, 16, 30, 0.05);
+    0 0 24px rgba(255, 59, 48, 0.15),
+    0 0 64px rgba(255, 59, 48, 0.06);
 }
 
 .red-text-glow {
-  text-shadow: 0 0 24px rgba(200, 16, 30, 0.35);
+  text-shadow: 0 0 20px rgba(255, 59, 48, 0.35);
+}
+
+.blue-glow {
+  box-shadow:
+    0 0 24px rgba(10, 132, 255, 0.16),
+    0 0 64px rgba(10, 132, 255, 0.06);
+}
+
+.amber-glow {
+  box-shadow:
+    0 0 24px rgba(255, 149, 0, 0.16),
+    0 0 64px rgba(255, 149, 0, 0.06);
+}
+
+/* Restrained glass treatment — reserved for the hero and a handful of
+   high-level surfaces, never stacked (see design report). */
+.glass-panel {
+  background: rgba(17, 21, 29, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .mono {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 ::selection {
-  background: #c8101e;
+  background: #ff3b30;
   color: #ffffff;
 }
 
@@ -179,6 +233,7 @@ body {
 .app-focus-ring:focus-visible {
   outline: 2px solid var(--color-app-blue);
   outline-offset: 2px;
+  border-radius: 2px;
 }
 
 @keyframes app-skeleton-pulse {

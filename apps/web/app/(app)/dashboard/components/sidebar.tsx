@@ -9,19 +9,19 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-app-border bg-app-bg lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:flex-col">
-      <div className="border-b border-app-border px-6 py-7">
+      <div className="border-b border-app-border px-6 py-6">
         <Link href="/" className="app-focus-ring block">
           <div className="font-mono text-xs tracking-[0.25em] text-app-blue">
             AI / JOB
           </div>
 
-          <div className="mt-1 text-xl font-bold tracking-tight text-app-text">
+          <div className="mt-1 font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-app-text">
             INTELLIGENCE
           </div>
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-8" aria-label="Primary">
+      <nav className="flex-1 px-3 py-6" aria-label="Primary">
         <div className="mb-4 px-3 font-mono text-[10px] uppercase tracking-[0.25em] text-app-faint">
           Navigation
         </div>
@@ -36,7 +36,7 @@ export default function Sidebar() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`app-focus-ring group relative flex items-center gap-3 px-3 py-3 text-sm transition ${
+                className={`app-focus-ring group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
                   active
                     ? "bg-app-panel text-app-text"
                     : "text-app-muted hover:bg-app-panel-strong hover:text-app-text"
@@ -45,7 +45,7 @@ export default function Sidebar() {
                 {active && (
                   <span
                     aria-hidden="true"
-                    className="absolute left-0 top-0 h-full w-[3px] bg-app-red"
+                    className="absolute left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-app-red"
                   />
                 )}
 
@@ -71,7 +71,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`app-focus-ring flex items-center gap-3 px-3 py-3 text-sm transition ${
+              className={`app-focus-ring flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
                 active
                   ? "bg-app-panel text-app-text"
                   : "text-app-muted hover:bg-app-panel-strong hover:text-app-text"
