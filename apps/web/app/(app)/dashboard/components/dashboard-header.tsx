@@ -61,7 +61,7 @@ export default function DashboardHeader() {
         <button
           type="button"
           onClick={handleLogout}
-          className="app-focus-ring flex items-center gap-2 border border-app-border px-4 py-2 text-xs font-semibold uppercase tracking-wider text-app-muted transition hover:border-app-red hover:text-app-text"
+          className="app-focus-ring flex items-center gap-2 rounded-lg border border-app-border px-4 py-2 text-xs font-semibold uppercase tracking-wider text-app-muted transition hover:border-app-red hover:text-app-text"
         >
           <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
           <span className="hidden sm:inline">Logout</span>

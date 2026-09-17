@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Space_Mono } from "next/font/google";
+import { Inter, Syne, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -7,10 +7,20 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const spaceMono = Space_Mono({
-  variable: "--font-space-mono",
+// Geometric display face used sparingly for hero/page headings — the
+// "futuristic but restrained" half of the Cyber-Spidey type system.
+const syne = Syne({
+  variable: "--font-syne",
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: ["600", "700", "800"],
+});
+
+// Technical/data typeface for metadata, labels, and evidence text —
+// replaces Space Mono with a more legible mono at small sizes.
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
@@ -26,7 +36,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${spaceMono.variable}`}>
+      <body
+        className={`${inter.variable} ${syne.variable} ${jetbrainsMono.variable}`}
+      >
         {children}
       </body>
     </html>

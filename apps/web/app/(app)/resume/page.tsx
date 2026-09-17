@@ -579,14 +579,14 @@ export default function Page() {
     : undefined;
 
   return (
-    <main className="min-h-screen bg-app-bg text-app-text">
+    <div className="bg-app-bg text-app-text">
       <Container>
-        <header className="border-b border-app-border pb-8">
+        <header className="border-b border-app-border pb-6">
           <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
             Intelligence Module / AJI-005
           </div>
 
-          <h1 className="mt-4 text-4xl font-bold tracking-tight">
+          <h1 className="mt-3 font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight sm:text-3xl">
             Resume Intelligence
           </h1>
 
@@ -597,7 +597,7 @@ export default function Page() {
           </p>
         </header>
 
-        <section className="mt-8 border border-app-border bg-app-panel p-6">
+        <section className="mt-8 rounded-xl border border-app-border bg-app-panel p-6">
           <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
             <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
             Upload Resume
@@ -621,7 +621,7 @@ export default function Page() {
                   accept=".pdf,.docx"
                   onChange={handleFileSelected}
                   disabled={uploading}
-                  className="w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none file:mr-4 file:border-0 file:bg-app-border file:px-3 file:py-1.5 file:text-xs file:font-bold file:uppercase file:tracking-wider file:text-app-text focus:border-app-blue disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none file:mr-4 file:border-0 file:bg-app-border file:px-3 file:py-1.5 file:text-xs file:font-bold file:uppercase file:tracking-wider file:text-app-text focus:border-app-blue disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </label>
 
@@ -650,7 +650,7 @@ export default function Page() {
                       setUploadTargetResumeId(event.target.value)
                     }
                     disabled={uploading}
-                    className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                    className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                   >
                     <option value="">New Resume</option>
                     {resumes.map((resume) => (
@@ -679,7 +679,7 @@ export default function Page() {
                       disabled={uploading}
                       placeholder="e.g. Updated, Tailored"
                       maxLength={255}
-                      className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                      className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                     />
                   </div>
                 )}
@@ -722,7 +722,7 @@ export default function Page() {
           )}
         </section>
 
-        <section className="mt-8 border border-app-border bg-app-panel p-6">
+        <section className="mt-8 rounded-xl border border-app-border bg-app-panel p-6">
           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
             My Resumes
           </div>
@@ -751,7 +751,7 @@ export default function Page() {
                     key={resume.id}
                     type="button"
                     onClick={() => selectResume(resume.id)}
-                    className={`border p-5 text-left transition ${
+                    className={`rounded-lg border p-5 text-left transition ${
                       isSelected
                         ? "border-app-blue bg-app-blue/10"
                         : "border-app-border bg-app-bg hover:border-app-border-strong"
@@ -793,7 +793,7 @@ export default function Page() {
 
         {selectedResume && (
           <>
-            <section className="mt-8 border border-app-border bg-app-panel p-6">
+            <section className="mt-8 rounded-xl border border-app-border bg-app-panel p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
                 Selected Resume
               </div>
@@ -845,7 +845,7 @@ export default function Page() {
                     setAnalysis(null);
                     setShowExtractedText(false);
                   }}
-                  className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                  className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                 >
                   {versions.map((version) => (
                     <option key={version.id} value={version.id}>
@@ -901,7 +901,7 @@ export default function Page() {
               {showExtractedText &&
                 selectedVersion &&
                 !isPdf(selectedVersion.original_filename) && (
-                  <div className="mt-5 border border-app-border bg-app-bg p-4">
+                  <div className="mt-5 rounded-lg border border-app-border bg-app-bg p-4">
                     <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                       Extracted DOCX Content (not the original file layout)
                     </div>
@@ -912,7 +912,7 @@ export default function Page() {
                 )}
             </section>
 
-            <section className="mt-8 border border-app-border bg-app-panel p-6">
+            <section className="mt-8 rounded-xl border border-app-border bg-app-panel p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
                 Version History
               </div>
@@ -926,7 +926,7 @@ export default function Page() {
                   {versions.map((version) => (
                     <div
                       key={version.id}
-                      className={`flex flex-wrap items-center justify-between gap-3 border p-4 ${
+                      className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 ${
                         version.id === selectedVersionId
                           ? "border-app-blue bg-app-blue/5"
                           : "border-app-border"
@@ -967,7 +967,7 @@ export default function Page() {
                           setShowExtractedText(false);
                         }}
                         disabled={version.id === selectedVersionId}
-                        className="border border-app-border-strong px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-app-text transition hover:border-app-blue disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-lg border border-app-border-strong px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-app-text transition hover:border-app-blue disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {version.id === selectedVersionId
                           ? "Selected"
@@ -983,12 +983,12 @@ export default function Page() {
 
         {analysis && (
           <div className="mt-8 space-y-8">
-            <section className="border border-app-border bg-app-panel p-6">
+            <section className="rounded-xl border border-app-border bg-app-panel p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Resume Intelligence
               </div>
 
-              <div className="mt-4 grid gap-4 border border-app-border bg-app-bg p-4 sm:grid-cols-2">
+              <div className="mt-4 grid gap-4 rounded-lg border border-app-border bg-app-bg p-4 sm:grid-cols-2">
                 <div>
                   <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                     Resume
@@ -1015,7 +1015,7 @@ export default function Page() {
               </div>
             </section>
 
-            <section className="border border-app-border bg-app-panel p-6">
+            <section className="rounded-xl border border-app-border bg-app-panel p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Resume Review
               </div>
@@ -1045,7 +1045,7 @@ export default function Page() {
                   {analysis.review.findings.map((finding, index) => (
                     <article
                       key={`${finding.category}-${index}`}
-                      className="border border-app-border bg-app-bg p-5"
+                      className="rounded-lg border border-app-border bg-app-bg p-5"
                     >
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-red">
@@ -1092,7 +1092,7 @@ export default function Page() {
               </div>
             </section>
 
-            <section className="border border-app-border bg-app-panel p-6">
+            <section className="rounded-xl border border-app-border bg-app-panel p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Resume Decoding
               </div>
@@ -1196,7 +1196,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="mt-8 border border-app-border bg-app-bg p-5">
+              <div className="mt-8 rounded-lg border border-app-border bg-app-bg p-5">
                 <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
                   Skills
                 </div>
@@ -1238,7 +1238,7 @@ export default function Page() {
               </div>
             </section>
 
-            <section className="border border-app-border bg-app-panel p-6">
+            <section className="rounded-xl border border-app-border bg-app-panel p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
                 Position Identification
               </div>
@@ -1272,7 +1272,7 @@ export default function Page() {
           </div>
         )}
       </Container>
-    </main>
+    </div>
   );
 }
 
@@ -1284,7 +1284,7 @@ function InfoBlock({
   value: string;
 }) {
   return (
-    <div className="border border-app-border bg-app-bg p-5">
+    <div className="rounded-lg border border-app-border bg-app-bg p-5">
       <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
         {label}
       </div>
@@ -1302,7 +1302,7 @@ function ListBlock({
   items: string[];
 }) {
   return (
-    <div className="border border-app-border bg-app-bg p-5">
+    <div className="rounded-lg border border-app-border bg-app-bg p-5">
       <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
         {title}
       </div>
@@ -1337,7 +1337,7 @@ function EntryListBlock<T>({
   render: (entry: T) => React.ReactNode;
 }) {
   return (
-    <div className="border border-app-border bg-app-bg p-5">
+    <div className="rounded-lg border border-app-border bg-app-bg p-5">
       <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
         {title}
       </div>
@@ -1370,7 +1370,7 @@ function RoleListBlock({
   roles: { role: string; rationale: string }[];
 }) {
   return (
-    <div className="border border-app-border bg-app-bg p-5">
+    <div className="rounded-lg border border-app-border bg-app-bg p-5">
       <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-soft">
         {title}
       </div>

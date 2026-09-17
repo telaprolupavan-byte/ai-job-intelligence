@@ -48,10 +48,8 @@ export default function RegisterPage() {
               01 / CREATE ACCOUNT
             </p>
 
-            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              START YOUR
-              <br />
-              JOB INTELLIGENCE.
+            <h1 className="font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight sm:text-5xl">
+              Start your job intelligence.
             </h1>
 
             <p className="mt-5 text-sm leading-6 text-muted-foreground">
@@ -75,7 +73,7 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -95,7 +93,7 @@ export default function RegisterPage() {
                 minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="Minimum 8 characters"
               />
             </div>
@@ -117,7 +115,7 @@ export default function RegisterPage() {
                 onChange={(event) =>
                   setConfirmPassword(event.target.value)
                 }
-                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="Repeat your password"
               />
             </div>
@@ -125,7 +123,7 @@ export default function RegisterPage() {
             {error && (
               <div
                 role="alert"
-                className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-foreground"
+                className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-foreground"
               >
                 {error}
               </div>
@@ -134,7 +132,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-lg bg-crimson-fill px-5 py-3 text-sm font-medium text-white transition hover:bg-crimson-fill-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "CREATING ACCOUNT..." : "CREATE ACCOUNT →"}
             </button>

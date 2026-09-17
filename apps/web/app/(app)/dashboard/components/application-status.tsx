@@ -14,7 +14,7 @@ export default function ApplicationStatus({ applications }: Props) {
         Application Status
       </div>
 
-      <div className="mt-6 flex items-start gap-3 border border-app-border bg-app-bg p-5">
+      <div className="mt-4 flex items-start gap-3 rounded-lg border border-app-border bg-app-bg p-4">
         <ListChecks
           className="mt-0.5 h-4 w-4 shrink-0 text-app-soft"
           aria-hidden="true"

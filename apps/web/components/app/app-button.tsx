@@ -6,8 +6,10 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "default" | "sm" | "icon";
 
 const VARIANT_CLASS: Record<Variant, string> = {
+  // bg-crimson-fill (not bg-app-red) — a deepened shade so the white
+  // label clears WCAG AA contrast; see globals.css for the rationale.
   primary:
-    "bg-app-red text-white hover:bg-app-red-hover focus-visible:ring-app-red/40",
+    "bg-crimson-fill text-white hover:bg-crimson-fill-hover hover:shadow-[0_0_20px_rgba(255,59,48,0.3)] focus-visible:ring-app-red/40",
   secondary:
     "border border-app-border-strong text-app-text hover:border-app-blue hover:text-white focus-visible:ring-app-blue/40",
   ghost:
@@ -23,7 +25,7 @@ const SIZE_CLASS: Record<Size, string> = {
 };
 
 const BASE_CLASS =
-  "inline-flex items-center justify-center whitespace-nowrap font-bold uppercase tracking-[0.12em] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-app-bg disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center whitespace-nowrap rounded-lg font-bold uppercase tracking-[0.1em] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-app-bg disabled:cursor-not-allowed disabled:opacity-50";
 
 type CommonProps = {
   variant?: Variant;

@@ -240,27 +240,27 @@ function JobsPageInner() {
   }
 
   return (
-    <main className="min-h-screen bg-app-bg text-app-text">
+    <div className="bg-app-bg text-app-text">
       <Container>
         {/* HEADER */}
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
             Intelligence Module
           </div>
 
-          <div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div className="mt-2 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">
+              <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight sm:text-3xl">
                 Job Discovery
               </h1>
 
-              <p className="mt-2 max-w-2xl text-sm leading-7 text-app-muted">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-app-muted">
                 Discover U.S. opportunities from connected job sources.
                 Search, filter, and inspect available positions.
               </p>
             </div>
 
-            <div className="border border-app-border bg-app-panel px-4 py-3">
+            <div className="rounded-lg border border-app-border bg-app-panel px-4 py-3">
               <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
                 Active Listings
               </div>
@@ -275,13 +275,13 @@ function JobsPageInner() {
         {/* FILTER PANEL */}
         <form
           onSubmit={handleSearch}
-          className="mb-8 border border-app-border bg-app-panel"
+          className="mb-6 rounded-xl border border-app-border bg-app-panel"
         >
           <PanelHeader
               eyebrow="Search Parameters"
               description="Configure discovery criteria"
               action={
-                <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim md:flex">
+                <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint md:flex">
                   <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                   AJI / Discovery
                 </div>
@@ -301,7 +301,7 @@ function JobsPageInner() {
                     }))
                   }
                   placeholder="AI Engineer"
-                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-dim focus:border-app-blue"
+                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
                 />
               </FilterField>
 
@@ -315,7 +315,7 @@ function JobsPageInner() {
                       employmentType: event.target.value,
                     }))
                   }
-                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                 >
                   <option value="">All Types</option>
                   <option value="full_time">Full Time</option>
@@ -336,7 +336,7 @@ function JobsPageInner() {
                       remoteType: event.target.value,
                     }))
                   }
-                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
                 >
                   <option value="">All Arrangements</option>
                   <option value="remote">Remote</option>
@@ -357,7 +357,7 @@ function JobsPageInner() {
                     }))
                   }
                   placeholder="New York, NY"
-                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-dim focus:border-app-blue"
+                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
                 />
               </FilterField>
             </div>
@@ -394,7 +394,7 @@ function JobsPageInner() {
           </div>
 
           {!isPending && (
-            <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
+            <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
               {results.totalJobs} Results
             </div>
           )}
@@ -406,7 +406,7 @@ function JobsPageInner() {
             {Array.from({ length: 3 }).map((_, index) => (
               <div
                 key={index}
-                className="border border-app-border bg-app-panel p-6"
+                className="rounded-xl border border-app-border bg-app-panel p-6"
               >
                 <Skeleton className="h-5 w-2/3" />
                 <Skeleton className="mt-3 h-3 w-1/3" />
@@ -471,7 +471,7 @@ function JobsPageInner() {
               ← Previous
             </AppButton>
 
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-dim">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-faint">
               Page {page} / {results.totalPages}
             </div>
 
@@ -486,7 +486,7 @@ function JobsPageInner() {
           </div>
         )}
       </Container>
-    </main>
+    </div>
   );
 }
 
@@ -494,12 +494,12 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-app-bg px-6 py-8 text-app-text">
+        <div className="bg-app-bg text-app-text">
           <Container>
             <Skeleton className="h-10 w-64" />
             <Skeleton className="mt-4 h-40 w-full" />
           </Container>
-        </main>
+        </div>
       }
     >
       <JobsPageInner />
@@ -588,7 +588,7 @@ function JobCard({
             {/* SALARY */}
             {(job.salary_min !== null || job.salary_max !== null) && (
               <div className="mt-5">
-                <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
+                <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                   Compensation
                 </div>
 
@@ -607,7 +607,7 @@ function JobCard({
 
             {/* SOURCE */}
             <div className="mt-5 flex items-center gap-2">
-              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
+              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                 Source
               </span>
 
@@ -642,7 +642,7 @@ function JobCard({
         <div className="border-t border-app-border pt-5">
           <div className="grid gap-4 md:grid-cols-2">
             {/* JOB MATCH */}
-            <div className="border border-app-border bg-app-bg p-4">
+            <div className="rounded-lg border border-app-border bg-app-bg p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
@@ -654,7 +654,7 @@ function JobCard({
                   </div>
 
                   {match && (
-                    <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-app-dim">
+                    <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-app-faint">
                       Confidence: {match.confidence}
                     </div>
                   )}
@@ -678,16 +678,16 @@ function JobCard({
             </div>
 
             {/* ATS READINESS */}
-            <div className="border border-app-border bg-app-bg p-4">
+            <div className="rounded-lg border border-app-border bg-app-bg p-4">
               <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
                 ATS Readiness
               </div>
 
-              <div className="mt-2 text-3xl font-bold text-app-dim">
+              <div className="mt-2 text-3xl font-bold text-app-faint">
                 Not calculated
               </div>
 
-              <p className="mt-2 text-xs leading-5 text-app-dim">
+              <p className="mt-2 text-xs leading-5 text-app-faint">
                 ATS Readiness is a separate resume analysis and is not
                 derived from Job Match.
               </p>
@@ -731,7 +731,7 @@ function JobCard({
 
           {/* SCORE BREAKDOWN */}
           {match && match.components.length > 0 && (
-            <div className="mt-4 border border-app-border bg-app-bg p-4">
+            <div className="mt-4 rounded-lg border border-app-border bg-app-bg p-4">
               <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
                 Score Breakdown
               </div>
@@ -744,12 +744,12 @@ function JobCard({
                         {formatEvidenceType(component.name)}
                       </span>
 
-                      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-app-dim">
+                      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-app-faint">
                         {component.score} / {component.max_score}
                       </span>
                     </div>
 
-                    <p className="mt-1 text-xs leading-5 text-app-dim">
+                    <p className="mt-1 text-xs leading-5 text-app-faint">
                       {component.explanation}
                     </p>
                   </div>
@@ -759,13 +759,13 @@ function JobCard({
           )}
 
           {/* JOB INTELLIGENCE (AJI-012) */}
-          <div className="mt-4 border border-app-border bg-app-bg p-4">
+          <div className="mt-4 rounded-lg border border-app-border bg-app-bg p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
                   Job Intelligence
                 </div>
-                <p className="mt-1 text-xs leading-5 text-app-dim">
+                <p className="mt-1 text-xs leading-5 text-app-faint">
                   Structured, evidence-backed requirements extracted from
                   this JD. Not a score or a match — see Job Match above
                   for that.
@@ -810,67 +810,67 @@ function JobIntelligencePanel({
 }) {
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
-      <div className="border border-app-border p-3">
-        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
+      <div className="rounded-lg border border-app-border p-3">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
           Identity
         </div>
         <dl className="mt-2 space-y-1 text-xs text-app-text">
           <div>
-            <dt className="inline text-app-dim">Normalized title: </dt>
+            <dt className="inline text-app-faint">Normalized title: </dt>
             <dd className="inline">
               {intelligence.identity.normalized_title ?? "Unknown"}
             </dd>
           </div>
           <div>
-            <dt className="inline text-app-dim">Role family: </dt>
+            <dt className="inline text-app-faint">Role family: </dt>
             <dd className="inline">
               {intelligence.identity.role_family ?? "Unknown"}
             </dd>
           </div>
           <div>
-            <dt className="inline text-app-dim">Seniority: </dt>
+            <dt className="inline text-app-faint">Seniority: </dt>
             <dd className="inline">
               {intelligence.identity.seniority ?? "Unknown"}
             </dd>
           </div>
           <div>
-            <dt className="inline text-app-dim">Employment type: </dt>
+            <dt className="inline text-app-faint">Employment type: </dt>
             <dd className="inline">
               {formatValue(intelligence.employment.employment_type)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-app-dim">Domain: </dt>
+            <dt className="inline text-app-faint">Domain: </dt>
             <dd className="inline">{intelligence.domain.value ?? "Unknown"}</dd>
           </div>
         </dl>
       </div>
 
-      <div className="border border-app-border p-3">
-        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
+      <div className="rounded-lg border border-app-border p-3">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
           Location &amp; Authorization
         </div>
         <dl className="mt-2 space-y-1 text-xs text-app-text">
           <div>
-            <dt className="inline text-app-dim">Arrangement: </dt>
+            <dt className="inline text-app-faint">Arrangement: </dt>
             <dd className="inline">
               {formatValue(intelligence.location.remote_type)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-app-dim">Sponsorship: </dt>
+            <dt className="inline text-app-faint">Sponsorship: </dt>
             <dd className="inline">
               {formatValue(intelligence.authorization.sponsorship)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-app-dim">Citizenship: </dt>
+            <dt className="inline text-app-faint">Citizenship: </dt>
             <dd className="inline">
               {formatValue(intelligence.authorization.citizenship)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-app-dim">Clearance: </dt>
+            <dt className="inline text-app-faint">Clearance: </dt>
             <dd className="inline">
               {formatValue(intelligence.authorization.clearance)}
             </dd>
@@ -928,20 +928,20 @@ function RequirementList({
   emptyLabel: string;
 }) {
   return (
-    <div className="border border-app-border p-3">
-      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
+    <div className="rounded-lg border border-app-border p-3">
+      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
         {title}
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-2 text-xs text-app-dim">{emptyLabel}</p>
+        <p className="mt-2 text-xs text-app-faint">{emptyLabel}</p>
       ) : (
         <ul className="mt-2 space-y-2">
           {items.slice(0, 8).map((item, index) => (
             <li key={`${item.label}-${index}`} className="text-xs">
               <div className="font-medium text-app-text">{item.label}</div>
               {item.detail && (
-                <div className="mt-0.5 text-app-dim">{item.detail}</div>
+                <div className="mt-0.5 text-app-faint">{item.detail}</div>
               )}
             </li>
           ))}
@@ -966,7 +966,7 @@ function MatchList({
   warning?: boolean;
 }) {
   return (
-    <div className="border border-app-border bg-app-bg p-4">
+    <div className="rounded-lg border border-app-border bg-app-bg p-4">
       <div
         className={`font-mono text-[9px] uppercase tracking-[0.15em] ${
           warning ? "text-app-red" : "text-app-blue"
@@ -976,7 +976,7 @@ function MatchList({
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-3 text-xs text-app-dim">{emptyLabel}</p>
+        <p className="mt-3 text-xs text-app-faint">{emptyLabel}</p>
       ) : (
         <div className="mt-3 space-y-2">
           {items.slice(0, 6).map((item, index) => (
@@ -997,7 +997,7 @@ function MatchList({
                 </div>
 
                 {item.detail && (
-                  <div className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-app-dim">
+                  <div className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
                     {item.detail}
                   </div>
                 )}

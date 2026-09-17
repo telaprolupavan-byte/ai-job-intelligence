@@ -52,7 +52,7 @@ export default function QuickActions() {
             <Link
               key={action.label}
               href={action.href}
-              className={`app-focus-ring flex items-center justify-between gap-3 border p-4 text-xs uppercase tracking-wider transition ${
+              className={`app-focus-ring flex items-center justify-between gap-3 rounded-lg border p-4 text-xs uppercase tracking-wider transition ${
                 action.accent === "red"
                   ? "border-app-red-soft bg-app-red-soft/10 text-app-text hover:border-app-red hover:bg-app-red/10"
                   : "border-app-border bg-app-panel-strong text-app-muted hover:border-app-blue hover:text-app-text"

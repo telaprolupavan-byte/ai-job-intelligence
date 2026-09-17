@@ -59,7 +59,7 @@ export default function Home() {
 
             <Link
               href="/register"
-              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#a80d18]"
+              className="rounded-lg bg-crimson-fill px-5 py-2.5 text-sm font-medium text-white transition hover:bg-crimson-fill-hover"
             >
               Get started
             </Link>
@@ -87,7 +87,7 @@ export default function Home() {
               <span className="h-px w-12 bg-primary/50" />
             </div>
 
-            <h1 className="max-w-5xl text-[clamp(3.8rem,9vw,8.5rem)] font-semibold leading-[0.85] tracking-[-0.065em]">
+            <h1 className="max-w-5xl font-[family-name:var(--font-display)] text-[clamp(3.2rem,8vw,7.5rem)] font-bold leading-[0.9] tracking-[-0.03em]">
               FIND
               <br />
               BETTER
@@ -105,7 +105,7 @@ export default function Home() {
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Link
                     href="/register"
-                    className="group inline-flex items-center justify-center gap-3 rounded-lg bg-primary px-6 py-3.5 text-sm font-medium text-white transition hover:bg-[#a80d18]"
+                    className="group inline-flex items-center justify-center gap-3 rounded-lg bg-crimson-fill px-6 py-3.5 text-sm font-medium text-white transition hover:bg-crimson-fill-hover"
                   >
                     Start your search
                     <span className="transition-transform group-hover:translate-x-1">
@@ -128,7 +128,7 @@ export default function Home() {
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_rgba(200,16,30,0.7)]" />
+                  <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_rgba(255,59,48,0.6)]" />
                   <span className="text-sm">INTELLIGENCE ONLINE</span>
                 </div>
 
@@ -156,7 +156,7 @@ export default function Home() {
                 02 / THE SYSTEM
               </div>
 
-              <h2 className="mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              <h2 className="font-[family-name:var(--font-display)] mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
                 YOUR SEARCH.
                 <br />
                 <span className="text-muted-foreground">INTELLIGENTLY.</span>
@@ -172,7 +172,7 @@ export default function Home() {
               {capabilities.map((item) => (
                 <div
                   key={item.number}
-                  className="group bg-[#0b0b0b] p-7 transition hover:bg-[#111111]"
+                  className="group bg-[#11151d] p-7 transition hover:bg-[#161b26]"
                 >
                   <div className="flex items-start justify-between">
                     <span className="mono text-[10px] text-primary">
@@ -208,7 +208,7 @@ export default function Home() {
               03 / MATCH INTELLIGENCE
             </div>
 
-            <h2 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
+            <h2 className="font-[family-name:var(--font-display)] mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
               NOT EVERY JOB
               <br />
               <span className="text-muted-foreground">
@@ -248,7 +248,7 @@ export default function Home() {
                 04 / PRINCIPLES
               </div>
 
-              <h2 className="mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              <h2 className="font-[family-name:var(--font-display)] mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
                 INTELLIGENCE
                 <br />
                 <span className="text-muted-foreground">WITHOUT NOISE.</span>
@@ -294,7 +294,7 @@ export default function Home() {
               05 / BEGIN
             </div>
 
-            <h2 className="mt-6 text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">
+            <h2 className="font-[family-name:var(--font-display)] mt-6 text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">
               READY TO
               <br />
               <span className="text-muted-foreground">FIND YOUR EDGE?</span>
@@ -307,7 +307,7 @@ export default function Home() {
 
             <Link
               href="/register"
-              className="mt-9 inline-flex rounded-lg bg-primary px-7 py-3.5 text-sm font-medium text-white transition hover:bg-[#a80d18]"
+              className="mt-9 inline-flex rounded-lg bg-crimson-fill px-7 py-3.5 text-sm font-medium text-white transition hover:bg-crimson-fill-hover"
             >
               Create your account
             </Link>
@@ -344,7 +344,7 @@ function Metric({
   description: string;
 }) {
   return (
-    <div className="red-glow rounded-xl border border-white/10 bg-[#0b0b0b] p-7">
+    <div className="red-glow rounded-xl border border-white/10 bg-[#11151d] p-7">
       <div className="text-4xl font-semibold tracking-[-0.04em] text-primary">
         {value}
       </div>

@@ -19,10 +19,10 @@ import ApplicationStatus from "./components/application-status";
 function timeBasedGreeting(): string {
   const hour = new Date().getHours();
 
-  if (hour < 5) return "GOOD NIGHT.";
-  if (hour < 12) return "GOOD MORNING.";
-  if (hour < 18) return "GOOD AFTERNOON.";
-  return "GOOD EVENING.";
+  if (hour < 5) return "Good night";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
 export default function DashboardPage() {
@@ -86,7 +86,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-app-bg">
+      <div className="bg-app-bg">
         <Container>
           <Skeleton className="h-40 w-full" />
 
@@ -107,13 +107,13 @@ export default function DashboardPage() {
             <Skeleton className="h-64 w-full" />
           </div>
         </Container>
-      </main>
+      </div>
     );
   }
 
   if (loadError || !dashboard) {
     return (
-      <main className="min-h-screen bg-app-bg">
+      <div className="bg-app-bg">
         <Container>
           <ErrorState
             title="Dashboard unavailable"
@@ -123,7 +123,7 @@ export default function DashboardPage() {
             onRetry={() => setReloadKey((key) => key + 1)}
           />
         </Container>
-      </main>
+      </div>
     );
   }
 
@@ -143,75 +143,65 @@ export default function DashboardPage() {
     dashboard.resume.status === "ready" ? "READY" : "NOT READY";
 
   const resumeDetail = dashboard.resume.name ?? "UPLOAD A RESUME TO BEGIN";
-
-  const [greetingFirstWord, ...greetingRestWords] =
-    timeBasedGreeting().split(" ");
-  const greetingRest = greetingRestWords.join(" ");
+  const greeting = timeBasedGreeting();
 
   return (
-    <main className="min-h-screen bg-app-bg text-app-text">
+    <div className="bg-app-bg text-app-text">
       <div className="relative overflow-hidden">
-        {/* Technical atmosphere */}
-        <div className="pointer-events-none absolute inset-0 opacity-40" aria-hidden="true">
-          <div className="absolute left-[15%] top-0 h-[500px] w-[500px] rounded-full bg-app-blue-soft/10 blur-[120px]" />
-          <div className="absolute right-[-100px] top-[200px] h-[450px] w-[450px] rounded-full bg-app-red/10 blur-[120px]" />
+        {/* Technical atmosphere — decorative only, kept low-contrast */}
+        <div className="pointer-events-none absolute inset-0 opacity-25" aria-hidden="true">
+          <div className="absolute left-[10%] top-0 h-[380px] w-[380px] rounded-full bg-app-blue-soft/20 blur-[110px]" />
+          <div className="absolute right-[-80px] top-[120px] h-[320px] w-[320px] rounded-full bg-app-red-soft/25 blur-[110px]" />
 
           <div
-            className="absolute inset-0 opacity-[0.08]"
+            className="absolute inset-0 opacity-[0.06]"
             style={{
               backgroundImage:
-                "linear-gradient(#1677E8 1px, transparent 1px), linear-gradient(90deg, #1677E8 1px, transparent 1px)",
+                "linear-gradient(var(--color-app-blue) 1px, transparent 1px), linear-gradient(90deg, var(--color-app-blue) 1px, transparent 1px)",
               backgroundSize: "70px 70px",
             }}
           />
         </div>
 
         <Container className="relative">
-          {/* Hero */}
-          <section className="relative overflow-hidden border border-app-border bg-app-panel-strong">
+          {/* Hero — compact by design: one line of context, one primary action */}
+          <section className="glass-panel relative overflow-hidden rounded-2xl border border-app-border">
             <div
               aria-hidden="true"
-              className="absolute right-0 top-0 h-full w-[45%] bg-gradient-to-l from-app-blue-soft/10 to-transparent"
+              className="absolute right-0 top-0 h-full w-[35%] bg-gradient-to-l from-app-blue-soft/15 to-transparent"
             />
 
-            <div className="relative px-6 py-10 md:px-10 md:py-14">
-              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-app-red">
-                01 / COMMAND CENTER
-              </div>
-
-              <div className="mt-6 max-w-4xl">
-                <div className="font-mono text-xs uppercase tracking-[0.2em] text-app-faint">
-                  Hello, {dashboard.user.email.split("@")[0]}
+            <div className="relative flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8 md:py-7">
+              <div className="min-w-0">
+                <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
+                  Command Center
                 </div>
 
-                <h1 className="mt-3 text-5xl font-bold tracking-[-0.04em] md:text-7xl lg:text-8xl">
-                  {greetingFirstWord}
-                  <br />
-                  <span className="text-app-red">{greetingRest}</span>
+                <h1 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight sm:text-3xl">
+                  {greeting},{" "}
+                  <span className="text-app-blue">
+                    {dashboard.user.email.split("@")[0]}
+                  </span>
+                  .
                 </h1>
 
-                <p className="mt-6 max-w-xl text-sm leading-7 text-app-muted md:text-base">
-                  Your career intelligence system is ready. Start with resume
-                  intelligence, then explore matched jobs and track your
-                  applications.
+                <p className="mt-2 max-w-xl text-sm leading-6 text-app-muted">
+                  Your career intelligence is ready — resume analysis, job
+                  matching, and discovery in one place.
                 </p>
-
-                <AppButton href="/resume" className="mt-8">
-                  Analyze Your Resume
-                  <span aria-hidden="true">→</span>
-                </AppButton>
               </div>
-            </div>
 
-            <div className="absolute bottom-4 right-5 hidden font-mono text-[9px] uppercase tracking-[0.25em] text-app-blue md:block">
-              SYSTEM / ONLINE
+              <AppButton href="/resume" className="shrink-0">
+                Analyze Your Resume
+                <span aria-hidden="true">→</span>
+              </AppButton>
             </div>
           </section>
 
           {/* Intelligence */}
-          <section className="mt-8">
-            <div className="mb-4 font-mono text-[10px] uppercase tracking-[0.25em] text-app-faint">
-              02 / INTELLIGENCE
+          <section className="mt-6">
+            <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] text-app-faint">
+              Intelligence Summary
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -262,19 +252,19 @@ export default function DashboardPage() {
           </section>
 
           {/* Quick Actions */}
-          <div className="mt-8">
+          <div className="mt-6">
             <QuickActions />
           </div>
 
           {/* Jobs + Applications */}
-          <section className="mt-10 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+          <section className="mt-8 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
             <Opportunities />
 
             <ApplicationStatus applications={dashboard.applications} />
           </section>
 
           {/* Footer */}
-          <footer className="mt-12 flex flex-col gap-3 border-t border-app-border pt-6 text-[10px] md:flex-row md:items-center md:justify-between">
+          <footer className="mt-10 flex flex-col gap-3 border-t border-app-border pt-6 pb-8 text-[10px] md:flex-row md:items-center md:justify-between">
             <div className="font-mono uppercase tracking-[0.2em] text-app-faint">
               AI JOB INTELLIGENCE / PERSONAL CAREER SYSTEM
             </div>
@@ -285,6 +275,6 @@ export default function DashboardPage() {
           </footer>
         </Container>
       </div>
-    </main>
+    </div>
   );
 }
