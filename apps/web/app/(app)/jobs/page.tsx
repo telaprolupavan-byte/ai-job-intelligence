@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { Suspense, useEffect, useState, useTransition } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import {
   calculateJobMatch,
   generateJobIntelligence,
@@ -8,7 +10,14 @@ import {
   type Job,
   type JobIntelligenceData,
   type JobMatchResult,
-} from "../../../lib/jobs";
+} from "@/lib/jobs";
+import Container from "@/components/app/container";
+import Panel, { PanelHeader } from "@/components/app/panel";
+import Badge from "@/components/app/badge";
+import AppButton from "@/components/app/app-button";
+import EmptyState from "@/components/app/empty-state";
+import ErrorState from "@/components/app/error-state";
+import { Skeleton } from "@/components/app/skeleton";
 
 type JobFilters = {
   search: string;
@@ -36,15 +45,36 @@ const EMPTY_RESULTS: JobResults = {
   totalJobs: 0,
 };
 
-export default function Page() {
+function filtersFromParams(params: URLSearchParams): JobFilters {
+  return {
+    search: params.get("search") ?? "",
+    employmentType: params.get("employment_type") ?? "",
+    remoteType: params.get("remote_type") ?? "",
+    location: params.get("location") ?? "",
+  };
+}
+
+function pageFromParams(params: URLSearchParams): number {
+  const raw = Number(params.get("page"));
+  return Number.isFinite(raw) && raw > 0 ? raw : 1;
+}
+
+function JobsPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const initialFilters = filtersFromParams(searchParams);
+  const initialPage = pageFromParams(searchParams);
+
   // Draft state bound to the filter form inputs, not yet submitted.
-  const [filterForm, setFilterForm] = useState<JobFilters>(EMPTY_FILTERS);
+  const [filterForm, setFilterForm] = useState<JobFilters>(initialFilters);
 
   // The filters actually applied to the last/current search request.
   const [appliedFilters, setAppliedFilters] =
-    useState<JobFilters>(EMPTY_FILTERS);
+    useState<JobFilters>(initialFilters);
 
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPage);
   const [results, setResults] = useState<JobResults>(EMPTY_RESULTS);
   const [error, setError] = useState<string | null>(null);
   const [matches, setMatches] = useState<Record<string, JobMatchResult>>({});
@@ -65,6 +95,28 @@ export default function Page() {
     Record<string, string>
   >({});
   const [isPending, startTransition] = useTransition();
+
+  // Keeps the URL in sync with the active search so a refresh, a shared
+  // link, or the browser's back/forward buttons land on the same results.
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (appliedFilters.search) params.set("search", appliedFilters.search);
+    if (appliedFilters.employmentType)
+      params.set("employment_type", appliedFilters.employmentType);
+    if (appliedFilters.remoteType)
+      params.set("remote_type", appliedFilters.remoteType);
+    if (appliedFilters.location)
+      params.set("location", appliedFilters.location);
+    if (page > 1) params.set("page", String(page));
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFilters, page]);
+
   useEffect(() => {
     let cancelled = false;
     startTransition(async () => {
@@ -114,6 +166,11 @@ export default function Page() {
     setAppliedFilters(EMPTY_FILTERS);
     setPage(1);
   }
+
+  const activeFilterCount = Object.values(appliedFilters).filter(
+    Boolean,
+  ).length;
+
   async function handleCalculateMatch(jobId: string) {
     setMatchingJobIds((current) => ({ ...current, [jobId]: true }));
     setMatchErrors((current) => {
@@ -183,12 +240,11 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-[#05070A] px-6 py-8 text-[#F2F5F8]">
-      <div className="mx-auto max-w-7xl">
-
+    <main className="min-h-screen bg-app-bg text-app-text">
+      <Container>
         {/* HEADER */}
         <div className="mb-8">
-          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#E50920]">
+          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
             Intelligence Module
           </div>
 
@@ -198,15 +254,15 @@ export default function Page() {
                 Job Discovery
               </h1>
 
-              <p className="mt-2 max-w-2xl text-sm leading-7 text-[#8D9AAA]">
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-app-muted">
                 Discover U.S. opportunities from connected job sources.
                 Search, filter, and inspect available positions.
               </p>
             </div>
 
-            <div className="border border-[#1A3048] bg-[#0B1626] px-4 py-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#1677E8]">
-                ACTIVE LISTINGS
+            <div className="border border-app-border bg-app-panel px-4 py-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
+                Active Listings
               </div>
 
               <div className="mt-1 text-xl font-bold">
@@ -219,167 +275,117 @@ export default function Page() {
         {/* FILTER PANEL */}
         <form
           onSubmit={handleSearch}
-          className="mb-8 border border-[#1A3048] bg-[#0B1626] p-5"
+          className="mb-8 border border-app-border bg-app-panel"
         >
-          <div className="mb-5 flex items-center justify-between border-b border-[#1A3048] pb-4">
-            <div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#1677E8]">
-                SEARCH PARAMETERS
-              </div>
+          <PanelHeader
+              eyebrow="Search Parameters"
+              description="Configure discovery criteria"
+              action={
+                <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim md:flex">
+                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                  AJI / Discovery
+                </div>
+              }
+            />
 
-              <div className="mt-1 text-sm text-[#8D9AAA]">
-                Configure discovery criteria
-              </div>
+            <div className="grid gap-4 p-5 md:grid-cols-2 lg:grid-cols-4">
+              <FilterField label="Role / Keyword" htmlFor="search">
+                <input
+                  id="search"
+                  type="text"
+                  value={filterForm.search}
+                  onChange={(event) =>
+                    setFilterForm((current) => ({
+                      ...current,
+                      search: event.target.value,
+                    }))
+                  }
+                  placeholder="AI Engineer"
+                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-dim focus:border-app-blue"
+                />
+              </FilterField>
+
+              <FilterField label="Employment Type" htmlFor="employmentType">
+                <select
+                  id="employmentType"
+                  value={filterForm.employmentType}
+                  onChange={(event) =>
+                    setFilterForm((current) => ({
+                      ...current,
+                      employmentType: event.target.value,
+                    }))
+                  }
+                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                >
+                  <option value="">All Types</option>
+                  <option value="full_time">Full Time</option>
+                  <option value="contract">Contract</option>
+                  <option value="part_time">Part Time</option>
+                  <option value="internship">Internship</option>
+                  <option value="temporary">Temporary</option>
+                </select>
+              </FilterField>
+
+              <FilterField label="Work Arrangement" htmlFor="remoteType">
+                <select
+                  id="remoteType"
+                  value={filterForm.remoteType}
+                  onChange={(event) =>
+                    setFilterForm((current) => ({
+                      ...current,
+                      remoteType: event.target.value,
+                    }))
+                  }
+                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                >
+                  <option value="">All Arrangements</option>
+                  <option value="remote">Remote</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="onsite">On-site</option>
+                </select>
+              </FilterField>
+
+              <FilterField label="Location" htmlFor="location">
+                <input
+                  id="location"
+                  type="text"
+                  value={filterForm.location}
+                  onChange={(event) =>
+                    setFilterForm((current) => ({
+                      ...current,
+                      location: event.target.value,
+                    }))
+                  }
+                  placeholder="New York, NY"
+                  className="w-full border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-dim focus:border-app-blue"
+                />
+              </FilterField>
             </div>
 
-            <div className="hidden font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174] md:block">
-              AJI / DISCOVERY
+            <div className="flex flex-wrap items-center gap-3 px-5 pb-5">
+              <AppButton type="submit">
+                <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                Search Jobs
+              </AppButton>
+
+              <AppButton type="button" variant="ghost" onClick={clearFilters}>
+                Clear{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+              </AppButton>
             </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-
-            {/* SEARCH */}
-            <div>
-              <label
-                htmlFor="search"
-                className="mb-2 block font-mono text-[9px] uppercase tracking-[0.15em] text-[#8D9AAA]"
-              >
-                Role / Keyword
-              </label>
-
-              <input
-                id="search"
-                type="text"
-                value={filterForm.search}
-                onChange={(event) =>
-                  setFilterForm((current) => ({
-                    ...current,
-                    search: event.target.value,
-                  }))
-                }
-                placeholder="AI Engineer"
-                className="w-full border border-[#1A3048] bg-[#05070A] px-3 py-3 text-sm text-[#F2F5F8] outline-none placeholder:text-[#506174] focus:border-[#1677E8]"
-              />
-            </div>
-
-            {/* EMPLOYMENT TYPE */}
-            <div>
-              <label
-                htmlFor="employmentType"
-                className="mb-2 block font-mono text-[9px] uppercase tracking-[0.15em] text-[#8D9AAA]"
-              >
-                Employment Type
-              </label>
-
-              <select
-                id="employmentType"
-                value={filterForm.employmentType}
-                onChange={(event) =>
-                  setFilterForm((current) => ({
-                    ...current,
-                    employmentType: event.target.value,
-                  }))
-                }
-                className="w-full border border-[#1A3048] bg-[#05070A] px-3 py-3 text-sm text-[#F2F5F8] outline-none focus:border-[#1677E8]"
-              >
-                <option value="">All Types</option>
-                <option value="full_time">Full Time</option>
-                <option value="contract">Contract</option>
-                <option value="part_time">Part Time</option>
-                <option value="internship">Internship</option>
-                <option value="temporary">Temporary</option>
-              </select>
-            </div>
-
-            {/* REMOTE TYPE */}
-            <div>
-              <label
-                htmlFor="remoteType"
-                className="mb-2 block font-mono text-[9px] uppercase tracking-[0.15em] text-[#8D9AAA]"
-              >
-                Work Arrangement
-              </label>
-
-              <select
-                id="remoteType"
-                value={filterForm.remoteType}
-                onChange={(event) =>
-                  setFilterForm((current) => ({
-                    ...current,
-                    remoteType: event.target.value,
-                  }))
-                }
-                className="w-full border border-[#1A3048] bg-[#05070A] px-3 py-3 text-sm text-[#F2F5F8] outline-none focus:border-[#1677E8]"
-              >
-                <option value="">All Arrangements</option>
-                <option value="remote">Remote</option>
-                <option value="hybrid">Hybrid</option>
-                <option value="onsite">On-site</option>
-              </select>
-            </div>
-
-            {/* LOCATION */}
-            <div>
-              <label
-                htmlFor="location"
-                className="mb-2 block font-mono text-[9px] uppercase tracking-[0.15em] text-[#8D9AAA]"
-              >
-                Location
-              </label>
-
-              <input
-                id="location"
-                type="text"
-                value={filterForm.location}
-                onChange={(event) =>
-                  setFilterForm((current) => ({
-                    ...current,
-                    location: event.target.value,
-                  }))
-                }
-                placeholder="New York, NY"
-                className="w-full border border-[#1A3048] bg-[#05070A] px-3 py-3 text-sm text-[#F2F5F8] outline-none placeholder:text-[#506174] focus:border-[#1677E8]"
-              />
-            </div>
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="submit"
-              className="bg-[#E50920] px-5 py-3 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#FF1E32]"
-            >
-              Search Jobs
-            </button>
-
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="border border-[#1A3048] px-5 py-3 text-xs font-bold uppercase tracking-[0.15em] text-[#8D9AAA] transition hover:border-[#506174] hover:text-white"
-            >
-              Clear
-            </button>
-          </div>
         </form>
 
         {/* ERROR */}
         {error && (
-          <div className="mb-6 border border-[#6B1A26] bg-[#18090D] p-4">
-            <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#E50920]">
-              DISCOVERY ERROR
-            </div>
-
-            <p className="mt-2 text-sm text-[#F2A0AA]">
-              {error}
-            </p>
+          <div className="mb-6">
+            <ErrorState title="Discovery Error" message={error} />
           </div>
         )}
 
         {/* RESULTS HEADER */}
         <div className="mb-5 flex items-end justify-between">
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#1677E8]">
-              DISCOVERY RESULTS
+            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
+              Discovery Results
             </div>
 
             <h2 className="mt-1 text-xl font-semibold">
@@ -388,40 +394,47 @@ export default function Page() {
           </div>
 
           {!isPending && (
-            <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
-              {results.totalJobs} RESULTS
+            <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
+              {results.totalJobs} Results
             </div>
           )}
         </div>
 
         {/* LOADING */}
         {isPending && (
-          <div className="border border-[#1A3048] bg-[#0B1626] p-12 text-center">
-            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
-              DISCOVERY ENGINE
-            </div>
-
-            <p className="mt-3 text-sm text-[#8D9AAA]">
-              Loading available opportunities...
-            </p>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="border border-app-border bg-app-panel p-6"
+              >
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="mt-3 h-3 w-1/3" />
+                <div className="mt-4 flex gap-2">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-6 w-16" />
+                </div>
+                <Skeleton className="mt-5 h-16 w-full" />
+              </div>
+            ))}
           </div>
         )}
 
         {/* EMPTY */}
         {!isPending && !error && results.jobs.length === 0 && (
-          <div className="border border-[#1A3048] bg-[#0B1626] p-12 text-center">
-            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#E50920]">
-              NO MATCHING LISTINGS
-            </div>
-
-            <h3 className="mt-3 text-lg font-semibold">
-              No jobs found
-            </h3>
-
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#8D9AAA]">
-              Try changing your search criteria or clearing the filters.
-            </p>
-          </div>
+          <EmptyState
+            icon={SearchIcon}
+            title="No jobs found"
+            description="Try changing your search criteria or clearing the filters."
+            action={
+              activeFilterCount > 0 ? (
+                <AppButton variant="secondary" onClick={clearFilters}>
+                  Clear Filters
+                </AppButton>
+              ) : undefined
+            }
+          />
         )}
 
         {/* JOB LIST */}
@@ -449,33 +462,74 @@ export default function Page() {
         {/* PAGINATION */}
         {!isPending && results.totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-5">
-            <button
-              type="button"
+            <AppButton
+              variant="ghost"
+              size="sm"
               disabled={page <= 1}
               onClick={() => setPage((current) => current - 1)}
-              className="border border-[#1A3048] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#506174] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
               ← Previous
-            </button>
+            </AppButton>
 
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#506174]">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-dim">
               Page {page} / {results.totalPages}
             </div>
 
-            <button
-              type="button"
+            <AppButton
+              variant="ghost"
+              size="sm"
               disabled={page >= results.totalPages}
               onClick={() => setPage((current) => current + 1)}
-              className="border border-[#1A3048] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#506174] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
               Next →
-            </button>
+            </AppButton>
           </div>
         )}
-      </div>
+      </Container>
     </main>
   );
 }
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-app-bg px-6 py-8 text-app-text">
+          <Container>
+            <Skeleton className="h-10 w-64" />
+            <Skeleton className="mt-4 h-40 w-full" />
+          </Container>
+        </main>
+      }
+    >
+      <JobsPageInner />
+    </Suspense>
+  );
+}
+
+function FilterField({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={htmlFor}
+        className="mb-2 block font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted"
+      >
+        {label}
+      </label>
+
+      {children}
+    </div>
+  );
+}
+
 function JobCard({
   job,
   match,
@@ -508,41 +562,37 @@ function JobCard({
   ];
 
   return (
-    <article className="border border-[#1A3048] bg-[#0B1626] p-6 transition hover:border-[#29496A]">
+    <Panel as="article" padding="lg" interactive>
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             {/* JOB TITLE */}
-            <h3 className="text-xl font-semibold tracking-tight text-[#F2F5F8]">
+            <h3 className="text-xl font-semibold tracking-tight text-app-text">
               {job.title}
             </h3>
 
             {/* COMPANY */}
-            <p className="mt-2 text-sm font-medium text-[#8D9AAA]">
+            <p className="mt-2 text-sm font-medium text-app-muted">
               {job.company || "Company not specified"}
             </p>
 
             {/* METADATA */}
             <div className="mt-4 flex flex-wrap gap-2">
-              {job.location && <Tag>{job.location}</Tag>}
-
-              {job.remote_type && (
-                <Tag>{formatValue(job.remote_type)}</Tag>
-              )}
-
+              {job.location && <Badge>{job.location}</Badge>}
+              {job.remote_type && <Badge>{formatValue(job.remote_type)}</Badge>}
               {job.employment_type && (
-                <Tag>{formatValue(job.employment_type)}</Tag>
+                <Badge>{formatValue(job.employment_type)}</Badge>
               )}
             </div>
 
             {/* SALARY */}
             {(job.salary_min !== null || job.salary_max !== null) && (
               <div className="mt-5">
-                <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+                <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
                   Compensation
                 </div>
 
-                <div className="mt-1 text-sm font-semibold text-[#F2F5F8]">
+                <div className="mt-1 text-sm font-semibold text-app-text">
                   {formatSalary(job)}
                 </div>
               </div>
@@ -550,18 +600,18 @@ function JobCard({
 
             {/* DESCRIPTION */}
             {job.description && (
-              <p className="mt-5 line-clamp-3 max-w-4xl text-sm leading-6 text-[#8D9AAA]">
+              <p className="mt-5 line-clamp-3 max-w-4xl text-sm leading-6 text-app-muted">
                 {job.description}
               </p>
             )}
 
             {/* SOURCE */}
             <div className="mt-5 flex items-center gap-2">
-              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
                 Source
               </span>
 
-              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#1677E8]">
+              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
                 {job.source}
               </span>
             </div>
@@ -570,79 +620,74 @@ function JobCard({
           {/* ACTIONS */}
           <div className="flex shrink-0 gap-3 lg:flex-col">
             {job.source_url && (
-              <a
+              <AppButton
+                variant="secondary"
                 href={job.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="border border-[#1A3048] px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#1677E8] hover:text-white"
               >
                 View Job
-              </a>
+              </AppButton>
             )}
 
             {job.application_url && (
-              <a
-                href={job.application_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#E50920] px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.12em] text-white transition hover:bg-[#FF1E32]"
-              >
+              <AppButton href={job.application_url} target="_blank" rel="noopener noreferrer">
                 Apply
-              </a>
+              </AppButton>
             )}
           </div>
         </div>
 
         {/* MATCH PANEL */}
-        <div className="border-t border-[#1A3048] pt-5">
+        <div className="border-t border-app-border pt-5">
           <div className="grid gap-4 md:grid-cols-2">
             {/* JOB MATCH */}
-            <div className="border border-[#1A3048] bg-[#05070A] p-4">
+            <div className="border border-app-border bg-app-bg p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#1677E8]">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
                     Job Match
                   </div>
 
-                  <div className="mt-2 text-3xl font-bold text-[#F2F5F8]">
+                  <div className="mt-2 text-3xl font-bold text-app-text">
                     {match ? `${Math.round(match.score)}%` : "—"}
                   </div>
 
                   {match && (
-                    <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[#506174]">
+                    <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-app-dim">
                       Confidence: {match.confidence}
                     </div>
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  disabled={isMatching}
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  loading={isMatching}
                   onClick={() => onCalculateMatch(job.id)}
-                  className="border border-[#1A3048] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#1677E8] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isMatching ? "Calculating..." : "Calculate Match"}
-                </button>
+                </AppButton>
               </div>
 
               {matchError && (
-                <p className="mt-3 text-xs leading-5 text-[#F2A0AA]">
+                <p className="mt-3 text-xs leading-5 text-app-danger-text">
                   {matchError}
                 </p>
               )}
             </div>
 
             {/* ATS READINESS */}
-            <div className="border border-[#1A3048] bg-[#05070A] p-4">
-              <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#1677E8]">
+            <div className="border border-app-border bg-app-bg p-4">
+              <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
                 ATS Readiness
               </div>
 
-              <div className="mt-2 text-3xl font-bold text-[#506174]">
+              <div className="mt-2 text-3xl font-bold text-app-dim">
                 Not calculated
               </div>
 
-              <p className="mt-2 text-xs leading-5 text-[#506174]">
+              <p className="mt-2 text-xs leading-5 text-app-dim">
                 ATS Readiness is a separate resume analysis and is not
                 derived from Job Match.
               </p>
@@ -686,8 +731,8 @@ function JobCard({
 
           {/* SCORE BREAKDOWN */}
           {match && match.components.length > 0 && (
-            <div className="mt-4 border border-[#1A3048] bg-[#05070A] p-4">
-              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#1677E8]">
+            <div className="mt-4 border border-app-border bg-app-bg p-4">
+              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
                 Score Breakdown
               </div>
 
@@ -695,16 +740,16 @@ function JobCard({
                 {match.components.map((component) => (
                   <div key={component.name}>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-medium text-[#F2F5F8]">
+                      <span className="text-xs font-medium text-app-text">
                         {formatEvidenceType(component.name)}
                       </span>
 
-                      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#506174]">
+                      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-app-dim">
                         {component.score} / {component.max_score}
                       </span>
                     </div>
 
-                    <p className="mt-1 text-xs leading-5 text-[#506174]">
+                    <p className="mt-1 text-xs leading-5 text-app-dim">
                       {component.explanation}
                     </p>
                   </div>
@@ -714,35 +759,36 @@ function JobCard({
           )}
 
           {/* JOB INTELLIGENCE (AJI-012) */}
-          <div className="mt-4 border border-[#1A3048] bg-[#05070A] p-4">
+          <div className="mt-4 border border-app-border bg-app-bg p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#1677E8]">
+                <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
                   Job Intelligence
                 </div>
-                <p className="mt-1 text-xs leading-5 text-[#506174]">
+                <p className="mt-1 text-xs leading-5 text-app-dim">
                   Structured, evidence-backed requirements extracted from
                   this JD. Not a score or a match — see Job Match above
                   for that.
                 </p>
               </div>
 
-              <button
-                type="button"
-                disabled={isLoadingIntelligence}
+              <AppButton
+                variant="ghost"
+                size="sm"
+                loading={isLoadingIntelligence}
                 onClick={() => onViewIntelligence(job.id)}
-                className="shrink-0 border border-[#1A3048] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#1677E8] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0"
               >
                 {isLoadingIntelligence
                   ? "Analyzing..."
                   : intelligence
                     ? "Refresh"
                     : "Analyze JD"}
-              </button>
+              </AppButton>
             </div>
 
             {intelligenceError && (
-              <p className="mt-3 text-xs leading-5 text-[#F2A0AA]">
+              <p className="mt-3 text-xs leading-5 text-app-danger-text">
                 {intelligenceError}
               </p>
             )}
@@ -753,7 +799,7 @@ function JobCard({
           </div>
         </div>
       </div>
-    </article>
+    </Panel>
   );
 }
 
@@ -764,69 +810,67 @@ function JobIntelligencePanel({
 }) {
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
-      <div className="border border-[#1A3048] p-3">
-        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+      <div className="border border-app-border p-3">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
           Identity
         </div>
-        <dl className="mt-2 space-y-1 text-xs text-[#F2F5F8]">
+        <dl className="mt-2 space-y-1 text-xs text-app-text">
           <div>
-            <dt className="inline text-[#506174]">Normalized title: </dt>
+            <dt className="inline text-app-dim">Normalized title: </dt>
             <dd className="inline">
               {intelligence.identity.normalized_title ?? "Unknown"}
             </dd>
           </div>
           <div>
-            <dt className="inline text-[#506174]">Role family: </dt>
+            <dt className="inline text-app-dim">Role family: </dt>
             <dd className="inline">
               {intelligence.identity.role_family ?? "Unknown"}
             </dd>
           </div>
           <div>
-            <dt className="inline text-[#506174]">Seniority: </dt>
+            <dt className="inline text-app-dim">Seniority: </dt>
             <dd className="inline">
               {intelligence.identity.seniority ?? "Unknown"}
             </dd>
           </div>
           <div>
-            <dt className="inline text-[#506174]">Employment type: </dt>
+            <dt className="inline text-app-dim">Employment type: </dt>
             <dd className="inline">
               {formatValue(intelligence.employment.employment_type)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-[#506174]">Domain: </dt>
-            <dd className="inline">
-              {intelligence.domain.value ?? "Unknown"}
-            </dd>
+            <dt className="inline text-app-dim">Domain: </dt>
+            <dd className="inline">{intelligence.domain.value ?? "Unknown"}</dd>
           </div>
         </dl>
       </div>
 
-      <div className="border border-[#1A3048] p-3">
-        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+      <div className="border border-app-border p-3">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
           Location &amp; Authorization
         </div>
-        <dl className="mt-2 space-y-1 text-xs text-[#F2F5F8]">
+        <dl className="mt-2 space-y-1 text-xs text-app-text">
           <div>
-            <dt className="inline text-[#506174]">Arrangement: </dt>
+            <dt className="inline text-app-dim">Arrangement: </dt>
             <dd className="inline">
               {formatValue(intelligence.location.remote_type)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-[#506174]">Sponsorship: </dt>
+            <dt className="inline text-app-dim">Sponsorship: </dt>
             <dd className="inline">
               {formatValue(intelligence.authorization.sponsorship)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-[#506174]">Citizenship: </dt>
+            <dt className="inline text-app-dim">Citizenship: </dt>
             <dd className="inline">
               {formatValue(intelligence.authorization.citizenship)}
             </dd>
           </div>
           <div>
-            <dt className="inline text-[#506174]">Clearance: </dt>
+            <dt className="inline text-app-dim">Clearance: </dt>
             <dd className="inline">
               {formatValue(intelligence.authorization.clearance)}
             </dd>
@@ -884,20 +928,20 @@ function RequirementList({
   emptyLabel: string;
 }) {
   return (
-    <div className="border border-[#1A3048] p-3">
-      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+    <div className="border border-app-border p-3">
+      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-dim">
         {title}
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-2 text-xs text-[#506174]">{emptyLabel}</p>
+        <p className="mt-2 text-xs text-app-dim">{emptyLabel}</p>
       ) : (
         <ul className="mt-2 space-y-2">
           {items.slice(0, 8).map((item, index) => (
             <li key={`${item.label}-${index}`} className="text-xs">
-              <div className="font-medium text-[#F2F5F8]">{item.label}</div>
+              <div className="font-medium text-app-text">{item.label}</div>
               {item.detail && (
-                <div className="mt-0.5 text-[#506174]">{item.detail}</div>
+                <div className="mt-0.5 text-app-dim">{item.detail}</div>
               )}
             </li>
           ))}
@@ -922,19 +966,17 @@ function MatchList({
   warning?: boolean;
 }) {
   return (
-    <div className="border border-[#1A3048] bg-[#05070A] p-4">
+    <div className="border border-app-border bg-app-bg p-4">
       <div
         className={`font-mono text-[9px] uppercase tracking-[0.15em] ${
-          warning ? "text-[#E50920]" : "text-[#1677E8]"
+          warning ? "text-app-red" : "text-app-blue"
         }`}
       >
         {title}
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-3 text-xs text-[#506174]">
-          {emptyLabel}
-        </p>
+        <p className="mt-3 text-xs text-app-dim">{emptyLabel}</p>
       ) : (
         <div className="mt-3 space-y-2">
           {items.slice(0, 6).map((item, index) => (
@@ -943,22 +985,19 @@ function MatchList({
               className="flex items-start gap-2"
             >
               <span
-                className={
-                  warning
-                    ? "mt-0.5 text-[#E50920]"
-                    : "mt-0.5 text-[#1677E8]"
-                }
+                aria-hidden="true"
+                className={warning ? "mt-0.5 text-app-red" : "mt-0.5 text-app-blue"}
               >
                 {warning ? "⚠" : "✓"}
               </span>
 
               <div className="min-w-0">
-                <div className="text-xs font-medium text-[#F2F5F8]">
+                <div className="text-xs font-medium text-app-text">
                   {item.label}
                 </div>
 
                 {item.detail && (
-                  <div className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-[#506174]">
+                  <div className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-app-dim">
                     {item.detail}
                   </div>
                 )}
@@ -981,14 +1020,6 @@ function formatEvidenceStatus(value: string): string {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="border border-[#1A3048] bg-[#05070A] px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.1em] text-[#8D9AAA]">
-      {children}
-    </span>
-  );
 }
 
 function formatValue(value: string): string {

@@ -9,15 +9,13 @@ export default function AppLayout({
 }) {
   return (
     <AuthGate>
-      <div className="min-h-screen bg-[#05070A] text-[#F2F5F8]">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Sidebar />
 
-        <div className="min-h-screen md:pl-64">
+        <div className="min-h-screen lg:pl-64">
           <DashboardHeader />
 
-          <main className="min-h-screen">
-            {children}
-          </main>
+          <main className="min-h-screen">{children}</main>
         </div>
       </div>
     </AuthGate>

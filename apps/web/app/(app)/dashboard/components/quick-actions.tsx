@@ -1,50 +1,71 @@
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import { UploadCloud, ClipboardList, Briefcase, ListChecks } from "lucide-react";
 
-const actions = [
+const actions: {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  accent: "red" | "blue";
+}[] = [
   {
     label: "Upload / Update Resume",
     href: "/resume",
+    icon: UploadCloud,
     accent: "red",
   },
   {
     label: "Check ATS",
     href: "/ats",
+    icon: ClipboardList,
     accent: "blue",
   },
   {
     label: "View Jobs",
     href: "/jobs",
+    icon: Briefcase,
     accent: "blue",
   },
   {
     label: "Applications",
     href: "/applications",
+    icon: ListChecks,
     accent: "red",
   },
 ];
 
 export default function QuickActions() {
   return (
-    <section>
-      <div className="mb-4 font-mono text-[10px] uppercase tracking-[0.25em] text-[#5E7187]">
+    <section aria-labelledby="quick-actions-heading">
+      <div
+        id="quick-actions-heading"
+        className="mb-4 font-mono text-[10px] uppercase tracking-[0.25em] text-app-faint"
+      >
         Quick Actions
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {actions.map((action) => (
-          <Link
-            key={action.label}
-            href={action.href}
-            className={`border p-4 text-xs uppercase tracking-wider transition ${
-              action.accent === "red"
-                ? "border-[#8B0B18] bg-[#8B0B18]/10 text-[#F2F5F8] hover:border-[#E50920] hover:bg-[#E50920]/10"
-                : "border-[#1A3048] bg-[#07111F] text-[#8D9AAA] hover:border-[#1677E8] hover:text-[#F2F5F8]"
-            }`}
-          >
-            {action.label}
-            <span className="float-right">→</span>
-          </Link>
-        ))}
+        {actions.map((action) => {
+          const Icon = action.icon;
+
+          return (
+            <Link
+              key={action.label}
+              href={action.href}
+              className={`app-focus-ring flex items-center justify-between gap-3 border p-4 text-xs uppercase tracking-wider transition ${
+                action.accent === "red"
+                  ? "border-app-red-soft bg-app-red-soft/10 text-app-text hover:border-app-red hover:bg-app-red/10"
+                  : "border-app-border bg-app-panel-strong text-app-muted hover:border-app-blue hover:text-app-text"
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {action.label}
+              </span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

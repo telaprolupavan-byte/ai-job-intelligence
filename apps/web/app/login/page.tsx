@@ -71,7 +71,7 @@ function LoginForm() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full border border-border bg-surface px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -90,19 +90,25 @@ function LoginForm() {
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full border border-border bg-surface px-4 py-3 text-sm outline-none transition focus:border-primary"
+                className="w-full border border-border bg-card px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="Your password"
               />
             </div>
 
             {registered && (
-              <div className="border border-border bg-surface px-4 py-3 text-sm">
+              <div
+                role="status"
+                className="border border-border bg-card px-4 py-3 text-sm"
+              >
                 Account created. Sign in to continue.
               </div>
             )}
 
             {error && (
-              <div className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+              <div
+                role="alert"
+                className="border border-primary/40 bg-primary/10 px-4 py-3 text-sm"
+              >
                 {error}
               </div>
             )}

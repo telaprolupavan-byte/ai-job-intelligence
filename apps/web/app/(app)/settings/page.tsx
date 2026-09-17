@@ -4,6 +4,9 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { apiRequest, ApiError } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
+import Container from "@/components/app/container";
+import AppButton from "@/components/app/app-button";
+import { Skeleton } from "@/components/app/skeleton";
 
 type Profile = {
   full_name: string | null;
@@ -166,33 +169,38 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#05070A] px-6 py-10 text-[#F2F5F8]">
-        <div className="font-mono text-xs uppercase tracking-[0.25em] text-[#1677E8]">
-          Loading settings...
-        </div>
+      <main className="min-h-screen bg-app-bg text-app-text">
+        <Container size="narrow">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="mt-4 h-10 w-64" />
+          <div className="mt-8 space-y-4">
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        </Container>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#05070A] px-6 py-10 text-[#F2F5F8]">
-      <div className="mx-auto max-w-4xl">
-        <header className="border-b border-[#1A3048] pb-8">
-          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#E50920]">
+    <main className="min-h-screen bg-app-bg text-app-text">
+      <Container size="narrow">
+        <header className="border-b border-app-border pb-8">
+          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-app-red">
             Account / Preferences
           </div>
           <h1 className="mt-4 text-4xl font-bold tracking-tight">
             Settings
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#8D9AAA]">
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-app-muted">
             Keep your profile and job-search preferences current so later
             intelligence modules can use accurate inputs.
           </p>
         </header>
 
         <form onSubmit={saveSettings} className="mt-8 space-y-8">
-          <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+          <section className="border border-app-border bg-app-panel p-6">
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
               Profile
             </h2>
 
@@ -231,7 +239,7 @@ export default function SettingsPage() {
             </div>
 
             <label className="mt-5 block">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#8D9AAA]">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-app-muted">
                 Target titles
               </span>
               <input
@@ -242,13 +250,13 @@ export default function SettingsPage() {
                     target_titles: splitList(event.target.value),
                   })
                 }
-                className="mt-2 w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm outline-none focus:border-[#1677E8]"
+                className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
                 placeholder="Machine Learning Engineer, Data Scientist"
               />
             </label>
 
             <label className="mt-5 block">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#8D9AAA]">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-app-muted">
                 Summary
               </span>
               <textarea
@@ -257,16 +265,16 @@ export default function SettingsPage() {
                   setProfile({ ...profile, summary: event.target.value })
                 }
                 rows={4}
-                className="mt-2 w-full resize-y border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm outline-none focus:border-[#1677E8]"
+                className="mt-2 w-full resize-y border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
               />
             </label>
           </section>
 
-          <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+          <section className="border border-app-border bg-app-panel p-6">
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
               Job preferences
             </h2>
-            <p className="mt-2 max-w-2xl text-xs leading-6 text-[#8D9AAA]">
+            <p className="mt-2 max-w-2xl text-xs leading-6 text-app-muted">
               Locations, employment types, and remote preference below are
               also treated as hard requirements: a job that does not match
               them will be marked ineligible, not just scored lower.
@@ -317,11 +325,11 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+          <section className="border border-app-border bg-app-panel p-6">
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
               Hard eligibility
             </h2>
-            <p className="mt-2 max-w-2xl text-xs leading-6 text-[#8D9AAA]">
+            <p className="mt-2 max-w-2xl text-xs leading-6 text-app-muted">
               These requirements can rule a job out entirely. Leave any of
               them unspecified if you don&apos;t want it to affect
               eligibility.
@@ -377,9 +385,9 @@ export default function SettingsPage() {
                     enforce_minimum_experience: event.target.checked,
                   })
                 }
-                className="h-4 w-4 border border-[#294B70] bg-[#05070A]"
+                className="h-4 w-4 border border-app-border-strong bg-app-bg"
               />
-              <span className="text-sm text-[#F2F5F8]">
+              <span className="text-sm text-app-text">
                 Rule out jobs whose stated minimum years of experience
                 exceeds my years of experience
               </span>
@@ -387,25 +395,24 @@ export default function SettingsPage() {
           </section>
 
           {message && (
-            <p className="border border-[#1677E8]/40 bg-[#1677E8]/10 p-4 text-sm">
+            <p
+              role="status"
+              className="border border-app-blue/40 bg-app-blue/10 p-4 text-sm text-app-text"
+            >
               {message}
             </p>
           )}
           {error && (
-            <p className="border border-[#E50920]/40 bg-[#E50920]/10 p-4 text-sm">
+            <p role="alert" className="border border-app-red/40 bg-app-red/10 p-4 text-sm text-app-text">
               {error}
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-[#E50920] px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#FF1E32] disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          <AppButton type="submit" disabled={saving} loading={saving}>
             {saving ? "Saving..." : "Save settings"}
-          </button>
+          </AppButton>
         </form>
-      </div>
+      </Container>
     </main>
   );
 }
@@ -427,7 +434,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-[#8D9AAA]">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-app-muted">
         {label}
       </span>
       <input
@@ -436,7 +443,7 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm outline-none focus:border-[#1677E8]"
+        className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
       />
     </label>
   );
@@ -472,7 +479,7 @@ function TriStateField({
 }) {
   return (
     <label className="block">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-[#8D9AAA]">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-app-muted">
         {label}
       </span>
       <select
@@ -480,7 +487,7 @@ function TriStateField({
         onChange={(event) =>
           onChange(selectValueToTriState(event.target.value))
         }
-        className="mt-2 w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm outline-none focus:border-[#1677E8]"
+        className="mt-2 w-full border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none focus:border-app-blue"
       >
         <option value="">Prefer not to say / unspecified</option>
         <option value="true">Yes</option>
