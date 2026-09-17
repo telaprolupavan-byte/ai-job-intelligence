@@ -59,3 +59,34 @@ def test_unrelated_text_yields_no_signals():
     assert signals.authorization_required is False
     assert signals.citizenship_required is False
     assert signals.clearance_required is False
+
+
+def test_citizenship_preferred_is_not_interpreted_as_required():
+    # "preferred" must never be conflated with "required" — a soft
+    # preference stated by the employer is not an observable hard
+    # requirement the engine may act on.
+    signals = extract_work_authorization_signals(
+        "U.S. citizenship is preferred but not required for this role."
+    )
+
+    assert signals.citizenship_required is False
+
+
+def test_sponsorship_required_phrasing_is_not_interpreted_as_available():
+    # Ambiguous/unexpected phrasing must never be guessed into
+    # "available" — it should remain unknown (None) rather than being
+    # misread as the opposite of what it might mean.
+    signals = extract_work_authorization_signals(
+        "Visa sponsorship required disclosures: none provided."
+    )
+
+    assert signals.sponsorship_available is None
+
+
+def test_sponsorship_available_language_does_not_set_authorization_required():
+    signals = extract_work_authorization_signals(
+        "We are open to sponsoring visas for the right candidate."
+    )
+
+    assert signals.sponsorship_available is True
+    assert signals.authorization_required is False

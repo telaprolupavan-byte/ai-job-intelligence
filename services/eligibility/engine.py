@@ -217,7 +217,12 @@ def _check_location(
             reason="No hard location restriction is configured.",
         )
 
-    if not job.location:
+    # A blank or punctuation-only location (e.g. "   " or ",,") is
+    # malformed source data that carries no more information than a
+    # missing one — treat both as UNKNOWN rather than letting substring
+    # matching semantics (or a spurious "no match" FAIL) decide the
+    # outcome.
+    if not job.location or not job.location.strip(" ,"):
         return EligibilityCheck(
             constraint="location",
             status=ConstraintStatus.UNKNOWN,

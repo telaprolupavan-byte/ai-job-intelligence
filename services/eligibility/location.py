@@ -155,6 +155,17 @@ def location_token_matches(
     token_norm = token.strip().lower()
     job_raw = job_location.strip().lower()
 
+    # A job location that is only whitespace (e.g. "   ") strips down to
+    # "" here. "" is a substring of every string in Python, which would
+    # otherwise make a blank job location match any token via the
+    # substring check below — treat it the same as a genuinely missing
+    # location instead. (Punctuation-only strings like ",," don't hit
+    # this guard since strip() doesn't remove commas, but they still
+    # correctly fail to match: parse_location() returns None for them,
+    # and they don't substring-match a real token either.)
+    if not job_raw:
+        return False
+
     if token_norm in job_raw or job_raw in token_norm:
         return True
 

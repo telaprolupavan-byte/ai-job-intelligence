@@ -168,7 +168,25 @@ A "hard constraint" can make a job `INELIGIBLE`. A "soft preference" can
 only ever influence a Job Match *score*. Not every `Preference` field is
 a hard constraint — only the ones below, and only when the user has
 actually made them restrictive (an empty/unset field is never treated as
-a hard constraint: "no restriction" must never quietly exclude jobs):
+a hard constraint: "no restriction" must never quietly exclude jobs).
+
+**This dual-purpose reuse of `employment_types`/`locations`/
+`remote_preference` is an intentional design decision, confirmed as of
+the AJI-011 post-push review — not an oversight.** The alternative (a
+second, parallel set of "hard" preference fields duplicating these three)
+was deliberately rejected per the ticket's "do not create duplicate
+preference/profile systems" instruction. Restating the exact rule as
+plainly as possible:
+
+- **Hard *and* soft** (participate in Hard Eligibility *whenever
+  non-empty/set*, and continue to feed Job Match's existing scoring
+  exactly as before, unchanged): `employment_types`, `locations`,
+  `remote_preference`.
+- **Hard-only** (new in AJI-011; never read by Job Match):
+  `excluded_locations`, `requires_sponsorship`, `is_us_citizen`,
+  `has_security_clearance`, `enforce_minimum_experience`.
+- **Soft-only** (never a hard constraint, never will silently become
+  one): `target_titles`, `minimum_salary`, `minimum_hourly_rate`.
 
 | Field | Hard when... | Also used softly by Job Match? |
 |---|---|---|
@@ -178,6 +196,8 @@ a hard constraint: "no restriction" must never quietly exclude jobs):
 | `excluded_locations` (new) | non-empty | No — hard-only |
 | `requires_sponsorship` / `is_us_citizen` / `has_security_clearance` (new) | set (not `None`) | No — hard-only |
 | `enforce_minimum_experience` (new) | `True` | No — hard-only |
+| `target_titles` | never | Yes — soft-only, unchanged |
+| `minimum_salary` / `minimum_hourly_rate` | never | Not currently read by either engine |
 
 `employment_types`/`locations`/`remote_preference` are intentionally
 dual-purpose (reused, not duplicated) rather than adding a second parallel
@@ -209,7 +229,21 @@ check. Overall `EligibilityResult.status` is:
 - else `UNKNOWN` if any check is `UNKNOWN`,
 - else `ELIGIBLE`.
 
-A missing job location, for example, is `UNKNOWN` when a location
+This ordering is the entire correctness contract of the engine:
+**`UNKNOWN` must never be silently converted into `INELIGIBLE`.** A
+missing/unclear job signal under an active hard constraint always
+produces a per-check `UNKNOWN`, and `evaluate_eligibility()`'s
+status-selection logic (`services/eligibility/engine.py`) only ever
+promotes `UNKNOWN` checks to overall `INELIGIBLE` when a *different*,
+independently-evaluated check actually `FAIL`ed — never as a side effect
+of the `UNKNOWN` check itself. `tests/test_eligibility_engine.py` has a
+dedicated regression test per constraint (employment type, location,
+remote arrangement, sponsorship, citizenship, clearance, experience) that
+asserts missing/unclear job data under that constraint alone yields
+overall `UNKNOWN` with `failed_constraints == []`, plus a combination
+test (`test_combination_failed_wins_over_unknown`) proving a real `FAIL`
+elsewhere is what changes the outcome, not the `UNKNOWN` check itself. A
+missing job location, for example, is `UNKNOWN` when a location
 restriction is configured — never silently treated as a match.
 
 ### Work authorization

@@ -76,8 +76,10 @@ def test_employment_type_unknown_job_type_is_unknown():
 
     result = evaluate_eligibility(criteria, job)
 
+    # UNKNOWN must never be silently promoted to INELIGIBLE.
     assert result.status == EligibilityStatus.UNKNOWN
     assert "employment_type" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +137,21 @@ def test_location_missing_job_location_is_unknown_not_a_silent_match():
 
     assert result.status == EligibilityStatus.UNKNOWN
     assert "location" in result.unknown_constraints
+    assert result.failed_constraints == []
+
+
+def test_location_missing_job_location_with_only_exclusions_is_unknown():
+    # An exclusion list alone (no inclusion list) is still a restrictive,
+    # "active" location constraint — missing job location data must still
+    # resolve to UNKNOWN, never a silent pass or a silent fail.
+    criteria = UserEligibilityCriteria(excluded_locations=["California"])
+    job = JobEligibilitySignals(location=None)
+
+    result = evaluate_eligibility(criteria, job)
+
+    assert result.status == EligibilityStatus.UNKNOWN
+    assert "location" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 def test_location_unrestricted_does_not_exclude():
@@ -147,6 +164,34 @@ def test_location_unrestricted_does_not_exclude():
     assert _checks_by_constraint(result)["location"].status == (
         ConstraintStatus.NOT_APPLICABLE
     )
+
+
+def test_location_malformed_blank_string_is_unknown_not_a_silent_match():
+    # A whitespace-only location is malformed source data, not a real
+    # location. Since "" is a substring of every string, this must be
+    # treated as UNKNOWN, never as a silent match against every token.
+    criteria = UserEligibilityCriteria(included_locations=["New York"])
+    job = JobEligibilitySignals(location="   ")
+
+    result = evaluate_eligibility(criteria, job)
+
+    assert result.status == EligibilityStatus.UNKNOWN
+    assert "location" in result.unknown_constraints
+    assert result.failed_constraints == []
+
+
+def test_location_malformed_punctuation_only_is_unknown_not_a_fail():
+    # Punctuation-only "location" data (e.g. ",,") is also malformed —
+    # it must resolve to UNKNOWN, not a spurious FAIL from "no accepted
+    # location matched" reasoning applied to garbage data.
+    criteria = UserEligibilityCriteria(included_locations=["New York"])
+    job = JobEligibilitySignals(location=",,")
+
+    result = evaluate_eligibility(criteria, job)
+
+    assert result.status == EligibilityStatus.UNKNOWN
+    assert "location" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +236,7 @@ def test_remote_only_unknown_job_status_is_unknown():
 
     assert result.status == EligibilityStatus.UNKNOWN
     assert "remote_arrangement" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +298,25 @@ def test_sponsorship_not_required_is_compatible_regardless_of_job():
     assert result.status == EligibilityStatus.ELIGIBLE
 
 
+def test_sponsorship_available_does_not_force_ineligibility():
+    # A job stating sponsorship is available must never be misread as
+    # "sponsorship required of the candidate" — a user who does not need
+    # sponsorship stays eligible against such a job.
+    criteria = UserEligibilityCriteria(requires_sponsorship=False)
+    job = JobEligibilitySignals(
+        work_authorization=WorkAuthorizationSignals(
+            sponsorship_available=True
+        )
+    )
+
+    result = evaluate_eligibility(criteria, job)
+
+    assert result.status == EligibilityStatus.ELIGIBLE
+    assert _checks_by_constraint(result)["sponsorship"].status == (
+        ConstraintStatus.PASS
+    )
+
+
 def test_sponsorship_unset_preference_is_not_applicable():
     criteria = UserEligibilityCriteria()
     job = JobEligibilitySignals(
@@ -276,6 +341,7 @@ def test_sponsorship_unknown_when_job_discloses_nothing():
 
     assert result.status == EligibilityStatus.UNKNOWN
     assert "sponsorship" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 # ---------------------------------------------------------------------------
@@ -316,6 +382,7 @@ def test_citizenship_required_but_unset_is_unknown():
 
     assert result.status == EligibilityStatus.UNKNOWN
     assert "citizenship" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 def test_citizenship_not_required_is_not_applicable():
@@ -368,6 +435,7 @@ def test_clearance_required_but_unset_is_unknown():
 
     assert result.status == EligibilityStatus.UNKNOWN
     assert "security_clearance" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 # ---------------------------------------------------------------------------
@@ -423,6 +491,7 @@ def test_experience_unknown_job_requirement_when_enforced():
 
     assert result.status == EligibilityStatus.UNKNOWN
     assert "experience" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 def test_experience_unknown_user_experience_when_enforced():
@@ -436,6 +505,7 @@ def test_experience_unknown_user_experience_when_enforced():
 
     assert result.status == EligibilityStatus.UNKNOWN
     assert "experience" in result.unknown_constraints
+    assert result.failed_constraints == []
 
 
 # ---------------------------------------------------------------------------

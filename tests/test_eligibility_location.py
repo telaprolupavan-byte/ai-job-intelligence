@@ -61,3 +61,41 @@ def test_location_token_missing_job_location_never_matches():
 def test_location_token_blank_token_never_matches():
     assert location_token_matches("", "Austin, TX") is False
     assert location_token_matches("   ", "Austin, TX") is False
+
+
+def test_location_token_matches_remote_string_literally():
+    # "Remote" as a location string is matched like any other bare
+    # token — the location engine does not special-case "remote" (that
+    # is services/eligibility's separate remote_arrangement constraint,
+    # driven by Job.remote_type, not Job.location).
+    assert location_token_matches("Remote", "Remote") is True
+    assert location_token_matches("Remote", "Austin, TX") is False
+
+
+def test_location_token_matches_with_trailing_country_suffix():
+    # A job location with an extra trailing segment (e.g. a country)
+    # still matches via substring containment.
+    assert location_token_matches("Austin, TX", "Austin, TX, USA") is True
+
+
+def test_parse_location_ignores_extra_trailing_segments_without_crashing():
+    # More than two comma-separated segments is malformed relative to
+    # the "City, ST" shape this parser targets; it must not crash, and
+    # only the first two segments are used (no attempt to interpret a
+    # trailing country/region segment).
+    parsed = parse_location("Springfield, IL, USA")
+
+    assert parsed.city == "springfield"
+    assert parsed.state == "illinois"
+
+
+def test_parse_location_malformed_commas_only_returns_none():
+    assert parse_location(",,") is None
+    assert parse_location(" , , ") is None
+
+
+def test_location_token_matches_handles_malformed_job_location_gracefully():
+    # A job location that is just stray punctuation/whitespace must not
+    # crash the matcher and must never be treated as a match.
+    assert location_token_matches("New York", ",,") is False
+    assert location_token_matches("New York", "   ") is False
