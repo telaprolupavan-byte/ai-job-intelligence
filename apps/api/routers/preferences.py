@@ -23,6 +23,11 @@ def preference_to_response(
         locations=preference.locations,
         remote_preference=preference.remote_preference,
         target_titles=preference.target_titles,
+        excluded_locations=preference.excluded_locations,
+        requires_sponsorship=preference.requires_sponsorship,
+        is_us_citizen=preference.is_us_citizen,
+        has_security_clearance=preference.has_security_clearance,
+        enforce_minimum_experience=preference.enforce_minimum_experience,
     )
 
 
@@ -70,6 +75,12 @@ def update_my_preferences(
     update_data = preference_data.model_dump(
         exclude_unset=True
     )
+
+    # enforce_minimum_experience is a non-nullable column (False = "not
+    # enforced"); an explicit null in the request is dropped rather than
+    # written to a NOT NULL column, leaving the existing value in place.
+    if update_data.get("enforce_minimum_experience") is None:
+        update_data.pop("enforce_minimum_experience", None)
 
     for field, value in update_data.items():
         setattr(preference, field, value)

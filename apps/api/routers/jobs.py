@@ -9,10 +9,14 @@ from sqlalchemy.orm import Session
 from apps.api.database import get_db
 from apps.api.dependencies import get_current_user
 from apps.api.models import Company, Job, User
+from apps.api.services.eligibility_service import (
+    evaluate_job_eligibility as evaluate_job_eligibility_service,
+)
 from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
 )
+from services.eligibility.contracts import EligibilityResult
 
 
 router = APIRouter(
@@ -193,3 +197,67 @@ def calculate_job_match(
         "preferred_matches": result_data["preferred_matches"],
         "preferred_gaps": result_data["preferred_gaps"],
     }
+
+
+def _eligibility_result_to_response(
+    job_id: UUID,
+    result: EligibilityResult,
+) -> dict:
+    return {
+        "job_id": str(job_id),
+        "status": result.status.value,
+        "engine_version": result.engine_version,
+        "checks": [
+            {
+                "constraint": check.constraint,
+                "status": check.status.value,
+                "reason": check.reason,
+            }
+            for check in result.checks
+        ],
+        "failed_constraints": result.failed_constraints,
+        "unknown_constraints": result.unknown_constraints,
+        "reasons": result.reasons,
+    }
+
+
+@router.get("/{job_id}/eligibility")
+def get_job_eligibility(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Evaluate deterministic Hard Eligibility (AJI-011) for the
+    authenticated user against a specific job.
+
+    This is intentionally separate from /jobs/{job_id}/match: eligibility
+    is a hard pre-filter (ELIGIBLE/INELIGIBLE/UNKNOWN with explainable
+    checks), never a score, and is not persisted — it is recalculated
+    query-time from the user's current Preference/Profile and the job's
+    current data. See docs/ARCHITECTURE.md for the full hard-vs-soft
+    rationale. Public job browsing (GET /jobs) never exposes this
+    personalized data; this endpoint always requires authentication.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    job = db.query(Job).filter(Job.id == job_uuid).first()
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    result = evaluate_job_eligibility_service(
+        current_user=current_user,
+        job=job,
+    )
+
+    return _eligibility_result_to_response(job.id, result)
