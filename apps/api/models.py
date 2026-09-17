@@ -231,6 +231,48 @@ class Preference(Base):
         Float,
     )
 
+    # --- Hard eligibility fields (AJI-011) ---
+    #
+    # `employment_types`, `locations`, and `remote_preference` above are
+    # dual-purpose: Job Match continues to use them as soft scoring
+    # inputs (unchanged), while the Hard Eligibility engine
+    # (services.eligibility) treats a non-empty/non-null value as an
+    # explicit hard restriction. The fields below have no soft-preference
+    # role — they exist only to express hard eligibility requirements
+    # that don't otherwise fit an existing field. See
+    # docs/ARCHITECTURE.md for the full hard-vs-soft rationale.
+
+    excluded_locations: Mapped[list | None] = mapped_column(
+        JSONB,
+    )
+
+    # Work authorization: intentionally minimal. These represent only
+    # the user's own declared sponsorship/citizenship/clearance
+    # situation for the purpose of comparing against a job's observable
+    # requirements — never an immigration/legal determination, and never
+    # inferred from any other profile field. None means "unspecified"
+    # (the corresponding hard check is skipped, not assumed).
+    requires_sponsorship: Mapped[bool | None] = mapped_column(
+        Boolean,
+    )
+
+    is_us_citizen: Mapped[bool | None] = mapped_column(
+        Boolean,
+    )
+
+    has_security_clearance: Mapped[bool | None] = mapped_column(
+        Boolean,
+    )
+
+    # Experience is a hard constraint only when the user explicitly
+    # opts in here; otherwise it never excludes a job (see
+    # services/eligibility/engine.py::_check_experience).
+    enforce_minimum_experience: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+    )
+
     user: Mapped["User"] = relationship(
         back_populates="preferences",
     )

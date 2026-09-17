@@ -74,6 +74,14 @@ class PreferenceUpdate(BaseModel):
     )
     target_titles: list[str] | None = None
 
+    # Hard eligibility fields (AJI-011). See PreferenceResponse and
+    # docs/ARCHITECTURE.md for what each one means.
+    excluded_locations: list[str] | None = None
+    requires_sponsorship: bool | None = None
+    is_us_citizen: bool | None = None
+    has_security_clearance: bool | None = None
+    enforce_minimum_experience: bool | None = None
+
 
 class PreferenceResponse(BaseModel):
     id: str
@@ -82,6 +90,18 @@ class PreferenceResponse(BaseModel):
     locations: list[str] | None
     remote_preference: str | None
     target_titles: list[str] | None
+
+    # Hard eligibility fields (AJI-011).
+    #
+    # `employment_types`/`locations`/`remote_preference` above double as
+    # hard-eligibility "accepted" values when non-empty; these fields
+    # cover what those can't express: explicit exclusions and work
+    # authorization. None means "unspecified" (no hard restriction).
+    excluded_locations: list[str] | None
+    requires_sponsorship: bool | None
+    is_us_citizen: bool | None
+    has_security_clearance: bool | None
+    enforce_minimum_experience: bool
 
 
 # =========================

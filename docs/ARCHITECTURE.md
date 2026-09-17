@@ -96,3 +96,190 @@ These stay as two separate tables/services, sharing the same
 `MatchStatus`, `EvidenceType`) where appropriate, but never merged into
 one score or one table. Do not add an ATS field to `JobMatchResult`, and
 do not blend the two scores into a single number.
+
+## Hard Eligibility (AJI-011)
+
+Future pipeline ordering:
+
+```
+User Profile + Preferences
+        |
+Hard Eligibility          <- services/eligibility (this section)
+        |
+Eligible Jobs
+        |
+Job Intelligence           (not yet implemented)
+        |
+ATS Alignment               (AJI-013, not yet implemented)
+        |
+Job Match                  <- services/job_matching (existing, unchanged)
+        |
+Priority Ranking            (not yet implemented)
+```
+
+Hard Eligibility is a deterministic **pre-filter**, not a score. It
+answers "is this job even a candidate for this user at all?" *before*
+Job Match, ATS Alignment, or any future priority ranking ever run. A high
+ATS/Job Match score must never override a hard eligibility constraint —
+e.g. a Contract-only user against a 98-scoring Full-Time job is
+INELIGIBLE, full stop.
+
+**Hard Eligibility vs. Job Match vs. ATS Alignment — do not merge these:**
+
+| | Question it answers | Output |
+|---|---|---|
+| Hard Eligibility | "Can this job even be considered?" | `ELIGIBLE` / `INELIGIBLE` / `UNKNOWN` + explainable checks |
+| Job Match (existing) | "How well does this job fit?" | A 0-100 score |
+| ATS Alignment (AJI-013, future) | "How would an ATS read this resume against this JD?" | AJI's own separate estimate |
+
+Hard Eligibility never produces a score, never uses an LLM, and is never
+merged into `JobMatchResult` or a future ATS table. Job Match's own
+scoring weights (`services/job_matching/scorer.py`) are unchanged by this
+ticket — Job Match may continue to use location/employment/remote type as
+*soft* scoring inputs even for a job that Hard Eligibility would exclude;
+it is the `/jobs/{job_id}/eligibility` pre-filter that keeps ineligible
+jobs out of any pipeline that chains after it, not a change to how Job
+Match scores.
+
+### Package layout
+
+- `services/eligibility/` — the pure, DB-free, LLM-free engine
+  (`contracts.py`, `location.py`, `job_signals.py`, `engine.py`), mirroring
+  `services/job_matching`'s DB/AI-free-core convention. `evaluate_eligibility(criteria, job)`
+  is a plain function of two dataclasses to an `EligibilityResult`, so it
+  is trivial to unit test and cheap to run over many jobs.
+- `apps/api/services/eligibility_service.py` — the orchestration layer
+  that builds `UserEligibilityCriteria`/`JobEligibilitySignals` from the
+  `Preference`/`Profile`/`Job` ORM models and calls the pure engine.
+  `evaluate_jobs_eligibility()` builds the user's criteria exactly once
+  and reuses it across every job — no N+1 queries, no re-parsing job text
+  per constraint.
+- `GET /jobs/{job_id}/eligibility` (authenticated) — returns the result
+  for one job. Not persisted: eligibility is recalculated query-time from
+  current Preference/Profile/Job data, since there is no concrete need
+  yet for historical eligibility snapshots (unlike `JobMatchResult`/
+  `ResumeAIAnalysis`, which are insert-only artifacts by design). The
+  public `GET /jobs` listing is unchanged and never includes personalized
+  eligibility data — only the authenticated per-job endpoint does.
+
+### Hard constraints vs. soft preferences
+
+A "hard constraint" can make a job `INELIGIBLE`. A "soft preference" can
+only ever influence a Job Match *score*. Not every `Preference` field is
+a hard constraint — only the ones below, and only when the user has
+actually made them restrictive (an empty/unset field is never treated as
+a hard constraint: "no restriction" must never quietly exclude jobs).
+
+**This dual-purpose reuse of `employment_types`/`locations`/
+`remote_preference` is an intentional design decision, confirmed as of
+the AJI-011 post-push review — not an oversight.** The alternative (a
+second, parallel set of "hard" preference fields duplicating these three)
+was deliberately rejected per the ticket's "do not create duplicate
+preference/profile systems" instruction. Restating the exact rule as
+plainly as possible:
+
+- **Hard *and* soft** (participate in Hard Eligibility *whenever
+  non-empty/set*, and continue to feed Job Match's existing scoring
+  exactly as before, unchanged): `employment_types`, `locations`,
+  `remote_preference`.
+- **Hard-only** (new in AJI-011; never read by Job Match):
+  `excluded_locations`, `requires_sponsorship`, `is_us_citizen`,
+  `has_security_clearance`, `enforce_minimum_experience`.
+- **Soft-only** (never a hard constraint, never will silently become
+  one): `target_titles`, `minimum_salary`, `minimum_hourly_rate`.
+
+| Field | Hard when... | Also used softly by Job Match? |
+|---|---|---|
+| `employment_types` | non-empty (acts as an accepted-type allow-list) | Yes — first entry, unchanged |
+| `locations` | non-empty (acts as an accepted-location allow-list) | Yes — first entry, unchanged |
+| `remote_preference` | set (exact required remote/hybrid/onsite match) | Yes — unchanged |
+| `excluded_locations` (new) | non-empty | No — hard-only |
+| `requires_sponsorship` / `is_us_citizen` / `has_security_clearance` (new) | set (not `None`) | No — hard-only |
+| `enforce_minimum_experience` (new) | `True` | No — hard-only |
+| `target_titles` | never | Yes — soft-only, unchanged |
+| `minimum_salary` / `minimum_hourly_rate` | never | Not currently read by either engine |
+
+`employment_types`/`locations`/`remote_preference` are intentionally
+dual-purpose (reused, not duplicated) rather than adding a second parallel
+preference system: Job Match keeps treating them as soft signals exactly
+as before, while `services.eligibility` treats a non-empty/non-null value
+on those same fields as a hard restriction. Salary minimums and target
+titles are deliberately **not** modeled as hard constraints anywhere —
+they stay Job Match-only soft signals.
+
+Experience is a hard constraint *only* when `enforce_minimum_experience`
+is explicitly enabled — the ticket's "do not automatically convert every
+preference into a hard constraint" applies most directly here, since
+Profile/Preference had no existing user-declared hard minimum to reuse.
+When enabled, the user's `Profile.years_experience` is compared against
+the job's minimum-years requirement, extracted from job text via the
+existing `services.job_matching.extractor.extract_experience_requirements`
+(reused as-is, not reimplemented).
+
+### Unknown data
+
+Jobs frequently don't disclose employment type, remote status,
+sponsorship, citizenship, or an exact location. The engine never invents
+an answer: a restrictive constraint whose corresponding job signal is
+missing/unclear always resolves to `ConstraintStatus.UNKNOWN` on that
+check. Overall `EligibilityResult.status` is:
+
+- `INELIGIBLE` if any check `FAIL`ed (a hard failure always wins, even
+  if other checks are `UNKNOWN` — it is never masked),
+- else `UNKNOWN` if any check is `UNKNOWN`,
+- else `ELIGIBLE`.
+
+This ordering is the entire correctness contract of the engine:
+**`UNKNOWN` must never be silently converted into `INELIGIBLE`.** A
+missing/unclear job signal under an active hard constraint always
+produces a per-check `UNKNOWN`, and `evaluate_eligibility()`'s
+status-selection logic (`services/eligibility/engine.py`) only ever
+promotes `UNKNOWN` checks to overall `INELIGIBLE` when a *different*,
+independently-evaluated check actually `FAIL`ed — never as a side effect
+of the `UNKNOWN` check itself. `tests/test_eligibility_engine.py` has a
+dedicated regression test per constraint (employment type, location,
+remote arrangement, sponsorship, citizenship, clearance, experience) that
+asserts missing/unclear job data under that constraint alone yields
+overall `UNKNOWN` with `failed_constraints == []`, plus a combination
+test (`test_combination_failed_wins_over_unknown`) proving a real `FAIL`
+elsewhere is what changes the outcome, not the `UNKNOWN` check itself. A
+missing job location, for example, is `UNKNOWN` when a location
+restriction is configured — never silently treated as a match.
+
+### Work authorization
+
+`Preference` gained three new nullable fields — `requires_sponsorship`,
+`is_us_citizen`, `has_security_clearance` — each `None` meaning
+"unspecified" (the corresponding check is skipped, not assumed). These
+represent only the user's own declared situation for comparison purposes;
+the engine never makes a legal/immigration determination and never infers
+any of them from an unrelated profile field.
+
+On the job side, `services/eligibility/job_signals.py` deterministically
+scans job text (title/description/requirements/responsibilities) for
+explicit phrases — "visa sponsorship available", "unable to sponsor",
+"must be authorized to work in the U.S.", "U.S. citizenship required",
+"security clearance required" — into a `WorkAuthorizationSignals` struct.
+No LLM call, no guessing: absence of matching language means "not
+disclosed" (`None`/`False`), never "explicitly does not apply".
+
+### Location matching
+
+`services/eligibility/location.py` resolves a "City, ST" job location and
+a user-configured location token (which may be a bare state name, a state
+abbreviation, or a "City, ST" string) against each other using an exact
+US state name<->abbreviation table plus case-insensitive substring
+matching — e.g. a user preference of "New Jersey" matches a job located
+in "Newark, NJ". This is deliberately limited to exact state resolution
+and substring matching; it never does fuzzy/approximate geographic
+matching.
+
+### Testing
+
+`tests/test_eligibility_engine.py`, `tests/test_eligibility_location.py`,
+and `tests/test_eligibility_job_signals.py` unit-test the pure engine
+with no database. `tests/test_eligibility_service.py` and
+`tests/test_jobs_eligibility_api.py` cover the DB-backed orchestration
+and the authenticated endpoint, including that two users get independent
+results for the same job and that the public `/jobs` listing never leaks
+personalized eligibility data.

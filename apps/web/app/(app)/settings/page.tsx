@@ -19,6 +19,14 @@ type Preferences = {
   locations: string[] | null;
   remote_preference: string | null;
   target_titles: string[] | null;
+  // Hard eligibility fields (AJI-011). Unlike the soft preferences
+  // above, these can make a job INELIGIBLE outright, independent of any
+  // Job Match score. Leaving one unset never excludes a job.
+  excluded_locations: string[] | null;
+  requires_sponsorship: boolean | null;
+  is_us_citizen: boolean | null;
+  has_security_clearance: boolean | null;
+  enforce_minimum_experience: boolean;
 };
 
 const emptyProfile: Profile = {
@@ -35,6 +43,11 @@ const emptyPreferences: Preferences = {
   locations: [],
   remote_preference: "",
   target_titles: [],
+  excluded_locations: [],
+  requires_sponsorship: null,
+  is_us_citizen: null,
+  has_security_clearance: null,
+  enforce_minimum_experience: false,
 };
 
 function authHeaders(): Record<string, string> {
@@ -51,6 +64,19 @@ function splitList(value: string) {
 
 function joinList(value: string[] | null) {
   return value?.join(", ") ?? "";
+}
+
+// HTML <select> values are always strings, so a tri-state
+// (unspecified/yes/no) preference is encoded as "" / "true" / "false".
+function triStateToSelectValue(value: boolean | null): string {
+  if (value === null) return "";
+  return value ? "true" : "false";
+}
+
+function selectValueToTriState(value: string): boolean | null {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
 }
 
 export default function SettingsPage() {
@@ -240,6 +266,11 @@ export default function SettingsPage() {
             <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
               Job preferences
             </h2>
+            <p className="mt-2 max-w-2xl text-xs leading-6 text-[#8D9AAA]">
+              Locations, employment types, and remote preference below are
+              also treated as hard requirements: a job that does not match
+              them will be marked ineligible, not just scored lower.
+            </p>
 
             <div className="mt-6 grid gap-5 md:grid-cols-2">
               <ListField
@@ -284,6 +315,75 @@ export default function SettingsPage() {
                 placeholder="remote, hybrid, or onsite"
               />
             </div>
+          </section>
+
+          <section className="border border-[#1A3048] bg-[#0B1626] p-6">
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+              Hard eligibility
+            </h2>
+            <p className="mt-2 max-w-2xl text-xs leading-6 text-[#8D9AAA]">
+              These requirements can rule a job out entirely. Leave any of
+              them unspecified if you don&apos;t want it to affect
+              eligibility.
+            </p>
+
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <ListField
+                label="Excluded locations"
+                value={joinList(preferences.excluded_locations)}
+                onChange={(value) =>
+                  setPreferences({
+                    ...preferences,
+                    excluded_locations: splitList(value),
+                  })
+                }
+              />
+              <TriStateField
+                label="Do you require visa sponsorship?"
+                value={preferences.requires_sponsorship}
+                onChange={(value) =>
+                  setPreferences({
+                    ...preferences,
+                    requires_sponsorship: value,
+                  })
+                }
+              />
+              <TriStateField
+                label="Are you a U.S. citizen?"
+                value={preferences.is_us_citizen}
+                onChange={(value) =>
+                  setPreferences({ ...preferences, is_us_citizen: value })
+                }
+              />
+              <TriStateField
+                label="Do you hold an active security clearance?"
+                value={preferences.has_security_clearance}
+                onChange={(value) =>
+                  setPreferences({
+                    ...preferences,
+                    has_security_clearance: value,
+                  })
+                }
+              />
+            </div>
+
+            <label className="mt-5 flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={preferences.enforce_minimum_experience}
+                onChange={(event) =>
+                  setPreferences({
+                    ...preferences,
+                    enforce_minimum_experience: event.target.checked,
+                  })
+                }
+                className="h-4 w-4 border border-[#294B70] bg-[#05070A]"
+              />
+              <span className="text-sm text-[#F2F5F8]">
+                Rule out jobs whose stated minimum years of experience
+                exceeds my years of experience
+              </span>
+            </label>
           </section>
 
           {message && (
@@ -358,5 +458,34 @@ function ListField({
       onChange={onChange}
       placeholder="Separate values with commas"
     />
+  );
+}
+
+function TriStateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean | null;
+  onChange: (value: boolean | null) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-[#8D9AAA]">
+        {label}
+      </span>
+      <select
+        value={triStateToSelectValue(value)}
+        onChange={(event) =>
+          onChange(selectValueToTriState(event.target.value))
+        }
+        className="mt-2 w-full border border-[#294B70] bg-[#05070A] px-4 py-3 text-sm outline-none focus:border-[#1677E8]"
+      >
+        <option value="">Prefer not to say / unspecified</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    </label>
   );
 }
