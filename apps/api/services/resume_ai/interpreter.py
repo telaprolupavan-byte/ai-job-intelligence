@@ -6,9 +6,9 @@ from typing import Any, Protocol
 from .contracts import ResumeFinding
 
 
-ANALYSIS_VERSION = "1.0"
-PROMPT_VERSION = "1.0"
-INTERPRETER_VERSION = "1.0"
+ANALYSIS_VERSION = "2.0"
+PROMPT_VERSION = "2.0"
+INTERPRETER_VERSION = "2.0"
 
 
 class AIProvider(Protocol):
@@ -52,9 +52,13 @@ class ResumeAIInterpreter:
         if not isinstance(result, dict):
             raise ValueError("AI provider must return a structured object.")
 
-        findings = result.get("findings", [])
+        review = result.get("review")
+        if not isinstance(review, dict):
+            raise ValueError("AI provider must return a review section.")
+
+        findings = review.get("findings", [])
         if not isinstance(findings, list):
-            raise ValueError("AI provider findings must be a list.")
+            raise ValueError("AI provider review findings must be a list.")
 
         for finding in findings:
             ResumeFinding.model_validate(finding)

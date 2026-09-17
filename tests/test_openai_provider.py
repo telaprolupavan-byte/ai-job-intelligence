@@ -70,40 +70,38 @@ def test_openai_provider_returns_structured_analysis(mock_openai):
     mock_openai.return_value = mock_client
 
     parsed_result = ProviderAnalysis(
-        profile={
-            "name": "John Doe",
-        },
-        positioning={
-            "apparent_target_role": "AI/ML Engineer",
-        },
-        sections={},
-        skills={
-            "demonstrated": ["Python"],
-            "skills_only": [],
-            "weakly_supported": [],
-        },
-        experience={
-            "bullet_count": 2,
-            "achievement_count": 1,
-            "responsibility_count": 1,
-            "quantified_bullets": 1,
-            "findings": [],
-        },
-        technical_depth={
-            "programming": ["Python"],
-            "machine_learning": ["scikit-learn"],
-            "deep_learning": [],
-            "generative_ai": [],
-            "cloud": [],
-            "mlops": [],
-        },
-        structure={
-            "findings": [],
-        },
-        findings=[],
-        summary={
+        review={
             "strengths": ["Clear technical focus"],
-            "top_priorities": ["Add more measurable outcomes"],
+            "weaknesses": [],
+            "findings": [],
+            "suggestions": ["Add more measurable outcomes"],
+        },
+        decoding={
+            "professional_profile": "AI/ML Engineer",
+            "technical_profile": "Python-focused",
+            "work_history": [],
+            "education": [],
+            "certifications": [],
+            "projects": [],
+            "skills": [
+                {
+                    "skill": "Python",
+                    "evidence": "Used across experience bullets.",
+                    "demonstrated": True,
+                }
+            ],
+            "domains": [],
+        },
+        position_identification={
+            "primary_roles": [
+                {
+                    "role": "AI/ML Engineer",
+                    "rationale": "Experience demonstrates ML model work in Python.",
+                }
+            ],
+            "secondary_roles": [],
+            "adjacent_roles": [],
+            "supporting_evidence": [],
         },
     )
 
@@ -124,9 +122,12 @@ def test_openai_provider_returns_structured_analysis(mock_openai):
         },
     )
 
-    assert result["profile"]["name"] == "John Doe"
-    assert result["positioning"]["apparent_target_role"] == "AI/ML Engineer"
-    assert result["skills"]["demonstrated"] == ["Python"]
+    assert result["decoding"]["professional_profile"] == "AI/ML Engineer"
+    assert (
+        result["position_identification"]["primary_roles"][0]["role"]
+        == "AI/ML Engineer"
+    )
+    assert result["decoding"]["skills"][0]["skill"] == "Python"
 
     mock_client.responses.parse.assert_called_once()
 

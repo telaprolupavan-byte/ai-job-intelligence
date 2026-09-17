@@ -27,44 +27,38 @@ class FakeProvider:
         self.deterministic_analysis = deterministic_analysis
 
         return {
-            "profile": {
-                "name": "John Doe",
-            },
-            "positioning": {
-                "apparent_target_role": "AI/ML Engineer",
-                "apparent_specialization": "Machine Learning",
-                "apparent_seniority": "Mid-level",
-                "positioning_strengths": ["Technical focus"],
-                "positioning_risks": [],
-            },
-            "sections": {},
-            "skills": {
-                "demonstrated": ["python"],
-                "skills_only": [],
-                "weakly_supported": [],
-            },
-            "experience": {
-                "bullet_count": 2,
-                "achievement_count": 1,
-                "responsibility_count": 1,
-                "quantified_bullets": 1,
-                "findings": [],
-            },
-            "technical_depth": {
-                "programming": ["python"],
-                "machine_learning": ["machine learning"],
-                "deep_learning": [],
-                "generative_ai": [],
-                "cloud": [],
-                "mlops": [],
-            },
-            "structure": {
-                "findings": [],
-            },
-            "findings": [],
-            "summary": {
+            "review": {
                 "strengths": ["Clear technical focus"],
-                "top_priorities": ["Add measurable outcomes"],
+                "weaknesses": [],
+                "findings": [],
+                "suggestions": ["Add measurable outcomes"],
+            },
+            "decoding": {
+                "professional_profile": "AI/ML Engineer",
+                "technical_profile": "Python and machine learning focus",
+                "work_history": [],
+                "education": [],
+                "certifications": [],
+                "projects": [],
+                "skills": [
+                    {
+                        "skill": "python",
+                        "evidence": "Used in experience bullets.",
+                        "demonstrated": True,
+                    }
+                ],
+                "domains": [],
+            },
+            "position_identification": {
+                "primary_roles": [
+                    {
+                        "role": "AI/ML Engineer",
+                        "rationale": "Experience bullets demonstrate ML model work.",
+                    }
+                ],
+                "secondary_roles": [],
+                "adjacent_roles": [],
+                "supporting_evidence": [],
             },
         }
 
@@ -154,10 +148,14 @@ def test_analyze_resume_version_returns_validated_result(monkeypatch):
         resume_version_id=resume_version.id,
     )
 
-    assert result.analysis_version == "1.0"
+    assert result.analysis_version == service.ANALYSIS_VERSION
     assert result.resume_version_id == str(resume_version.id)
-    assert result.positioning.apparent_target_role == "AI/ML Engineer"
-    assert len(result.findings) == 0
+    assert result.decoding.professional_profile == "AI/ML Engineer"
+    assert (
+        result.position_identification.primary_roles[0].role
+        == "AI/ML Engineer"
+    )
+    assert len(result.review.findings) == 0
 
 
 def test_analyze_resume_version_passes_deterministic_analysis_to_provider(
@@ -234,15 +232,15 @@ def test_analyze_resume_version_persists_analysis(monkeypatch):
 
     assert record.user_id == resume_version.resume.user_id
     assert record.resume_version_id == resume_version.id
-    assert record.analysis_version == "1.0"
+    assert record.analysis_version == service.ANALYSIS_VERSION
     assert record.analyzer_version == "1.0"
     assert record.model_provider == "fake"
     assert record.model_name == "fake-model"
-    assert record.prompt_version == "1.0"
+    assert record.prompt_version == service.ANALYSIS_VERSION
     assert record.analysis_result["resume_version_id"] == str(
         resume_version.id
     )
-    assert record.analysis_result["summary"] == result.summary.model_dump()
+    assert record.analysis_result["review"] == result.review.model_dump()
 
     assert db.committed is True
     assert db.refreshed == [record]
@@ -329,38 +327,27 @@ def test_analyze_resume_version_reuses_cached_analysis(monkeypatch):
     cached_result = {
         "analysis_version": service.ANALYSIS_VERSION,
         "resume_version_id": str(resume_version.id),
-        "profile": {"name": "John Doe"},
-        "positioning": {
-            "apparent_target_role": "AI/ML Engineer",
-            "positioning_strengths": [],
-            "positioning_risks": [],
-        },
-        "sections": {},
-        "skills": {
-            "demonstrated": ["python"],
-            "skills_only": [],
-            "weakly_supported": [],
-        },
-        "experience": {
-            "bullet_count": 2,
-            "achievement_count": 1,
-            "responsibility_count": 1,
-            "quantified_bullets": 1,
-            "findings": [],
-        },
-        "technical_depth": {
-            "programming": ["python"],
-            "machine_learning": [],
-            "deep_learning": [],
-            "generative_ai": [],
-            "cloud": [],
-            "mlops": [],
-        },
-        "structure": {"findings": []},
-        "findings": [],
-        "summary": {
+        "review": {
             "strengths": ["Cached strength"],
-            "top_priorities": [],
+            "weaknesses": [],
+            "findings": [],
+            "suggestions": [],
+        },
+        "decoding": {
+            "professional_profile": "AI/ML Engineer",
+            "technical_profile": None,
+            "work_history": [],
+            "education": [],
+            "certifications": [],
+            "projects": [],
+            "skills": [],
+            "domains": [],
+        },
+        "position_identification": {
+            "primary_roles": [],
+            "secondary_roles": [],
+            "adjacent_roles": [],
+            "supporting_evidence": [],
         },
     }
 
@@ -381,7 +368,7 @@ def test_analyze_resume_version_reuses_cached_analysis(monkeypatch):
     )
 
     # The cached analysis was returned directly...
-    assert result.summary.strengths == ["Cached strength"]
+    assert result.review.strengths == ["Cached strength"]
 
     # ...without calling the AI provider or persisting a new analysis.
     assert provider.resume_text is None
