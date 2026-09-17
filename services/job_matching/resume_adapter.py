@@ -6,7 +6,7 @@ from services.job_matching.contracts import (
     ResumeEvidence,
     SkillEvidence,
 )
-from services.job_matching.skill_normalizer import normalize_skill
+from services.skills import normalize_skill
 
 
 def build_resume_evidence_from_analysis(

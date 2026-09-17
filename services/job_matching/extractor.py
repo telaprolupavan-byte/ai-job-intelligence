@@ -4,24 +4,7 @@ from services.job_matching.contracts import (
     ExperienceRequirement,
     JobRequirements,
 )
-from services.job_matching.skill_normalizer import (
-    SKILL_ALIASES,
-    normalize_skill,
-)
-
-# Surface forms too short/ambiguous to safely search for in free-form prose
-# (still valid for normalize_skill() when a skill is already explicitly given).
-_EXTRACTION_EXCLUDED_SURFACE_FORMS = {"ai", "ml", "js", "ts", "py"}
-
-_SKILL_SEARCH_TERMS = sorted(
-    (
-        surface_form
-        for surface_form in SKILL_ALIASES
-        if surface_form not in _EXTRACTION_EXCLUDED_SURFACE_FORMS
-    ),
-    key=len,
-    reverse=True,
-)
+from services.skills import find_skills, normalize_skill
 
 PREFERRED_SECTION_MARKERS = (
     "nice to have",
@@ -37,33 +20,12 @@ def extract_job_skills(text: str) -> list[str]:
     """
     Find individual technical skills explicitly present in job text.
 
-    Only matches against a known skill vocabulary (whole-word/phrase),
-    normalized through the existing skill normalizer. This does not treat
-    arbitrary words as skills and does not infer skills that are absent.
+    Only matches against the canonical skill vocabulary
+    (services.skills), which handles whole-word/phrase matching and
+    alias normalization. This does not treat arbitrary words as skills
+    and does not infer skills that are absent.
     """
-    if not text:
-        return []
-
-    normalized_text = f" {re.sub(r'\s+', ' ', text).strip().lower()} "
-
-    found: list[str] = []
-    seen: set[str] = set()
-
-    for surface_form in _SKILL_SEARCH_TERMS:
-        pattern = re.compile(
-            rf"(?<![a-z0-9]){re.escape(surface_form)}(?![a-z0-9])"
-        )
-
-        if not pattern.search(normalized_text):
-            continue
-
-        canonical = normalize_skill(surface_form)
-
-        if canonical and canonical not in seen:
-            found.append(canonical)
-            seen.add(canonical)
-
-    return found
+    return find_skills(text)
 
 
 def split_preferred_section(text: str) -> tuple[str, str]:

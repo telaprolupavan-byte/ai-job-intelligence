@@ -8,25 +8,11 @@ from sqlalchemy.orm import Session
 
 from apps.api.database import get_db
 from apps.api.dependencies import get_current_user
-from apps.api.models import (
-    Company,
-    Job,
-    JobMatchResult,
-    Resume,
-    ResumeVersion,
-    User,
+from apps.api.models import Company, Job, User
+from apps.api.services.job_match_service import (
+    JobMatchServiceError,
+    calculate_job_match as calculate_job_match_service,
 )
-from apps.api.services.resume_ai.deterministic import (
-    analyze_resume_deterministically,
-)
-from services.job_matching.extractor import (
-    build_job_requirements,
-    split_preferred_section,
-)
-from services.job_matching.resume_adapter import (
-    build_resume_evidence_from_analysis,
-)
-from services.job_matching.service import JobMatchingService
 
 
 router = APIRouter(
@@ -143,12 +129,19 @@ def list_jobs(
 @router.post("/{job_id}/match")
 def calculate_job_match(
     job_id: str,
+    resume_version_id: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Calculate and persist a deterministic Job Match Score for the
     authenticated user against a specific job.
+
+    An explicit `resume_version_id` may be supplied to calculate the
+    match against that exact ResumeVersion (it must belong to the
+    authenticated user). When omitted, the existing default behavior
+    applies: the user's most recent Resume, preferring its master
+    ResumeVersion.
     """
 
     try:
@@ -159,220 +152,41 @@ def calculate_job_match(
             detail="Job not found",
         )
 
-    # 1. Load the job.
-    job = (
-        db.query(Job)
-        .filter(Job.id == job_uuid)
-        .first()
-    )
+    parsed_resume_version_id: UUID | None = None
 
-    if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    # 2. Load the user's most recent resume.
-    resume = (
-        db.query(Resume)
-        .filter(Resume.user_id == current_user.id)
-        .order_by(Resume.created_at.desc())
-        .first()
-    )
-
-    if resume is None:
-        raise HTTPException(
-            status_code=404,
-            detail="No resume found for this user",
-        )
-
-    # 3. Prefer the master resume version.
-    resume_version = (
-        db.query(ResumeVersion)
-        .filter(
-            ResumeVersion.resume_id == resume.id,
-            ResumeVersion.is_master.is_(True),
-        )
-        .order_by(ResumeVersion.created_at.desc())
-        .first()
-    )
-
-    # Fall back to the newest version.
-    if resume_version is None:
-        resume_version = (
-            db.query(ResumeVersion)
-            .filter(
-                ResumeVersion.resume_id == resume.id
+    if resume_version_id is not None:
+        try:
+            parsed_resume_version_id = UUID(resume_version_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=404,
+                detail="Resume version not found.",
             )
-            .order_by(ResumeVersion.created_at.desc())
-            .first()
-        )
 
-    if resume_version is None:
+    try:
+        match_record = calculate_job_match_service(
+            db=db,
+            current_user=current_user,
+            job_id=job_uuid,
+            resume_version_id=parsed_resume_version_id,
+        )
+    except JobMatchServiceError as exc:
         raise HTTPException(
-            status_code=404,
-            detail="No resume version found for this user",
-        )
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
 
-    # 4. Analyze the actual resume text using the
-    # existing deterministic resume analyzer.
-    analysis = analyze_resume_deterministically(
-        resume_version.content_text
-    )
+    result_data = match_record.result
 
-    # 5. Convert the resume analysis into Job Matching evidence.
-    profile = current_user.profile
-
-    resume_evidence = build_resume_evidence_from_analysis(
-        analysis,
-        experience_years=(
-            profile.years_experience
-            if profile
-            else None
-        ),
-    )
-
-    resume_titles = (
-        profile.target_titles
-        if profile and profile.target_titles
-        else []
-    )
-
-    # 6. Build job requirements from the actual job text.
-    requirement_text = "\n".join(
-        part
-        for part in [
-            job.requirements,
-            job.responsibilities,
-            job.description,
-        ]
-        if part
-    )
-
-    must_have_text, preferred_text = split_preferred_section(
-        requirement_text
-    )
-
-    job_requirements = build_job_requirements(
-        must_have_text=must_have_text,
-        preferred_text=preferred_text,
-    )
-
-    # 7. Load the user's matching preferences.
-    preferences = current_user.preferences
-
-    preferred_remote_type = (
-        preferences.remote_preference
-        if preferences
-        else None
-    )
-
-    preferred_location = None
-
-    if preferences and preferences.locations:
-        preferred_location = preferences.locations[0]
-
-    preferred_employment_type = None
-
-    if preferences and preferences.employment_types:
-        preferred_employment_type = (
-            preferences.employment_types[0]
-        )
-
-    # 8. Calculate the deterministic match.
-    service = JobMatchingService()
-
-    result = service.calculate_match(
-        job_title=job.title,
-        job_requirements=job_requirements,
-        resume_evidence=resume_evidence,
-        resume_titles=resume_titles,
-        job_remote_type=job.remote_type,
-        job_location=job.location,
-        job_employment_type=job.employment_type,
-        preferred_remote_type=preferred_remote_type,
-        preferred_location=preferred_location,
-        preferred_employment_type=preferred_employment_type,
-    )
-
-    # 9. Convert result objects into JSON-safe dictionaries.
-    result_data = {
-        "score": result.score,
-        "confidence": result.confidence,
-        "must_have_matches": [
-            {
-                "skill": evidence.skill,
-                "status": evidence.status.value,
-                "evidence_type": evidence.evidence_type.value,
-                "evidence": evidence.evidence,
-            }
-            for evidence in result.must_have_matches
-        ],
-        "must_have_gaps": [
-            {
-                "skill": evidence.skill,
-                "status": evidence.status.value,
-                "evidence_type": evidence.evidence_type.value,
-                "evidence": evidence.evidence,
-            }
-            for evidence in result.must_have_gaps
-        ],
-        "preferred_matches": [
-            {
-                "skill": evidence.skill,
-                "status": evidence.status.value,
-                "evidence_type": evidence.evidence_type.value,
-                "evidence": evidence.evidence,
-            }
-            for evidence in result.preferred_matches
-        ],
-        "preferred_gaps": [
-            {
-                "skill": evidence.skill,
-                "status": evidence.status.value,
-                "evidence_type": evidence.evidence_type.value,
-                "evidence": evidence.evidence,
-            }
-            for evidence in result.preferred_gaps
-        ],
-        "components": [
-            {
-                "name": component.name,
-                "score": component.score,
-                "max_score": component.max_score,
-                "explanation": component.explanation,
-            }
-            for component in result.components
-        ],
-        "strengths": result.strengths,
-        "skill_gaps": result.skill_gaps,
-    }
-
-    # 10. Persist the match result.
-    match_record = JobMatchResult(
-        user_id=current_user.id,
-        job_id=job.id,
-        resume_version_id=resume_version.id,
-        engine_version=result.engine_version,
-        score=result.score,
-        confidence=result.confidence,
-        result=result_data,
-    )
-
-    db.add(match_record)
-    db.commit()
-    db.refresh(match_record)
-
-    # 11. Return the persisted result.
     return {
         "id": str(match_record.id),
-        "job_id": str(job.id),
-        "resume_version_id": str(resume_version.id),
-        "score": result.score,
-        "confidence": result.confidence,
-        "engine_version": result.engine_version,
-        "strengths": result.strengths,
-        "skill_gaps": result.skill_gaps,
+        "job_id": str(match_record.job_id),
+        "resume_version_id": str(match_record.resume_version_id),
+        "score": match_record.score,
+        "confidence": match_record.confidence,
+        "engine_version": match_record.engine_version,
+        "strengths": result_data["strengths"],
+        "skill_gaps": result_data["skill_gaps"],
         "components": result_data["components"],
         "must_have_matches": result_data["must_have_matches"],
         "must_have_gaps": result_data["must_have_gaps"],

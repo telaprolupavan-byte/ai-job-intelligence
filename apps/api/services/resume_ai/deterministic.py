@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import re
 
+from services.skills import count_skill_mentions, find_skills
+
 
 SECTION_ALIASES = {
     "summary": {
@@ -110,71 +112,6 @@ ACTION_VERBS = {
     "refactored",
     "streamlined",
     "monitored",
-}
-
-
-SKILL_CATALOG = {
-    "python",
-    "java",
-    "javascript",
-    "typescript",
-    "c++",
-    "sql",
-    "r",
-    "go",
-    "rust",
-    "pytorch",
-    "tensorflow",
-    "scikit-learn",
-    "pandas",
-    "numpy",
-    "xgboost",
-    "spark",
-    "hadoop",
-    "aws",
-    "azure",
-    "gcp",
-    "docker",
-    "kubernetes",
-    "terraform",
-    "jenkins",
-    "github actions",
-    "git",
-    "linux",
-    "fastapi",
-    "flask",
-    "django",
-    "react",
-    "next.js",
-    "node.js",
-    "machine learning",
-    "deep learning",
-    "generative ai",
-    "genai",
-    "llm",
-    "llms",
-    "large language models",
-    "nlp",
-    "computer vision",
-    "natural language processing",
-    "rag",
-    "retrieval augmented generation",
-    "langchain",
-    "transformers",
-    "hugging face",
-    "mlops",
-    "model deployment",
-    "model serving",
-    "data science",
-    "data engineering",
-    "data analysis",
-    "postgresql",
-    "mysql",
-    "mongodb",
-    "redis",
-    "graphql",
-    "rest api",
-    "microservices",
 }
 
 
@@ -461,19 +398,15 @@ def detect_repeated_phrases(
 
 
 def extract_skills(text: str) -> list[str]:
-    lowered = text.lower()
-    found: list[str] = []
+    """
+    Detect canonical skills present in the resume text.
 
-    for skill in sorted(SKILL_CATALOG, key=len, reverse=True):
-        pattern = re.compile(
-            rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])",
-            re.IGNORECASE,
-        )
-
-        if pattern.search(lowered):
-            found.append(skill)
-
-    return sorted(set(found))
+    Delegates to the shared canonical skill vocabulary
+    (services.skills) so a skill mentioned as "Python 3", "python3", or
+    "python programming" is recognized as the same skill as "Python",
+    instead of being tracked as an independent/unrelated skill.
+    """
+    return find_skills(text)
 
 
 def analyze_skill_evidence(
@@ -492,18 +425,16 @@ def analyze_skill_evidence(
                 lines[section.start_line + 1 : section.end_line + 1]
             )
 
-    skills_section_text = " ".join(skills_section_lines).lower()
+    skills_section_text = " ".join(skills_section_lines)
 
     evidence: dict[str, dict] = {}
 
     for skill in skills:
-        pattern = re.compile(
-            rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])",
-            re.IGNORECASE,
-        )
-
-        total_mentions = len(pattern.findall(text))
-        skills_mentions = len(pattern.findall(skills_section_text))
+        # Counts a mention of any known alias of this canonical skill
+        # (e.g. "Python 3" counts as evidence for "python"), not just a
+        # literal occurrence of the canonical name itself.
+        total_mentions = count_skill_mentions(text, skill)
+        skills_mentions = count_skill_mentions(skills_section_text, skill)
 
         demonstrated_mentions = max(
             total_mentions - skills_mentions,
@@ -672,14 +603,7 @@ def _project_signals(
             projects.append(
                 {
                     "text": line,
-                    "has_technology_signal": any(
-                        re.search(
-                            rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])",
-                            line,
-                            re.IGNORECASE,
-                        )
-                        for skill in SKILL_CATALOG
-                    ),
+                    "has_technology_signal": bool(find_skills(line)),
                     "has_quantification": bool(
                         extract_quantified_evidence(line)
                     ),

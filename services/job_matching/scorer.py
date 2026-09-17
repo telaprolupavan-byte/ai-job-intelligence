@@ -5,7 +5,7 @@ from services.job_matching.contracts import (
     MatchStatus,
     SkillEvidence,
 )
-from services.job_matching.skill_normalizer import normalize_skill
+from services.skills import normalize_skill
 
 
 # ---------------------------------------------------------------------------
