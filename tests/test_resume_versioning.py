@@ -438,6 +438,53 @@ def test_versions_are_scoped_to_their_resume(client, headers):
     assert resume_b.json()["version_id"] in version_ids_b
 
 
+def test_versions_list_reflects_per_version_analysis_state(
+    client, headers, db, user
+):
+    first = upload(client, headers, RESUME_TEXT_AI)
+    resume_id = first.json()["id"]
+    version_1_id = first.json()["version_id"]
+
+    second = upload(
+        client,
+        headers,
+        RESUME_TEXT_AI_REVISED,
+        resume_id=resume_id,
+        version_name="Updated",
+    )
+    version_2_id = second.json()["version_id"]
+
+    versions_before = {
+        v["id"]: v
+        for v in client.get(
+            f"/resumes/{resume_id}/versions", headers=headers
+        ).json()
+    }
+    assert versions_before[version_1_id]["has_analysis"] is False
+    assert versions_before[version_2_id]["has_analysis"] is False
+
+    analysis = ResumeAIAnalysis(
+        id=uuid4(),
+        user_id=user.id,
+        resume_version_id=version_1_id,
+        analysis_version="1.0",
+        analyzer_version="1.0",
+        prompt_version="1.0",
+        model_provider="test",
+        model_name="test-model",
+        analysis_result={"summary": {"strengths": ["x"]}},
+    )
+    db.add(analysis)
+    db.flush()
+
+    versions_after = {
+        v["id"]: v
+        for v in client.get(
+            f"/resumes/{resume_id}/versions", headers=headers
+        ).json()
+    }
+    assert versions_after[version_1_id]["has_analysis"] is True
+    assert versions_after[version_2_id]["has_analysis"] is False
 # =========================
 # Master version preservation
 # =========================

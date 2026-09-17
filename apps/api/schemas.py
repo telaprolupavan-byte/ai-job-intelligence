@@ -113,6 +113,7 @@ class ResumeVersionResponse(BaseModel):
     original_filename: str
     content_text: str
     is_master: bool
+    has_analysis: bool
     created_at: str
 
 

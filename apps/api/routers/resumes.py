@@ -350,6 +350,16 @@ def list_resume_versions(
             detail="Resume not found",
         )
 
+    version_ids = [version.id for version in resume.versions]
+
+    analyzed_version_ids = {
+        row[0]
+        for row in db.query(ResumeAIAnalysis.resume_version_id)
+        .filter(ResumeAIAnalysis.resume_version_id.in_(version_ids))
+        .distinct()
+        .all()
+    }
+
     return [
         ResumeVersionResponse(
             id=str(version.id),
@@ -358,6 +368,7 @@ def list_resume_versions(
             original_filename=version.original_filename,
             content_text=version.content_text,
             is_master=version.is_master,
+            has_analysis=version.id in analyzed_version_ids,
             created_at=version.created_at.isoformat(),
         )
         for version in sorted(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest, ApiError, API_URL } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
@@ -23,6 +23,7 @@ type ResumeVersion = {
   original_filename: string;
   content_text: string;
   is_master: boolean;
+  has_analysis: boolean;
   created_at: string;
 };
 
@@ -157,8 +158,66 @@ export default function Page() {
   >(null);
   const [showExtractedText, setShowExtractedText] = useState(false);
 
+  // Every load of the versions list is explicitly triggered by a
+  // specific user action (initial load, selecting a resume, or a
+  // successful upload) rather than by a useEffect cascading off
+  // selectedResumeId. That effect-based approach previously allowed two
+  // requests to race (e.g. an upload's explicit reload competing with
+  // the effect firing off the resume-list reload), and whichever
+  // resolved last would silently win, sometimes discarding the version
+  // that should have ended up selected. requestIdRef guards against any
+  // remaining overlap by only applying the most recently *started*
+  // request's result.
+  const versionsRequestIdRef = useRef(0);
+
+  const loadVersions = useCallback(
+    (resumeId: string, preferredVersionId?: string) => {
+      if (!resumeId) {
+        return;
+      }
+
+      const requestId = ++versionsRequestIdRef.current;
+
+      startTransition(async () => {
+        try {
+          const versionData = await authenticatedRequest<ResumeVersion[]>(
+            `/resumes/${resumeId}/versions`,
+          );
+
+          if (requestId !== versionsRequestIdRef.current) {
+            return;
+          }
+
+          setVersions(versionData);
+
+          const preferredVersion =
+            versionData.find(
+              (version) => version.id === preferredVersionId,
+            ) ??
+            versionData.find((version) => version.is_master) ??
+            versionData[0];
+
+          setSelectedVersionId(preferredVersion ? preferredVersion.id : "");
+          setAnalysis(null);
+          setShowExtractedText(false);
+        } catch (err) {
+          if (requestId !== versionsRequestIdRef.current) {
+            return;
+          }
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load resume versions.",
+          );
+        }
+      });
+    },
+    [startTransition],
+  );
+
   const loadResumes = useCallback(
-    (preferredResumeId?: string) => {
+    (preferredResumeId?: string, preferredVersionId?: string) => {
       if (!getAuthToken()) {
         router.replace("/login");
         return;
@@ -183,6 +242,7 @@ export default function Page() {
             resumeData[0];
 
           setSelectedResumeId(nextResume.id);
+          loadVersions(nextResume.id, preferredVersionId);
         } catch (err) {
           if (err instanceof ApiError && [401, 403].includes(err.status)) {
             router.replace("/login");
@@ -197,7 +257,7 @@ export default function Page() {
         }
       });
     },
-    [router, startTransition],
+    [router, startTransition, loadVersions],
   );
 
   useEffect(() => {
@@ -205,48 +265,10 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadVersions = useCallback(
-    (resumeId: string, preferredVersionId?: string) => {
-      if (!resumeId) {
-        return;
-      }
-
-      startTransition(async () => {
-        try {
-          const versionData = await authenticatedRequest<ResumeVersion[]>(
-            `/resumes/${resumeId}/versions`,
-          );
-
-          setVersions(versionData);
-
-          const masterVersion =
-            versionData.find(
-              (version) => version.id === preferredVersionId,
-            ) ??
-            versionData.find((version) => version.is_master) ??
-            versionData[0];
-
-          setSelectedVersionId(masterVersion ? masterVersion.id : "");
-          setAnalysis(null);
-          setShowExtractedText(false);
-        } catch (err) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load resume versions.",
-          );
-        }
-      });
-    },
-    [startTransition],
-  );
-
-  useEffect(() => {
-    if (selectedResumeId) {
-      loadVersions(selectedResumeId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedResumeId]);
+  function selectResume(resumeId: string) {
+    setSelectedResumeId(resumeId);
+    loadVersions(resumeId);
+  }
 
   function validateSelectedFile(file: File): string | null {
     const extension = file.name
@@ -322,7 +344,11 @@ export default function Page() {
       setSelectedFile(null);
       setUploadVersionName("");
 
-      loadResumes(result.id);
+      // loadResumes refreshes the resume list and then explicitly loads
+      // this resume's versions, preferring the version just uploaded
+      // (whether it's a brand-new resume's first version or a new
+      // version on an existing resume).
+      loadResumes(result.id, result.version_id);
     } catch (err) {
       setUploadError(
         err instanceof Error
@@ -428,8 +454,22 @@ export default function Page() {
       setFileActionBusy("view");
       const blob = await fetchResumeVersionFile(selectedVersion.id);
       const objectUrl = URL.createObjectURL(blob);
-      window.open(objectUrl, "_blank", "noopener,noreferrer");
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+
+      // Deliberately omit "noopener": a blob: URL is only resolvable
+      // within the browsing context that created it, and "noopener"
+      // forces the new tab into an isolated context that can't resolve
+      // it (the tab opens blank).
+      const newTab = window.open(objectUrl, "_blank");
+
+      if (!newTab) {
+        URL.revokeObjectURL(objectUrl);
+        setFileActionError(
+          "Your browser blocked this popup. Please allow popups for " +
+            "this site and try again.",
+        );
+      } else {
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      }
     } catch (err) {
       setFileActionError(
         err instanceof Error
@@ -475,6 +515,18 @@ export default function Page() {
   const selectedResume = resumes.find(
     (resume) => resume.id === selectedResumeId,
   );
+
+  // Resolved independently from the analysis payload's own
+  // resume_version_id (rather than assumed to be "whatever is currently
+  // selected") so the AI Analysis section always labels itself with the
+  // resume/version it actually belongs to, even for a moment during a
+  // version switch.
+  const analysisVersion = analysis
+    ? versions.find((version) => version.id === analysis.resume_version_id)
+    : undefined;
+  const analysisResume = analysisVersion
+    ? resumes.find((resume) => resume.id === analysisVersion.resume_id)
+    : undefined;
 
   return (
     <main className="min-h-screen bg-[#05070A] px-6 py-10 text-[#F2F5F8]">
@@ -645,7 +697,7 @@ export default function Page() {
                   <button
                     key={resume.id}
                     type="button"
-                    onClick={() => setSelectedResumeId(resume.id)}
+                    onClick={() => selectResume(resume.id)}
                     className={`border p-5 text-left transition ${
                       isSelected
                         ? "border-[#1677E8] bg-[#1677E8]/10"
@@ -712,6 +764,18 @@ export default function Page() {
                     {new Date(
                       selectedVersion.created_at,
                     ).toLocaleDateString()}
+                  </span>
+                  <span
+                    className={
+                      selectedVersion.has_analysis
+                        ? "text-[#1677E8]"
+                        : "text-[#5E7187]"
+                    }
+                  >
+                    AI Analysis:{" "}
+                    {selectedVersion.has_analysis
+                      ? "Available"
+                      : "Not yet analyzed"}
                   </span>
                 </div>
               )}
@@ -832,6 +896,18 @@ export default function Page() {
                         <div className="mt-1 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
                           {version.original_filename} · Created{" "}
                           {new Date(version.created_at).toLocaleDateString()}
+                          {" · "}
+                          <span
+                            className={
+                              version.has_analysis
+                                ? "text-[#1677E8]"
+                                : "text-[#5E7187]"
+                            }
+                          >
+                            {version.has_analysis
+                              ? "AI Analysis Available"
+                              : "Not Yet Analyzed"}
+                          </span>
                         </div>
                       </div>
 
@@ -863,7 +939,34 @@ export default function Page() {
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
                 AI Resume Analysis
               </div>
-              <div className="mt-2 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
+
+              <div className="mt-4 grid gap-4 border border-[#1A3048] bg-[#05070A] p-4 sm:grid-cols-2">
+                <div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                    Resume
+                  </div>
+                  <div className="mt-1 text-sm font-semibold">
+                    {analysisResume?.filename ??
+                      selectedResume?.filename ??
+                      "Unknown resume"}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                    Version
+                  </div>
+                  <div className="mt-1 text-sm font-semibold">
+                    {analysisVersion
+                      ? `${analysisVersion.name}${
+                          analysisVersion.is_master ? " — Master" : ""
+                        }`
+                      : "Unknown version"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
                 Positioning
               </div>
 
