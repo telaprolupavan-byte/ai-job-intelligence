@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 from apps.api.database import get_db
 from apps.api.dependencies import get_current_user
 from apps.api.models import Company, Job, User
+from apps.api.services.ats_alignment_service import (
+    ATSAlignmentServiceError,
+    calculate_ats_alignment,
+    get_latest_ats_alignment,
+)
 from apps.api.services.eligibility_service import (
     evaluate_and_persist_job_eligibility,
 )
@@ -21,7 +26,7 @@ from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
 )
-from apps.api.models import JobIntelligence
+from apps.api.models import AtsAlignmentResult, JobIntelligence
 from services.eligibility.contracts import EligibilityResult
 
 
@@ -372,3 +377,141 @@ def create_job_intelligence(
         ) from exc
 
     return _job_intelligence_to_response(record)
+
+
+def _ats_alignment_to_response(record: AtsAlignmentResult) -> dict:
+    result_data = record.result
+
+    return {
+        "id": str(record.id),
+        "job_id": str(record.job_id),
+        "resume_version_id": str(record.resume_version_id),
+        "job_intelligence_id": str(record.job_intelligence_id),
+        "engine_version": record.engine_version,
+        "overall_score": record.overall_score,
+        "confidence": record.confidence,
+        "scoring_version": result_data["scoring_version"],
+        "must_have_total": result_data["must_have_total"],
+        "must_have_matched": result_data["must_have_matched"],
+        "preferred_total": result_data["preferred_total"],
+        "preferred_matched": result_data["preferred_matched"],
+        "requirement_results": result_data["requirement_results"],
+        "created_at": record.created_at.isoformat(),
+    }
+
+
+def _parse_optional_resume_version_id(
+    resume_version_id: str | None,
+) -> UUID | None:
+    if resume_version_id is None:
+        return None
+
+    try:
+        return UUID(resume_version_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Resume version not found.",
+        )
+
+
+@router.get("/{job_id}/ats")
+def get_ats_alignment(
+    job_id: str,
+    resume_version_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return the authenticated user's most recently computed ATS Alignment
+    (AJI-013) result for a job, without recomputing it. 404s when no
+    analysis has been generated yet (see POST /jobs/{job_id}/ats).
+
+    ATS Alignment is user-specific (the same job can be analyzed against
+    different resumes/users) — a user can only ever read their own
+    results, never another user's.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    job = db.query(Job).filter(Job.id == job_uuid).first()
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    parsed_resume_version_id = _parse_optional_resume_version_id(
+        resume_version_id
+    )
+
+    record = get_latest_ats_alignment(
+        db,
+        user_id=current_user.id,
+        job_id=job_uuid,
+        resume_version_id=parsed_resume_version_id,
+    )
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="ATS Alignment has not been generated for this job yet.",
+        )
+
+    return _ats_alignment_to_response(record)
+
+
+@router.post("/{job_id}/ats")
+def create_ats_alignment(
+    job_id: str,
+    resume_version_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Compute (or idempotently reuse) the ATS Alignment (AJI-013) result
+    for the authenticated user against a specific job.
+
+    An explicit `resume_version_id` may be supplied to align against
+    that exact ResumeVersion (it must belong to the authenticated user).
+    When omitted, the same default resume selection Job Match uses
+    applies: the user's most recent Resume, preferring its master
+    ResumeVersion.
+
+    Reuses an existing result when the resume version, the underlying
+    Job Intelligence snapshot, and the ATS engine version are all
+    unchanged; otherwise produces a new, additional result without
+    overwriting history.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    parsed_resume_version_id = _parse_optional_resume_version_id(
+        resume_version_id
+    )
+
+    try:
+        record = calculate_ats_alignment(
+            db=db,
+            current_user=current_user,
+            job_id=job_uuid,
+            resume_version_id=parsed_resume_version_id,
+        )
+    except ATSAlignmentServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    return _ats_alignment_to_response(record)

@@ -558,3 +558,215 @@ the deterministic result. `tests/test_jobs_intelligence_api.py` covers
 authentication, 404s, the shared-across-users behavior, and that no
 personalized (eligibility/Job Match/ATS) field ever appears in the
 response or the public `/jobs` listing.
+
+## ATS Alignment (AJI-013)
+
+ATS Alignment answers a different question from every other artifact in
+the pipeline:
+
+| | Question it answers |
+|---|---|
+| Hard Eligibility | "Can this job even be considered?" |
+| Job Intelligence | "What does this job require?" |
+| **ATS Alignment (this section)** | **"How well does this exact ResumeVersion demonstrate this exact JD's requirements?"** |
+| Job Match (existing) | "How well does this job fit?" |
+
+It is AJI's own estimate of how an ATS would read a resume against a
+JD — never the employer's proprietary ATS score, never a prediction of
+interview/hiring probability, and never merged into `JobMatchResult` or
+`JobIntelligence` (see "Job Match vs. ATS Alignment" above, which this
+section fulfills).
+
+### Category taxonomy: two tiers, not three (a resolved conflict)
+
+The AJI-013 product spec describes three requirement tiers (Must-Have /
+Preferred / Nice-to-Have). The already-shipped AJI-012 `JobIntelligence`
+contract only has two levels — `Level = Literal["required", "preferred"]`
+(`apps/api/services/job_intelligence/contracts.py`) — and deliberately
+folds "nice to have"/"bonus"/"a plus" phrasing into `preferred`
+(`PREFERRED_MARKERS` in `deterministic.py`). This is a genuine conflict
+between the AJI-013 spec and the already-approved AJI-012 data model, not
+an oversight, and was resolved with the Project Owner during the AJI-013
+build rather than silently choosing a side: **ATS Alignment reuses
+AJI-012's two-tier taxonomy exactly** (`must_have` ==
+AJI-012 `required`, `preferred` == AJI-012 `preferred`) rather than
+forking a third tier on top of AJI-012's classification logic, which
+would have meant either modifying AJI-012's shipped contract/tests or
+re-implementing a slice of its clause classification inside AJI-013 (both
+explicitly out of scope — "do not recreate the AJI-012 job-understanding
+pipeline"). `services/ats_alignment/contracts.py::RequirementCategory`
+therefore has exactly two values, not three.
+
+### Package layout
+
+- `services/ats_alignment/` — the pure, DB-free, AI-free engine, mirroring
+  `services.job_matching`'s and `services.eligibility`'s DB/AI-free-core
+  convention:
+  - `contracts.py` — `JobRequirementItem` (input), `RequirementAlignment`
+    (per-requirement output), `AtsAlignmentResult` (aggregate output).
+  - `resume_adapter.py` — adapts an already-computed deterministic resume
+    analysis (`apps.api.services.resume_ai.deterministic`, computed by the
+    orchestration layer and passed in, never imported here) into a
+    `ResumeEvidenceProfile`. Mirrors
+    `services.job_matching.resume_adapter`'s existing convention exactly.
+  - `engine.py` — `evaluate_ats_alignment()`: evaluates every requirement
+    independently (skill/experience/education/certification) and
+    aggregates a result. No database access, no AI call.
+  - `scoring.py` — `compute_overall_score()`/`compute_overall_confidence()`,
+    isolated behind small, independently-testable functions (see
+    "Scoring: an explicit placeholder formula" below).
+- `apps/api/services/ats_alignment_service.py` — the DB-touching
+  orchestration layer (resume version resolution, Job Intelligence
+  lookup/generation, idempotency, persistence), playing the same role
+  `job_match_service.py` and `job_intelligence/service.py` play for their
+  respective artifacts.
+
+### Source data (reused, not recreated)
+
+- **Job-side requirements** come entirely from AJI-012's persisted
+  `JobIntelligence.structured_intelligence` (re-validated into
+  `JobIntelligenceResult`), never from re-parsing raw JD text. If no
+  snapshot exists yet for the job, `calculate_ats_alignment()` calls the
+  same `generate_job_intelligence()` the `/jobs/{job_id}/intelligence`
+  endpoint uses — idempotent/cached, so this never duplicates AJI-012's
+  pipeline.
+- **Resume-side evidence** comes from the existing deterministic resume
+  analyzer (`apps.api.services.resume_ai.deterministic`, the same
+  function `job_match_service.py` already reuses for Job Match) plus the
+  user's declared `Profile.years_experience`. No second resume parser is
+  introduced. Education and certification alignment are evaluated via a
+  grounded keyword search directly against the resume's raw text — every
+  `resume_evidence` string in a result is a literal substring of the
+  resume, never an unverified claim.
+
+### AI usage: v1 is entirely deterministic (a documented scope decision)
+
+Unlike `ResumeAIAnalysis`/`JobIntelligence`, `AtsAlignmentResult` makes no
+AI call of its own. The spec allows (but does not require) an AI
+semantic-interpretation layer for ambiguous cases; this build does not
+add one, because:
+
+- Semantic-equivalence handling for skills (e.g. "GCP" ==
+  "Google Cloud Platform") already happens once, upstream, in the shared
+  canonical skill vocabulary (`services.skills`) both Job Intelligence and
+  Resume Intelligence extraction already go through — exact-vs-synonym
+  skill matching does not need its own AI call here.
+- An AI call here would need the same evidence-substring
+  anti-hallucination check AJI-012's `validator.py` already established
+  ("a requirement must not be marked matched merely because the LLM
+  believes the candidate probably has the capability" — spec section 7),
+  which is exactly what the deterministic keyword-search approach
+  guarantees for free, with zero risk of an unsupported resume fact.
+
+This is a deliberate, minimal v1 scope decision, not an oversight — a
+future ticket may layer AI semantic interpretation on top of this same
+engine for genuinely ambiguous cases (e.g. a related-but-not-identical
+skill) without changing its architecture.
+
+### Matched / partial / missing
+
+Every requirement gets an explicit, independently-evaluated result — see
+`services/ats_alignment/engine.py`'s module docstring for the exact rule
+per requirement type (skill/experience/education/certification). In
+summary: `matched` requires direct or quantitatively-verified evidence;
+`partial` requires *some* related evidence that doesn't fully satisfy the
+requirement (skill listed only in a skills section, years below the
+minimum, a lower degree than required, a certification whose name is only
+partially present); `missing` means no such evidence exists in the
+resume. No requirement is ever silently dropped from the result set.
+
+### Scoring: an explicit placeholder formula (not a product decision)
+
+The AJI-013 spec explicitly states no Must-Have/Preferred weighting
+formula has been approved, and instructs the Builder not to invent one.
+`services/ats_alignment/scoring.py::compute_overall_score()` therefore
+implements the simplest defensible placeholder — every requirement
+(regardless of category) counts equally — clearly documented as a
+placeholder in that module's docstring, versioned via
+`SCORING_VERSION = "placeholder-1.0"` (persisted on every row, in
+`AtsAlignmentResult.result["scoring_version"]`), and isolated behind one
+small function so the real, approved formula can replace its body later
+without touching the engine, persistence, or API layers. Do not read
+`SCORING_VERSION`'s value or this module's behavior as an approved
+weighting policy — it exists purely so a future formula change is
+auditable, the same way `JobMatchResult.engine_version` already is.
+
+### Persistence, versioning, and idempotency
+
+`AtsAlignmentResult` (`apps/api/models.py`) is insert-only, like
+`JobMatchResult`/`JobIntelligence`/`ResumeAIAnalysis` (see "Analysis/
+scoring versioning convention" above). It is a purely deterministic
+artifact (no AI call of its own), so it follows the single
+`engine_version` convention `JobMatchResult` uses rather than the
+analysis/analyzer/prompt/model split used by AI-derived artifacts.
+
+Exact-input pinning: each row records `user_id`, `job_id`,
+`resume_version_id`, `job_intelligence_id` (the exact `JobIntelligence`
+snapshot used — not just the job), `job_content_fingerprint` (copied from
+that snapshot so idempotency lookups don't require a join), and
+`engine_version`. `calculate_ats_alignment()` looks up an existing row
+keyed by all five before doing any work; a cache hit returns it
+unchanged. A changed resume version, a new `JobIntelligence` snapshot (JD
+edited, or the AJI-012 pipeline version bumped), or a bumped ATS
+`engine_version` always produces a new, additional row — existing rows
+are never overwritten, so a resume/JD edit never silently mutates a past
+analysis.
+
+### User isolation (personalized, unlike JobIntelligence)
+
+Unlike `JobIntelligence` (shared, job-scoped, no `user_id`),
+`AtsAlignmentResult` is personalized: the same job can be analyzed
+against different resumes/users. Every read/write is always scoped to
+the requesting user's own `user_id` (never derived from `job_id`/
+`resume_version_id` alone) — `get_latest_ats_alignment()` filters on
+`user_id` unconditionally, and `GET /jobs/{job_id}/ats` for a job another
+user analyzed returns 404, not another user's data.
+
+### API
+
+- `GET /jobs/{job_id}/ats` — returns the authenticated user's newest
+  result, never recomputing or calling the AI provider (Job Intelligence
+  generation only ever happens from the POST path). Accepts an optional
+  `resume_version_id` query parameter to pin the read to one exact
+  version; omitted, it returns the newest result across any resume
+  version for that user/job.
+- `POST /jobs/{job_id}/ats` — computes-or-reuses (idempotent, per above).
+  Accepts the same optional `resume_version_id` query parameter Job
+  Match's `/jobs/{job_id}/match` already exposes, with the same default
+  resume selection (most recent `Resume`, preferring its master
+  `ResumeVersion`) when omitted — no new resume-selection UI/API is
+  introduced (AJI-017 stays out of scope).
+
+### Frontend
+
+The Jobs list page (`apps/web/app/(app)/jobs/page.tsx`) already had an
+"ATS Readiness — Not calculated" placeholder card next to the Job Match
+card, and a dedicated `/ats` route with a "coming soon" empty state — the
+existing architecture already required this surface (per the ticket's
+"only if the existing architecture already requires an ATS analysis
+surface" scoping rule). Both were wired to the real endpoints: the Jobs
+list card now triggers `POST /jobs/{job_id}/ats` and renders the score,
+confidence, and a per-requirement breakdown (grouped by must-have/
+preferred, each showing status, explanation, and evidence) via a new
+`AtsAlignmentPanel`. The standalone `/ats` page's copy was updated to
+stop claiming the feature is unshipped and points to the Jobs page
+instead of gaining its own job/resume-selection workflow (that belongs to
+AJI-017, not this ticket).
+
+### Testing
+
+`tests/test_ats_alignment_engine.py` unit-tests the pure engine with no
+database (skill exact/demonstrated/partial/missing, experience boundary
+conditions, education degree-rank comparison including a higher-degree-
+satisfies-lower-requirement case, certification partial matching,
+evidence-grounding rules, and scoring boundary conditions).
+`tests/test_ats_alignment_service.py` (real DB) covers idempotency/
+versioning (same inputs reuse a row; a changed resume version, a new Job
+Intelligence snapshot, or a bumped engine version each produce a new
+row), resume version resolution/ownership, and error handling (job not
+found, no resume, empty resume text, no analyzable requirements).
+`tests/test_jobs_ats_api.py` covers authentication, 404s, user isolation
+(another user can never read a result, and the same job scored for two
+different resumes never leaks one user's resume content to the other),
+idempotency over HTTP, and that the public `/jobs` listing never includes
+ATS data.

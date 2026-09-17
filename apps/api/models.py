@@ -753,3 +753,101 @@ class JobMatchResult(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+class AtsAlignmentResult(Base):
+    """A single ATS Alignment analysis (AJI-013): how well one exact
+    `ResumeVersion` demonstrates the requirements of one exact
+    `JobIntelligence` snapshot, for one user.
+
+    Insert-only, like `JobMatchResult`/`JobIntelligence`/
+    `ResumeAIAnalysis` (see docs/ARCHITECTURE.md's "Analysis/scoring
+    versioning convention"): a new row is created whenever the resume
+    version, the Job Intelligence snapshot, or the ATS engine version
+    changes, so a past analysis never silently mutates. ATS Alignment is
+    a purely deterministic artifact (no AI call of its own — see
+    services/ats_alignment/engine.py), so it follows the single
+    `engine_version` convention rather than the
+    analysis/analyzer/prompt/model split used by AI-derived artifacts.
+
+    Unlike `JobIntelligence` (shared, job-scoped, no `user_id`), this
+    table is personalized: the same job can be analyzed against
+    different resumes/users, and a user must never be able to read
+    another user's row (see docs/ARCHITECTURE.md's "Shared vs.
+    personalized" section and AJI-013 section 14).
+    """
+
+    __tablename__ = "ats_alignment_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    resume_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("resume_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    job_intelligence_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("job_intelligence.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Copied from JobIntelligence.content_fingerprint at analysis time so
+    # idempotency lookups don't require a join, and so this row's exact
+    # JD-content identity stays legible even if read alongside history.
+    job_content_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    engine_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    overall_score: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    confidence: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    # Full requirement-level results: see
+    # services/ats_alignment/contracts.py::RequirementAlignment for the
+    # shape of each entry, plus must/preferred coverage counts and the
+    # scoring formula version.
+    result: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
