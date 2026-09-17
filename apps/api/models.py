@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -886,6 +887,157 @@ class AtsAlignmentResult(Base):
     # services/ats_alignment/contracts.py::RequirementAlignment for the
     # shape of each entry, plus must/preferred coverage counts and the
     # scoring formula version.
+    result: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class GapAnalysis(Base):
+    """A single Gap Analysis & Job-Specific Suggestions result (AJI-015):
+    for one exact `AtsAlignmentResult` (AJI-013, the canonical
+    requirement-alignment source), a semantic explanation and a
+    job-specific, evidence-constrained suggestion for every requirement
+    that result classified as `partial` or `missing`.
+
+    Gap Analysis never reimplements ATS scoring and never re-derives
+    which requirements are gaps — every gap's status/jd_evidence/
+    resume_evidence is copied verbatim from `ats_alignment_id`'s own
+    `result["requirement_results"]` (see
+    apps/api/services/gap_analysis/engine.py). It is an AI-derived
+    artifact (deterministic gap selection feeds an evidence-constrained
+    AI explanation/suggestion stage), so it follows the analysis/
+    analyzer/prompt + model_provider/model_name convention, like
+    `JobIntelligence` (see docs/ARCHITECTURE.md's "Analysis/scoring
+    versioning convention").
+
+    Insert-only, like every other AI/scoring artifact in this system: a
+    new row is created whenever the resume version, the underlying ATS
+    Alignment result, or the analyzer/prompt pipeline version changes.
+    Historical rows are never overwritten or mutated.
+
+    Personalized, like `AtsAlignmentResult` (unlike the shared,
+    job-scoped `JobIntelligence`): the same job can be analyzed against
+    different resumes/users, and a user must never be able to read
+    another user's row.
+    """
+
+    __tablename__ = "gap_analyses"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    resume_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("resume_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    job_intelligence_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("job_intelligence.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # The exact AJI-013 ATS Alignment result every gap in this row was
+    # derived from. This is the concrete "tied to the specific Resume
+    # Version and Job Intelligence snapshot" pin, and the primary
+    # idempotency key alongside analyzer_version/prompt_version — since
+    # AtsAlignmentResult is itself immutable and already pins
+    # resume_version_id/job_intelligence_id/job_content_fingerprint.
+    ats_alignment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ats_alignment_results.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Copied from the AtsAlignmentResult at analysis time so idempotency
+    # lookups and history don't require a join, mirroring
+    # AtsAlignmentResult.job_content_fingerprint's own convention.
+    job_content_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    analysis_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    analyzer_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    prompt_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    model_provider: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    model_name: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    # "complete" (no gaps to enrich, or the AI enrichment call succeeded)
+    # or "partial" (there were gaps but the AI enrichment call itself
+    # failed/was unavailable, so every gap fell back to a safe,
+    # deterministic explanation/suggestion template). Never "failed" — a
+    # failed result is not persisted at all; see
+    # apps/api/services/gap_analysis/service.py.
+    generation_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="complete",
+    )
+
+    must_have_gap_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    preferred_gap_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    # Full gap-level results: see
+    # apps/api/services/gap_analysis/contracts.py::GapAnalysisResult for
+    # the exact shape.
     result: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,

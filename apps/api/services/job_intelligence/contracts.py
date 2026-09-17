@@ -2,10 +2,14 @@
 
 This is the canonical structured representation of "what does this
 specific job require?" — the output later consumed by AJI-013 (ATS
-Alignment), AJI-014 (Gap Analysis), AJI-015 (Suggestions), and AJI-016
-(Priority Ranking). It intentionally contains no score, no ranking, and
-no user-specific data: see docs/ARCHITECTURE.md for the shared-vs-
-personalized boundary.
+Alignment), AJI-014 (Job Match Reconciliation), AJI-015 (Gap Analysis &
+Job-Specific Suggestions), and a future Priority Ranking ticket. (The
+AJI-013 docstring/docs/ARCHITECTURE.md note the roadmap originally sketched
+out during this ticket's own build renumbered once delivery started —
+AJI-014 became a Job Match defect-fix rather than Gap Analysis, so AJI-015
+absorbed both the gap-analysis and suggestions scope described here.) It
+intentionally contains no score, no ranking, and no user-specific data:
+see docs/ARCHITECTURE.md for the shared-vs-personalized boundary.
 
 Confidence reuses the existing high/medium/low convention from
 `apps.api.services.resume_ai.contracts` rather than introducing a new

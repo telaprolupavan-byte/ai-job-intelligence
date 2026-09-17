@@ -17,6 +17,11 @@ from apps.api.services.ats_alignment_service import (
 from apps.api.services.eligibility_service import (
     evaluate_and_persist_job_eligibility,
 )
+from apps.api.services.gap_analysis.service import (
+    GapAnalysisServiceError,
+    generate_gap_analysis,
+    get_latest_gap_analysis,
+)
 from apps.api.services.job_intelligence.service import (
     JobIntelligenceServiceError,
     generate_job_intelligence,
@@ -26,7 +31,7 @@ from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
 )
-from apps.api.models import AtsAlignmentResult, JobIntelligence
+from apps.api.models import AtsAlignmentResult, GapAnalysis, JobIntelligence
 from services.eligibility.contracts import EligibilityResult
 
 
@@ -520,3 +525,125 @@ def create_ats_alignment(
         ) from exc
 
     return _ats_alignment_to_response(record)
+
+
+def _gap_analysis_to_response(record: GapAnalysis) -> dict:
+    return {
+        "id": str(record.id),
+        "job_id": str(record.job_id),
+        "resume_version_id": str(record.resume_version_id),
+        "job_intelligence_id": str(record.job_intelligence_id),
+        "ats_alignment_id": str(record.ats_alignment_id),
+        "analysis_version": record.analysis_version,
+        "analyzer_version": record.analyzer_version,
+        "prompt_version": record.prompt_version,
+        "model_provider": record.model_provider,
+        "model_name": record.model_name,
+        "generation_status": record.generation_status,
+        "must_have_gap_count": record.must_have_gap_count,
+        "preferred_gap_count": record.preferred_gap_count,
+        "gaps": record.result["gaps"],
+        "created_at": record.created_at.isoformat(),
+    }
+
+
+@router.get("/{job_id}/gap-analysis")
+def get_gap_analysis(
+    job_id: str,
+    resume_version_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return the authenticated user's most recently computed Gap Analysis
+    & Job-Specific Suggestions (AJI-015) result for a job, without
+    recomputing it. 404s when no analysis has been generated yet (see
+    POST /jobs/{job_id}/gap-analysis).
+
+    Gap Analysis is user-specific, like ATS Alignment (the same job can
+    be analyzed against different resumes/users) — a user can only ever
+    read their own results, never another user's.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    job = db.query(Job).filter(Job.id == job_uuid).first()
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    parsed_resume_version_id = _parse_optional_resume_version_id(
+        resume_version_id
+    )
+
+    record = get_latest_gap_analysis(
+        db,
+        user_id=current_user.id,
+        job_id=job_uuid,
+        resume_version_id=parsed_resume_version_id,
+    )
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Gap Analysis has not been generated for this job yet.",
+        )
+
+    return _gap_analysis_to_response(record)
+
+
+@router.post("/{job_id}/gap-analysis")
+def create_gap_analysis(
+    job_id: str,
+    resume_version_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Compute (or idempotently reuse) the Gap Analysis & Job-Specific
+    Suggestions (AJI-015) result for the authenticated user against a
+    specific job.
+
+    Every gap is read from the user's ATS Alignment (AJI-013) result for
+    the same resume version — computing/reusing it first via the same
+    resume-version resolution and idempotent caching
+    POST /jobs/{job_id}/ats already uses, never a second, parallel
+    requirement-alignment computation. Reuses an existing Gap Analysis
+    result when the underlying ATS Alignment result and the analyzer/
+    prompt pipeline version are all unchanged; otherwise produces a new,
+    additional result without overwriting history.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    parsed_resume_version_id = _parse_optional_resume_version_id(
+        resume_version_id
+    )
+
+    try:
+        record = generate_gap_analysis(
+            db=db,
+            current_user=current_user,
+            job_id=job_uuid,
+            resume_version_id=parsed_resume_version_id,
+        )
+    except GapAnalysisServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    return _gap_analysis_to_response(record)

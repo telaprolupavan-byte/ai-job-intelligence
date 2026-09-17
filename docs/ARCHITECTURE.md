@@ -19,10 +19,10 @@ Do not resurrect these names for new features. In particular:
 - Do not add an `ats_score` field to anything named `ResumeAnalysis` —
   ATS Alignment (AJI-013) gets its own new table, separate from
   `JobMatchResult` (see "Job Match vs. ATS Alignment" below).
-- Do not rebuild `ResumeRecommendation` as-is — Gap Analysis /
-  Job-specific Suggestions (AJI-014/015) should be built on top of the
-  evidence-based matching engine (`services.job_matching`), not on the
-  pre-evidence-engine shape that table had.
+- Do not rebuild `ResumeRecommendation` as-is — Gap Analysis &
+  Job-Specific Suggestions (delivered as AJI-015; see that section) is
+  built on top of AJI-013 ATS Alignment's evidence-based requirement
+  results, not on the pre-evidence-engine shape that table had.
 
 ## Canonical skill normalization
 
@@ -305,9 +305,14 @@ the pipeline:
 
 It converts a `Job`'s observable JD text into a structured, versioned,
 evidence-backed contract. It is the canonical representation AJI-013
-(ATS Alignment), AJI-014 (Gap Analysis), AJI-015 (Suggestions), and
-AJI-016 (Priority Ranking) all consume — none of them re-parse the raw
-JD text themselves.
+(ATS Alignment), AJI-014 (Job Match Reconciliation), AJI-015 (Gap
+Analysis & Job-Specific Suggestions), and a future Priority Ranking
+ticket all consume — none of them re-parse the raw JD text themselves.
+(This roadmap line was written during AJI-012's own build; ticket
+numbering shifted once delivery started — AJI-014 ended up being a Job
+Match defect-fix, not Gap Analysis, so AJI-015 below covers both gap
+analysis and job-specific suggestions in one ticket. See that section for
+the resolution.)
 
 **Resume Intelligence vs. Job Intelligence — do not merge these:**
 Resume Intelligence (AJI-010, `apps.api.services.resume_ai`) decodes
@@ -515,9 +520,9 @@ qualifications, responsibilities, skills, location, employment type,
 salary, role, seniority, domain, and the job's own observable
 authorization signals. It never stores or derives a
 user-specific score: Hard Eligibility (AJI-011), Job Match (existing),
-ATS Alignment (AJI-013, future), and Suggestions (AJI-015, future) all
-stay in their own user-scoped tables/services and are never written
-into `JobIntelligence.structured_intelligence`.
+ATS Alignment (AJI-013), and Gap Analysis (AJI-015) all stay in their
+own user-scoped tables/services and are never written into
+`JobIntelligence.structured_intelligence`.
 
 ### Performance
 
@@ -851,3 +856,214 @@ row; and a Job Intelligence generation failure surfaces as a
 (`tests/test_jobs_match_api.py`, `tests/test_job_match_resume_version_selection.py`,
 `tests/test_job_matching_*.py`) pass unchanged, since the pure scoring
 engine and its 6-component/100-point weighting were not touched.
+
+## Gap Analysis & Job-Specific Suggestions (AJI-015)
+
+Gap Analysis answers a narrower question than every artifact before it:
+
+| | Question it answers |
+|---|---|
+| Job Intelligence | "What does this job require?" |
+| ATS Alignment | "How well does this exact resume demonstrate this exact JD?" |
+| **Gap Analysis (this section)** | **"For each requirement this resume does not fully demonstrate, why is it a gap, and what could the candidate truthfully do about it?"** |
+| Job Match (existing) | "How well does this job fit?" |
+
+The originally-sketched roadmap (written during AJI-012's build, see that
+section) called this "AJI-014 Gap Analysis" + "AJI-015 Suggestions" as two
+separate tickets. By the time this work started, AJI-014 had already been
+delivered as the Job Match/Job Intelligence reconciliation fix (see that
+section above), so this single ticket — AJI-015 — covers both gap
+analysis and job-specific suggestions together, since a suggestion has no
+meaning independent of the gap it addresses.
+
+### Canonical sources (reused, never reimplemented)
+
+Gap Analysis introduces no new requirement extraction and no new
+alignment scoring:
+
+- **Which requirements are gaps, and why** comes entirely from an
+  existing AJI-013 `AtsAlignmentResult` — the canonical requirement-
+  alignment source. `apps/api/services/gap_analysis/engine.py::
+  select_gap_candidates()` reads `requirement_results` from that row and
+  keeps only the entries whose `status` is `partial` or `missing`; a
+  `matched` requirement is not a gap. Every field on a gap candidate
+  (`requirement_type`, `category`, `requirement_text`, `jd_evidence`,
+  `resume_evidence`) is copied verbatim — nothing here re-runs ATS
+  Alignment's skill/experience/education/certification evaluation, and
+  the AJI-012/AJI-013 Must-Have/Preferred two-tier taxonomy is preserved
+  as-is (`category` stays `must_have`/`preferred`, unchanged).
+- **The Job Intelligence snapshot and Job Match score** are untouched.
+  Gap Analysis never calls `services.job_matching` and never writes to
+  `JobMatchResult` — see "Job Match vs. ATS Alignment" above, which this
+  ticket does not revisit.
+- If no `AtsAlignmentResult` exists yet for the requested (user, job,
+  resume version),
+  `apps/api/services/gap_analysis/service.py::generate_gap_analysis()`
+  calls `apps.api.services.ats_alignment_service.calculate_ats_alignment()`
+  directly — the same resume-version resolution (with ownership
+  enforcement), Job Intelligence generation-if-missing, and idempotent
+  caching `POST /jobs/{job_id}/ats` already uses. This is a direct
+  function call, not a duplicated implementation: Gap Analysis never
+  re-derives resume evidence or re-scores a requirement itself.
+
+### AI usage: narrow, evidence-constrained, and never authoritative over safety
+
+Unlike ATS Alignment (AJI-013, entirely deterministic), Gap Analysis does
+use an AI stage — but only for two fields per gap: `explanation` (why
+this is a gap, in plain language) and `suggestion_text` (what the
+candidate could do about it). Everything else is deterministic:
+
+- **`suggestion_type` is never AI-derived.**
+  `apps/api/services/gap_analysis/engine.py::default_suggestion_type()`
+  maps `status` to `suggestion_type` in code, not by prompting: a
+  `missing` requirement (ATS Alignment's own engine guarantees zero
+  resume evidence for this status) always gets `ADD_IF_TRUE`; a `partial`
+  requirement (ATS Alignment guarantees *some* resume evidence for this
+  status) always gets `REPHRASE_EXISTING`. This mapping is applied in
+  `apps/api/services/gap_analysis/validator.py` regardless of what an AI
+  response proposes — the concrete, mechanical implementation of "missing
+  candidate evidence must produce an ADD_IF_TRUE-style recommendation
+  rather than fabricated resume content." A unit test
+  (`tests/test_gap_analysis_validator.py::
+  test_suggestion_type_for_missing_is_always_add_if_true_even_if_ai_disagrees`)
+  asserts this holds even when the AI's own suggestion text reads as if
+  the candidate already has the skill.
+- **Evidence-substring grounding**, mirroring AJI-012's
+  `_evidence_supported()` anti-hallucination check exactly in shape but
+  narrower in scope: the AI must return a verbatim `explanation_evidence`
+  quote, and it is checked as a case/whitespace-insensitive substring of
+  *that one gap's own* `jd_evidence` + `resume_evidence` — never the full
+  raw JD or resume text. This keeps the AI's grounding scoped to the
+  single requirement it was asked about. An unsupported quote drops both
+  the AI `explanation` and `suggestion_text` for that gap; the
+  deterministic template (`engine.py::deterministic_explanation()` /
+  `deterministic_suggestion_text()`) is used instead — the same
+  silent-and-safe degrade pattern AJI-012 established.
+- **A second, ADD_IF_TRUE-specific safety net**: even when the evidence
+  check passes, an `ADD_IF_TRUE` gap's AI-authored `suggestion_text` is
+  only accepted if it contains an explicit hedging/conditional phrase
+  (`validator.py::_HEDGE_PHRASES` — "if you have", "if accurate", "if
+  applicable", etc.). A flat assertion ("Add your Kubernetes experience
+  to the resume") is rejected and replaced with the deterministic
+  template even though it passed evidence grounding, since an
+  `ADD_IF_TRUE` gap by definition has no resume evidence to assert
+  anything from.
+- `explanation_source` / `suggestion_source` (`"ai"` or
+  `"deterministic"`) are persisted on every gap, so which fields actually
+  came from the AI vs. the safe fallback is never hidden in the stored
+  result.
+- A fully failed AI call (provider error, timeout, no API key) degrades
+  every gap to the deterministic template and persists
+  `generation_status = "partial"` — mirroring `JobIntelligence.
+  extraction_status`. A job with zero gaps needs no AI call at all and is
+  `generation_status = "complete"` (there is nothing to enrich, not a
+  degraded result).
+
+### Package layout
+
+`apps/api/services/gap_analysis/` mirrors `job_intelligence`'s colocated
+layout (DB-free deterministic + AI pipeline modules colocated with DB
+orchestration), not `ats_alignment`'s top-level `services/` layout —
+because, like Job/Resume Intelligence and unlike ATS Alignment, this
+pipeline has an AI stage of its own:
+
+- `contracts.py` — the `GapSuggestion` / `GapAnalysisResult` Pydantic
+  contract.
+- `engine.py` — pure, DB-free, AI-free: `select_gap_candidates()`,
+  `default_suggestion_type()`, and the deterministic explanation/
+  suggestion templates.
+- `prompts.py` / `providers/openai_provider.py` / `providers/factory.py`
+  / `interpreter.py` — the AI enrichment stage, structured exactly like
+  `job_intelligence`'s equivalent modules (OpenAI Structured Outputs via
+  `client.responses.parse`, a closed `extra="forbid"` schema per
+  provider-schema convention).
+- `validator.py` — merges deterministic gap candidates with (optional)
+  validated AI enrichment into the final contract; the concrete
+  anti-hallucination and suggestion-type-enforcement logic (see "AI
+  usage" above).
+- `service.py` — the DB-touching orchestration layer (calling
+  `calculate_ats_alignment()`, idempotency, persistence), the same role
+  `job_intelligence/service.py` plays for Job Intelligence.
+
+### Persistence, versioning, and idempotency
+
+`GapAnalysis` (`apps/api/models.py`) is insert-only, like every other
+AI/scoring artifact (see "Analysis/scoring versioning convention"
+above). It is AI-derived (deterministic gap selection feeds an
+evidence-constrained AI enrichment stage), so it follows the
+analysis/analyzer/prompt + `model_provider`/`model_name` convention, like
+`JobIntelligence`, rather than ATS Alignment's single `engine_version`.
+
+Exact-input pinning: each row records `user_id`, `job_id`,
+`resume_version_id`, `job_intelligence_id`, and `ats_alignment_id` — the
+exact AJI-013 `AtsAlignmentResult` every gap was derived from, and the
+concrete "tied to the specific Resume Version and Job Intelligence
+snapshot" requirement, since `AtsAlignmentResult` itself already pins
+both. `job_content_fingerprint` is copied from that result so idempotency
+lookups don't require a join, mirroring `AtsAlignmentResult.
+job_content_fingerprint`'s own convention.
+`generate_gap_analysis()` looks up an existing row keyed by `(user_id,
+job_id, ats_alignment_id, analyzer_version, prompt_version)` before doing
+any AI call — a cache hit returns the existing row unchanged. Because
+`AtsAlignmentResult` is itself immutable, a changed resume version or a
+new/edited JD always produces a new `AtsAlignmentResult` first (never a
+mutation), which in turn always produces a new, additional `GapAnalysis`
+row; existing rows are never overwritten.
+
+### User isolation
+
+Like `AtsAlignmentResult` (unlike the shared, job-scoped
+`JobIntelligence`), `GapAnalysis` is personalized: the same job can be
+analyzed against different resumes/users. `get_latest_gap_analysis()`
+filters on `user_id` unconditionally, and `GET /jobs/{job_id}/gap-analysis`
+for a job another user analyzed returns 404, not another user's data —
+including another user's resume content, since a gap's `resume_evidence`
+is always that exact user's own text.
+
+### API
+
+- `GET /jobs/{job_id}/gap-analysis` — returns the authenticated user's
+  newest result, never recomputing, never calling
+  `calculate_ats_alignment()`, and never calling an AI provider (AI calls
+  only ever happen from the POST path). Accepts the same optional
+  `resume_version_id` query parameter ATS Alignment exposes.
+- `POST /jobs/{job_id}/gap-analysis` — computes-or-reuses (idempotent,
+  per above), delegating resume-version resolution and ATS Alignment
+  computation to `calculate_ats_alignment()` exactly as `POST
+  /jobs/{job_id}/ats` does.
+
+### Scope
+
+Per the AJI-015 ticket's explicit scope boundary, this ticket does not
+implement resume rewriting, automatic resume editing, priority ranking
+across gaps or jobs, or any change to Job Match scoring, ATS Alignment
+scoring, or the Must-Have/Preferred taxonomy — all of those remain
+out of scope for a future ticket.
+
+### Testing
+
+`tests/test_gap_analysis_engine.py` unit-tests the pure engine with no
+database (gap selection excludes `matched` requirements, the
+status->suggestion_type mapping, deterministic template content).
+`tests/test_gap_analysis_contracts.py` covers the Pydantic contract's own
+validation. `tests/test_gap_analysis_validator.py` is the dedicated AI-
+safety suite: `suggestion_type` is never taken from the AI even when it
+disagrees, unsupported AI evidence is rejected, the evidence check is
+case/whitespace-insensitive, an `ADD_IF_TRUE` suggestion without hedging
+language is rejected even with valid evidence, and a fully failed AI call
+still produces a complete, safe result. `tests/test_gap_analysis_provider.py`
+mirrors `test_job_intelligence_provider.py`'s OpenAI-strict-schema
+regression guard. `tests/test_gap_analysis_service.py` (real DB) covers
+idempotency/versioning (same inputs reuse a row and make exactly one AI
+call; a changed resume version, a new ATS Alignment result, or a bumped
+analyzer version each produce a new row; a prior row's stored result is
+never mutated by a later regeneration) and ATS Alignment error
+propagation (job not found, no resume, another user's resume version
+rejected). `tests/test_jobs_gap_analysis_api.py` covers authentication,
+404s, that GET never invokes the AI provider, user isolation (including
+that another user's resume content never leaks through a gap's
+`resume_evidence`), idempotency over HTTP, that the public `/jobs`
+listing never includes Gap Analysis data, and that `GET /jobs/{job_id}/ats`
+continues to work unchanged alongside Gap Analysis. All pre-existing ATS
+Alignment, Job Intelligence, and Job Match tests pass unchanged, since
+none of their engines, schemas, or scoring were touched.
