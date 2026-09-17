@@ -770,3 +770,84 @@ found, no resume, empty resume text, no analyzable requirements).
 different resumes never leaks one user's resume content to the other),
 idempotency over HTTP, and that the public `/jobs` listing never includes
 ATS data.
+
+## Job Match Reconciliation (AJI-014)
+
+AJI-014 did not redesign Job Match or its scoring formula. It fixed one
+specific pre-existing defect: `apps.api.services.job_match_service` built
+its `JobRequirements` (must-have/preferred skills and experience) by
+running its own text-splitting and skill extraction
+(`services.job_matching.extractor.split_preferred_section`/
+`build_job_requirements`) directly over raw
+`Job.description`/`requirements`/`responsibilities` text — duplicating a
+job-understanding pipeline that AJI-012 Job Intelligence already does
+more thoroughly and correctly (clause-level required-vs-preferred
+classification instead of one whole-text split point, and correctly
+excluding `responsibilities` from requirements, since a responsibility is
+never a hard requirement — see "Responsibilities vs. requirements"
+above). This was exactly the kind of "already-approved-architecture
+duplication" AJI-014 was scoped to find and fix, not a product-level
+scoring change.
+
+**What changed:** `calculate_job_match()` now reads job-side requirements
+from the same persisted `JobIntelligence` snapshot AJI-013 already reuses
+(via `get_latest_job_intelligence`/`generate_job_intelligence`), mapping
+AJI-012's `required_skills`/`preferred_skills`/`required_experience`/
+`preferred_experience` onto `services.job_matching.contracts.
+JobRequirements` (`apps.api.services.job_match_service._build_job_requirements`,
+a small, Job-Match-specific copy of the same mapping
+`ats_alignment_service._build_job_requirements` already does — kept
+separate rather than shared, since Job Match's `JobRequirements` shape
+only carries skills/experience while ATS Alignment's flat requirement
+list also covers education/certifications Job Match's scoring never
+used). `services.job_matching.matcher`/`scorer` — the actual scoring
+formula (must-have 35 / preferred 15 / experience 20 / role 15 /
+location 10 / employment 5) — is completely unchanged.
+
+**What did not change (an explicit non-decision, not an oversight):**
+AJI-014 does **not** make ATS Alignment or Hard Eligibility inputs to the
+Job Match score. This was already resolved by AJI-013's "Job Match vs.
+ATS Alignment" section above (see also AJI-011's "Hard Eligibility vs.
+Job Match vs. ATS Alignment" table): the three stay separate,
+independently-computed artifacts, never merged into one score or one
+table. No approved weighting formula for combining them exists anywhere
+in this repository or ticket history, so none was invented here — per
+the ticket's explicit instruction, this is called out rather than
+silently decided. `JobMatchResult` gets no ATS/eligibility reference
+column; the existing Jobs list UI (`apps/web/app/(app)/jobs/page.tsx`),
+which already renders Hard Eligibility, Job Match, and ATS Alignment as
+three clearly-labeled, independently-triggered panels for the same job,
+remains how a user sees all three together.
+
+**Idempotency:** `JobMatchResult` (`apps/api/models.py`) gained two
+nullable columns — `job_intelligence_id` (FK to the exact
+`JobIntelligence` snapshot used) and `job_content_fingerprint` (copied
+from that snapshot, like `AtsAlignmentResult.job_content_fingerprint`, so
+a lookup doesn't require a join) — via migration `2b9a1d6e4f3c`. Both are
+`NULL` on rows persisted before AJI-014, which are never backfilled or
+otherwise mutated. `calculate_job_match()` now looks up an existing row
+keyed by `(user_id, job_id, resume_version_id, job_intelligence_id,
+engine_version)` before doing any resume analysis or scoring — a cache
+hit returns the existing row unchanged, exactly mirroring
+`calculate_ats_alignment()`. A changed resume version, a new Job
+Intelligence snapshot, or a bumped `services.job_matching.scorer.
+ENGINE_VERSION` always produces a new, additional row. (Previously,
+`calculate_job_match()` had no caching at all — every call inserted a new
+row unconditionally; this is the first time Job Match participates in
+the same idempotency convention every other AJI artifact already
+follows.)
+
+### Testing
+
+`tests/test_job_match_intelligence_reconciliation.py` covers: a job's
+required/preferred skills come from its `JobIntelligence` snapshot (not
+from Job Match re-parsing `Job` text); a missing snapshot is generated
+on demand; `Job.responsibilities`-only text is never treated as a
+requirement; same-inputs idempotency (including that the row count
+does not grow on repeated calls); a changed resume version, a new Job
+Intelligence snapshot, or a bumped engine version each produce a new
+row; and a Job Intelligence generation failure surfaces as a
+`JobMatchServiceError`. All pre-existing Job Match tests
+(`tests/test_jobs_match_api.py`, `tests/test_job_match_resume_version_selection.py`,
+`tests/test_job_matching_*.py`) pass unchanged, since the pure scoring
+engine and its 6-component/100-point weighting were not touched.

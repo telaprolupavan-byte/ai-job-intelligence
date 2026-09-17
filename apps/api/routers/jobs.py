@@ -197,6 +197,11 @@ def calculate_job_match(
         "id": str(match_record.id),
         "job_id": str(match_record.job_id),
         "resume_version_id": str(match_record.resume_version_id),
+        "job_intelligence_id": (
+            str(match_record.job_intelligence_id)
+            if match_record.job_intelligence_id
+            else None
+        ),
         "score": match_record.score,
         "confidence": match_record.confidence,
         "engine_version": match_record.engine_version,

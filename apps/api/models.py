@@ -699,6 +699,30 @@ class JobEligibilityResult(Base):
 
 
 class JobMatchResult(Base):
+    """A single Job Match Score (existing; AJI-014 reconciled its job-side
+    requirement source with AJI-012 Job Intelligence instead of the
+    orchestration layer re-parsing raw JD text itself — see
+    apps/api/services/job_match_service.py and docs/ARCHITECTURE.md's
+    "Job Match Reconciliation" section).
+
+    Insert-only, like `JobIntelligence`/`ResumeAIAnalysis`/
+    `AtsAlignmentResult` (see docs/ARCHITECTURE.md's "Analysis/scoring
+    versioning convention"), but as of AJI-014 keyed for idempotency
+    exactly like `AtsAlignmentResult`: (user_id, job_id,
+    resume_version_id, job_intelligence_id, engine_version). A cache hit
+    on all five returns the existing row unchanged; a changed resume
+    version, a new Job Intelligence snapshot, or a bumped
+    `engine_version` always produces a new, additional row.
+
+    Job Match answers a different question from `AtsAlignmentResult`
+    ("how well does this exact resume demonstrate this exact JD's
+    requirements?") — Job Match answers "how well does this job fit the
+    user overall?" (skills/experience coverage, role/title alignment,
+    location, and employment type). The two are never merged into one
+    score or one table — see docs/ARCHITECTURE.md's "Job Match vs. ATS
+    Alignment" section.
+    """
+
     __tablename__ = "job_match_results"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -725,6 +749,27 @@ class JobMatchResult(Base):
         UUID(as_uuid=True),
         ForeignKey("resume_versions.id"),
         nullable=False,
+        index=True,
+    )
+
+    # The exact Job Intelligence (AJI-012) snapshot this match's job-side
+    # requirements were sourced from (AJI-014). Nullable because rows
+    # persisted before AJI-014 predate this column and never had a Job
+    # Intelligence snapshot behind them; those historical rows are never
+    # backfilled or mutated. Every new row always sets this.
+    job_intelligence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("job_intelligence.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
+    # Copied from JobIntelligence.content_fingerprint at match time, like
+    # AtsAlignmentResult.job_content_fingerprint, so idempotency lookups
+    # don't require a join.
+    job_content_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
         index=True,
     )
 

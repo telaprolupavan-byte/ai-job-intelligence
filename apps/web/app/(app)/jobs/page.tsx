@@ -842,6 +842,13 @@ function JobCard({
                 </AppButton>
               </div>
 
+              <p className="mt-2 text-xs leading-5 text-app-faint">
+                How well this job fits you overall — required/preferred
+                skills and experience, role alignment, location, and
+                employment type. Not the same as ATS Alignment (resume
+                ↔ this JD only) and does not include Hard Eligibility.
+              </p>
+
               {matchError && (
                 <p className="mt-3 text-xs leading-5 text-app-danger-text">
                   {matchError}
