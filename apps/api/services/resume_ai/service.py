@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -16,6 +17,8 @@ from apps.api.services.resume_ai.providers import create_resume_ai_provider
 
 
 ANALYZER_VERSION = "1.0"
+
+logger = logging.getLogger(__name__)
 
 
 class ResumeAIServiceError(RuntimeError):
@@ -122,6 +125,11 @@ def analyze_resume_version(
         result = ResumeAIResult.model_validate(result_payload)
     except (ValidationError, RuntimeError, ValueError) as exc:
         db.rollback()
+        logger.error(
+            "Resume AI analysis failed for resume_version_id=%s: %s",
+            resume_version_id,
+            exc,
+        )
         raise ResumeAIServiceError(
             "Unable to generate a valid resume AI analysis.",
             status_code=503,

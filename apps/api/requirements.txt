@@ -1,4 +1,4 @@
-stapi
+fastapi
 uvicorn[standard]
 pydantic-settings
 sqlalchemy
