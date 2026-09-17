@@ -7,6 +7,14 @@ from services.job_matching.contracts import (
 )
 from services.skills import normalize_skill
 
+# The deterministic Job Match scoring engine's own version (the
+# matching/scoring logic in this module and matcher.py), named
+# explicitly like services.eligibility.engine.ENGINE_VERSION and
+# services.ats_alignment.engine.ENGINE_VERSION, so orchestration callers
+# (apps.api.services.job_match_service) can key idempotency/caching on it
+# instead of a bare string literal.
+ENGINE_VERSION = "1.0.0"
+
 
 # ---------------------------------------------------------------------------
 # Requirement scoring
@@ -418,6 +426,7 @@ def build_match_result(
         components=components,
         strengths=strengths,
         skill_gaps=skill_gaps,
+        engine_version=ENGINE_VERSION,
     )
 
 

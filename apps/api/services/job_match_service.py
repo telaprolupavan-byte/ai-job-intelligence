@@ -6,6 +6,37 @@ computes a deterministic Job Match Score but never accesses the
 database). See services/job_matching/service.py's own docstring for that
 boundary.
 
+Job-side requirements (AJI-014 reconciliation): job requirements come
+from AJI-012's persisted `JobIntelligence` snapshot (via
+apps.api.services.job_intelligence.service), never from re-parsing raw
+JD text here. If no snapshot exists yet for the job, one is generated on
+demand (idempotent/cached — the same function the
+/jobs/{job_id}/intelligence endpoint and apps.api.services.
+ats_alignment_service already call). This replaces the previous
+implementation, which ran its own text-splitting/skill-extraction
+directly over raw `Job.description`/`requirements`/`responsibilities`
+text (services.job_matching.extractor), duplicating what AJI-012 already
+does more thoroughly (clause-level required-vs-preferred classification
+rather than a single whole-text split point, and correctly excluding
+`responsibilities` from requirements — see docs/ARCHITECTURE.md). The
+downstream scoring engine (services.job_matching.matcher/scorer) is
+unchanged: only the source of `JobRequirements` changed.
+
+Job Match vs. ATS Alignment vs. Hard Eligibility: these stay three
+separate, independently-computed artifacts, never merged into one score
+or table (docs/ARCHITECTURE.md). Job Match does not consult
+`AtsAlignmentResult` or `JobEligibilityResult` here — a job's Hard
+Eligibility status is enforced by the separate /jobs/{job_id}/eligibility
+pre-filter, not by this scoring path (an ineligible job still gets a Job
+Match score, exactly as before AJI-014).
+
+Idempotency: calculate_job_match() is keyed on (user_id, job_id,
+resume_version_id, job_intelligence_id, engine_version), mirroring
+apps.api.services.ats_alignment_service. A cache hit returns the
+existing row unchanged; a changed resume version, a new Job Intelligence
+snapshot, or a bumped engine version always produces a new, additional
+row. See JobMatchResult's docstring (apps/api/models.py).
+
 Resume version selection:
 
 calculate_job_match() accepts an optional explicit resume_version_id so
@@ -24,16 +55,23 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from apps.api.models import Job, JobMatchResult, Resume, ResumeVersion, User
+from apps.api.services.job_intelligence.contracts import JobIntelligenceResult
+from apps.api.services.job_intelligence.service import (
+    JobIntelligenceServiceError,
+    generate_job_intelligence,
+    get_latest_job_intelligence,
+)
 from apps.api.services.resume_ai.deterministic import (
     analyze_resume_deterministically,
 )
-from services.job_matching.extractor import (
-    build_job_requirements,
-    split_preferred_section,
+from services.job_matching.contracts import (
+    ExperienceRequirement as JobMatchExperienceRequirement,
 )
+from services.job_matching.contracts import JobRequirements
 from services.job_matching.resume_adapter import (
     build_resume_evidence_from_analysis,
 )
+from services.job_matching.scorer import ENGINE_VERSION
 from services.job_matching.service import JobMatchingService
 
 
@@ -121,6 +159,53 @@ def _resolve_resume_version(
     return resume_version
 
 
+# ---------------------------------------------------------------------------
+# Job Intelligence -> Job Match requirement mapping
+# ---------------------------------------------------------------------------
+
+
+def _build_job_requirements(
+    intelligence: JobIntelligenceResult,
+) -> JobRequirements:
+    """
+    Map an AJI-012 JobIntelligenceResult into the JobRequirements shape
+    services.job_matching's scoring engine consumes.
+
+    Mirrors apps.api.services.ats_alignment_service's own
+    JobIntelligence -> requirement mapping (kept as a separate, smaller
+    copy here since Job Match's JobRequirements shape only carries
+    skills/experience, unlike ATS Alignment's flat requirement-item list,
+    which also covers education/certifications that Job Match's existing
+    scoring components never used). AJI-012's `required`/`preferred`
+    two-tier taxonomy maps 1:1 onto `must_have_skills`/`preferred_skills`
+    (and the matching experience lists) — no third tier is introduced.
+    """
+    return JobRequirements(
+        must_have_skills=[
+            skill.canonical_skill for skill in intelligence.required_skills
+        ],
+        preferred_skills=[
+            skill.canonical_skill for skill in intelligence.preferred_skills
+        ],
+        must_have_experience=[
+            JobMatchExperienceRequirement(
+                minimum_years=experience.minimum_years,
+                maximum_years=experience.maximum_years,
+                description=experience.evidence_text,
+            )
+            for experience in intelligence.required_experience
+        ],
+        preferred_experience=[
+            JobMatchExperienceRequirement(
+                minimum_years=experience.minimum_years,
+                maximum_years=experience.maximum_years,
+                description=experience.evidence_text,
+            )
+            for experience in intelligence.preferred_experience
+        ],
+    )
+
+
 def calculate_job_match(
     *,
     db: Session,
@@ -145,6 +230,33 @@ def calculate_job_match(
         resume_version_id=resume_version_id,
     )
 
+    job_intelligence_row = get_latest_job_intelligence(db, job_id=job_id)
+
+    if job_intelligence_row is None:
+        try:
+            job_intelligence_row = generate_job_intelligence(db, job_id=job_id)
+        except JobIntelligenceServiceError as exc:
+            raise JobMatchServiceError(
+                "Unable to obtain Job Intelligence for this job.",
+                status_code=exc.status_code,
+            ) from exc
+
+    cached = (
+        db.query(JobMatchResult)
+        .filter(
+            JobMatchResult.user_id == current_user.id,
+            JobMatchResult.job_id == job_id,
+            JobMatchResult.resume_version_id == resume_version.id,
+            JobMatchResult.job_intelligence_id == job_intelligence_row.id,
+            JobMatchResult.engine_version == ENGINE_VERSION,
+        )
+        .order_by(JobMatchResult.created_at.desc())
+        .first()
+    )
+
+    if cached is not None:
+        return cached
+
     analysis = analyze_resume_deterministically(
         resume_version.content_text
     )
@@ -164,24 +276,11 @@ def calculate_job_match(
         else []
     )
 
-    requirement_text = "\n".join(
-        part
-        for part in [
-            job.requirements,
-            job.responsibilities,
-            job.description,
-        ]
-        if part
+    intelligence = JobIntelligenceResult.model_validate(
+        job_intelligence_row.structured_intelligence
     )
 
-    must_have_text, preferred_text = split_preferred_section(
-        requirement_text
-    )
-
-    job_requirements = build_job_requirements(
-        must_have_text=must_have_text,
-        preferred_text=preferred_text,
-    )
+    job_requirements = _build_job_requirements(intelligence)
 
     preferences = current_user.preferences
 
@@ -270,6 +369,8 @@ def calculate_job_match(
         user_id=current_user.id,
         job_id=job.id,
         resume_version_id=resume_version.id,
+        job_intelligence_id=job_intelligence_row.id,
+        job_content_fingerprint=job_intelligence_row.content_fingerprint,
         engine_version=result.engine_version,
         score=result.score,
         confidence=result.confidence,

@@ -101,6 +101,7 @@ export type JobMatchResult = {
   id: string;
   job_id: string;
   resume_version_id: string;
+  job_intelligence_id: string | null;
   score: number;
   confidence: string;
   engine_version: string;
