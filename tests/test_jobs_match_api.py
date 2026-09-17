@@ -16,6 +16,7 @@ from apps.api.models import (
 from apps.api.security import create_access_token
 from apps.api.dependencies import get_db
 from apps.api.models import JobMatchResult
+from apps.api.services.resume_fingerprint import compute_content_fingerprint
 
 
 @pytest.fixture
@@ -130,22 +131,27 @@ def test_resume(db, test_user):
     db.add(resume)
     db.flush()
 
+    content_text = (
+        "PROFESSIONAL SUMMARY\n"
+        "AI Engineer with 3 years of experience building "
+        "machine learning applications.\n\n"
+        "EXPERIENCE\n"
+        "- Developed machine learning applications using Python.\n"
+        "- Built Docker-based deployments for AI services.\n\n"
+        "SKILLS\n"
+        "Python, Machine Learning, Docker, AWS\n\n"
+        "PROJECTS\n"
+        "- Built a generative AI application using Python."
+    )
+
     version = ResumeVersion(
         id=uuid4(),
         resume_id=resume.id,
         name="Master Resume",
-        content_text=(
-            "PROFESSIONAL SUMMARY\n"
-            "AI Engineer with 3 years of experience building "
-            "machine learning applications.\n\n"
-            "EXPERIENCE\n"
-            "- Developed machine learning applications using Python.\n"
-            "- Built Docker-based deployments for AI services.\n\n"
-            "SKILLS\n"
-            "Python, Machine Learning, Docker, AWS\n\n"
-            "PROJECTS\n"
-            "- Built a generative AI application using Python."
-        ),
+        content_text=content_text,
+        content_fingerprint=compute_content_fingerprint(content_text),
+        original_filename="test-resume.txt",
+        storage_path="/tmp/test-resume-fixture.txt",
         is_master=True,
     )
 

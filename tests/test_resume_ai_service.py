@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from apps.api.models import ResumeAIAnalysis
 from apps.api.services.resume_ai import service
 
 
@@ -69,8 +70,8 @@ class FakeProvider:
 
 
 class FakeQuery:
-    def __init__(self, resume_version):
-        self.resume_version = resume_version
+    def __init__(self, result):
+        self._result = result
 
     def join(self, *args, **kwargs):
         return self
@@ -78,18 +79,24 @@ class FakeQuery:
     def filter(self, *args, **kwargs):
         return self
 
+    def order_by(self, *args, **kwargs):
+        return self
+
     def first(self):
-        return self.resume_version
+        return self._result
 
 
 class FakeDB:
-    def __init__(self, resume_version):
+    def __init__(self, resume_version, cached_analysis=None):
         self.resume_version = resume_version
+        self.cached_analysis = cached_analysis
         self.added = []
         self.committed = False
         self.refreshed = []
 
-    def query(self, *args, **kwargs):
+    def query(self, model, *args, **kwargs):
+        if model is ResumeAIAnalysis:
+            return FakeQuery(self.cached_analysis)
         return FakeQuery(self.resume_version)
 
     def add(self, item):
@@ -304,3 +311,79 @@ def test_analyze_resume_version_does_not_modify_resume(
     )
 
     assert resume_version.content_text == original_text
+
+
+def test_analyze_resume_version_reuses_cached_analysis(monkeypatch):
+    resume_version = make_resume_version(
+        """
+        John Doe
+        EXPERIENCE
+        - Built Python applications
+        - Improved performance by 20%
+
+        SKILLS
+        Python
+        """
+    )
+
+    cached_result = {
+        "analysis_version": service.ANALYSIS_VERSION,
+        "resume_version_id": str(resume_version.id),
+        "profile": {"name": "John Doe"},
+        "positioning": {
+            "apparent_target_role": "AI/ML Engineer",
+            "positioning_strengths": [],
+            "positioning_risks": [],
+        },
+        "sections": {},
+        "skills": {
+            "demonstrated": ["python"],
+            "skills_only": [],
+            "weakly_supported": [],
+        },
+        "experience": {
+            "bullet_count": 2,
+            "achievement_count": 1,
+            "responsibility_count": 1,
+            "quantified_bullets": 1,
+            "findings": [],
+        },
+        "technical_depth": {
+            "programming": ["python"],
+            "machine_learning": [],
+            "deep_learning": [],
+            "generative_ai": [],
+            "cloud": [],
+            "mlops": [],
+        },
+        "structure": {"findings": []},
+        "findings": [],
+        "summary": {
+            "strengths": ["Cached strength"],
+            "top_priorities": [],
+        },
+    }
+
+    cached_analysis = SimpleNamespace(analysis_result=cached_result)
+    db = FakeDB(resume_version, cached_analysis=cached_analysis)
+    provider = FakeProvider()
+
+    monkeypatch.setattr(
+        service,
+        "create_resume_ai_provider",
+        lambda: provider,
+    )
+
+    result = service.analyze_resume_version(
+        db=db,
+        user_id=resume_version.resume.user_id,
+        resume_version_id=resume_version.id,
+    )
+
+    # The cached analysis was returned directly...
+    assert result.summary.strengths == ["Cached strength"]
+
+    # ...without calling the AI provider or persisting a new analysis.
+    assert provider.resume_text is None
+    assert db.added == []
+    assert db.committed is False

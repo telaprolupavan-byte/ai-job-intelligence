@@ -124,10 +124,6 @@ class Resume(Base):
         String(255),
     )
 
-    storage_path: Mapped[str | None] = mapped_column(
-        String(500),
-    )
-
     original_text: Mapped[str | None] = mapped_column(
         Text,
     )
@@ -167,6 +163,19 @@ class ResumeVersion(Base):
 
     content_text: Mapped[str] = mapped_column(
         Text,
+    )
+
+    content_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        index=True,
+    )
+
+    original_filename: Mapped[str] = mapped_column(
+        String(255),
+    )
+
+    storage_path: Mapped[str] = mapped_column(
+        String(500),
     )
 
     is_master: Mapped[bool] = mapped_column(

@@ -93,6 +93,10 @@ class ResumeResponse(BaseModel):
     filename: str
     created_at: str
     has_text: bool
+    version_count: int
+    master_version_id: str | None
+    master_version_name: str | None
+    master_version_created_at: str | None
 
 
 class ResumeDetailResponse(BaseModel):
@@ -106,15 +110,22 @@ class ResumeVersionResponse(BaseModel):
     id: str
     resume_id: str
     name: str
+    original_filename: str
+    content_text: str
     is_master: bool
     created_at: str
 
-class ResumeValidationResponse(BaseModel):
+
+class ResumeUploadResponse(BaseModel):
     id: str
+    version_id: str
     filename: str
+    version_name: str
     created_at: str
     valid: bool
     word_count: int
     character_count: int
     section_matches: list[str]
     warnings: list[str]
+    is_new_resume: bool
+    duplicate: bool

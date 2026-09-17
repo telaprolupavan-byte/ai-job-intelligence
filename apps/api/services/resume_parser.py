@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 
 import pymupdf as fitz
@@ -5,9 +6,9 @@ from docx import Document
 from fastapi import HTTPException, status
 
 
-def extract_pdf_text(path: Path) -> str:
+def extract_pdf_text(data: bytes) -> str:
     try:
-        document = fitz.open(path)
+        document = fitz.open(stream=data, filetype="pdf")
 
         try:
             pages = [
@@ -26,9 +27,9 @@ def extract_pdf_text(path: Path) -> str:
         ) from exc
 
 
-def extract_docx_text(path: Path) -> str:
+def extract_docx_text(data: bytes) -> str:
     try:
-        document = Document(path)
+        document = Document(BytesIO(data))
 
         content: list[str] = []
 
@@ -58,14 +59,14 @@ def extract_docx_text(path: Path) -> str:
         ) from exc
 
 
-def extract_resume_text(path: Path) -> str:
-    extension = path.suffix.lower()
+def extract_resume_text(filename: str, data: bytes) -> str:
+    extension = Path(filename).suffix.lower()
 
     if extension == ".pdf":
-        text = extract_pdf_text(path)
+        text = extract_pdf_text(data)
 
     elif extension == ".docx":
-        text = extract_docx_text(path)
+        text = extract_docx_text(data)
 
     else:
         raise HTTPException(
