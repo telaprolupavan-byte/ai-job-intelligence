@@ -10,7 +10,7 @@ from apps.api.database import get_db
 from apps.api.dependencies import get_current_user
 from apps.api.models import Company, Job, User
 from apps.api.services.eligibility_service import (
-    evaluate_job_eligibility as evaluate_job_eligibility_service,
+    evaluate_and_persist_job_eligibility,
 )
 from apps.api.services.job_intelligence.service import (
     JobIntelligenceServiceError,
@@ -208,8 +208,12 @@ def calculate_job_match(
 def _eligibility_result_to_response(
     job_id: UUID,
     result: EligibilityResult,
+    *,
+    record_id: UUID,
+    evaluated_at,
 ) -> dict:
     return {
+        "id": str(record_id),
         "job_id": str(job_id),
         "status": result.status.value,
         "engine_version": result.engine_version,
@@ -224,6 +228,7 @@ def _eligibility_result_to_response(
         "failed_constraints": result.failed_constraints,
         "unknown_constraints": result.unknown_constraints,
         "reasons": result.reasons,
+        "evaluated_at": evaluated_at.isoformat(),
     }
 
 
@@ -239,11 +244,14 @@ def get_job_eligibility(
 
     This is intentionally separate from /jobs/{job_id}/match: eligibility
     is a hard pre-filter (ELIGIBLE/INELIGIBLE/UNKNOWN with explainable
-    checks), never a score, and is not persisted — it is recalculated
-    query-time from the user's current Preference/Profile and the job's
-    current data. See docs/ARCHITECTURE.md for the full hard-vs-soft
-    rationale. Public job browsing (GET /jobs) never exposes this
-    personalized data; this endpoint always requires authentication.
+    checks), never a score. The result is recalculated query-time from
+    the user's current Preference/Profile and the job's current data, and
+    then upserted into JobEligibilityResult (one row per user/job,
+    overwritten in place) so a later AJI-012/AJI-013 consumer can read
+    the job's current hard-eligibility status without recomputing it. See
+    docs/ARCHITECTURE.md for the full hard-vs-soft rationale. Public job
+    browsing (GET /jobs) never exposes this personalized data; this
+    endpoint always requires authentication.
     """
     try:
         job_uuid = UUID(job_id)
@@ -261,12 +269,18 @@ def get_job_eligibility(
             detail="Job not found",
         )
 
-    result = evaluate_job_eligibility_service(
+    result, record = evaluate_and_persist_job_eligibility(
+        db=db,
         current_user=current_user,
         job=job,
     )
 
-    return _eligibility_result_to_response(job.id, result)
+    return _eligibility_result_to_response(
+        job.id,
+        result,
+        record_id=record.id,
+        evaluated_at=record.updated_at,
+    )
 
 
 def _job_intelligence_to_response(record: JobIntelligence) -> dict:

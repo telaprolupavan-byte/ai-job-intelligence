@@ -206,6 +206,28 @@ export type JobIntelligenceResponse = {
   intelligence: JobIntelligenceData;
 };
 
+export type EligibilityStatus = "eligible" | "ineligible" | "unknown";
+
+export type EligibilityCheckStatus = "pass" | "fail" | "unknown" | "not_applicable";
+
+export type EligibilityCheck = {
+  constraint: string;
+  status: EligibilityCheckStatus;
+  reason: string;
+};
+
+export type JobEligibilityResult = {
+  id: string;
+  job_id: string;
+  status: EligibilityStatus;
+  engine_version: string;
+  checks: EligibilityCheck[];
+  failed_constraints: string[];
+  unknown_constraints: string[];
+  reasons: string[];
+  evaluated_at: string;
+};
+
 function authHeaders(): Record<string, string> {
   const token =
     typeof window !== "undefined"
@@ -261,6 +283,28 @@ export async function generateJobIntelligence(
   }
 
   return data as JobIntelligenceResponse;
+}
+
+export async function getJobEligibility(
+  jobId: string,
+): Promise<JobEligibilityResult> {
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/eligibility`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to check eligibility.";
+
+    throw new Error(message);
+  }
+
+  return data as JobEligibilityResult;
 }
 
 export async function calculateJobMatch(

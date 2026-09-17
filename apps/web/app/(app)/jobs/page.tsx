@@ -6,8 +6,10 @@ import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import {
   calculateJobMatch,
   generateJobIntelligence,
+  getJobEligibility,
   getJobs,
   type Job,
+  type JobEligibilityResult,
   type JobIntelligenceData,
   type JobMatchResult,
 } from "@/lib/jobs";
@@ -92,6 +94,15 @@ function JobsPageInner() {
     Record<string, boolean>
   >({});
   const [intelligenceErrors, setIntelligenceErrors] = useState<
+    Record<string, string>
+  >({});
+  const [eligibility, setEligibility] = useState<
+    Record<string, JobEligibilityResult>
+  >({});
+  const [eligibilityLoadingIds, setEligibilityLoadingIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [eligibilityErrors, setEligibilityErrors] = useState<
     Record<string, string>
   >({});
   const [isPending, startTransition] = useTransition();
@@ -198,6 +209,40 @@ function JobsPageInner() {
       }));
     } finally {
       setMatchingJobIds((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
+    }
+  }
+
+  async function handleCheckEligibility(jobId: string) {
+    setEligibilityLoadingIds((current) => ({ ...current, [jobId]: true }));
+    setEligibilityErrors((current) => {
+      const next = { ...current };
+      delete next[jobId];
+      return next;
+    });
+
+    try {
+      const result = await getJobEligibility(jobId);
+
+      setEligibility((current) => ({
+        ...current,
+        [jobId]: result,
+      }));
+    } catch (err) {
+      console.error(err);
+
+      setEligibilityErrors((current) => ({
+        ...current,
+        [jobId]:
+          err instanceof Error
+            ? err.message
+            : "Unable to check eligibility.",
+      }));
+    } finally {
+      setEligibilityLoadingIds((current) => {
         const next = { ...current };
         delete next[jobId];
         return next;
@@ -454,6 +499,12 @@ function JobsPageInner() {
                 )}
                 intelligenceError={intelligenceErrors[job.id]}
                 onViewIntelligence={handleViewIntelligence}
+                eligibility={eligibility[job.id]}
+                isCheckingEligibility={Boolean(
+                  eligibilityLoadingIds[job.id],
+                )}
+                eligibilityError={eligibilityErrors[job.id]}
+                onCheckEligibility={handleCheckEligibility}
               />
             ))}
           </div>
@@ -540,6 +591,10 @@ function JobCard({
   isLoadingIntelligence,
   intelligenceError,
   onViewIntelligence,
+  eligibility,
+  isCheckingEligibility,
+  eligibilityError,
+  onCheckEligibility,
 }: {
   job: Job;
   match?: JobMatchResult;
@@ -550,6 +605,10 @@ function JobCard({
   isLoadingIntelligence: boolean;
   intelligenceError?: string;
   onViewIntelligence: (jobId: string) => void;
+  eligibility?: JobEligibilityResult;
+  isCheckingEligibility: boolean;
+  eligibilityError?: string;
+  onCheckEligibility: (jobId: string) => void;
 }) {
   const visibleMatches = [
     ...(match?.must_have_matches ?? []),
@@ -640,6 +699,62 @@ function JobCard({
 
         {/* MATCH PANEL */}
         <div className="border-t border-app-border pt-5">
+          {/* HARD ELIGIBILITY (AJI-011) */}
+          <div className="mb-4 border border-app-border bg-app-bg p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
+                  Hard Eligibility
+                </div>
+                <p className="mt-1 text-xs leading-5 text-app-dim">
+                  Deterministic pre-filter against your configured hard
+                  requirements (employment type, work arrangement,
+                  location, work authorization, experience). Not a score
+                  or AI match — see Job Match below for that.
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-3">
+                {eligibility && (
+                  <Badge
+                    tone={
+                      eligibility.status === "eligible"
+                        ? "blue"
+                        : eligibility.status === "ineligible"
+                          ? "danger"
+                          : "neutral"
+                    }
+                  >
+                    {formatValue(eligibility.status)}
+                  </Badge>
+                )}
+
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  loading={isCheckingEligibility}
+                  onClick={() => onCheckEligibility(job.id)}
+                >
+                  {isCheckingEligibility
+                    ? "Checking..."
+                    : eligibility
+                      ? "Recheck"
+                      : "Check Eligibility"}
+                </AppButton>
+              </div>
+            </div>
+
+            {eligibilityError && (
+              <p className="mt-3 text-xs leading-5 text-app-danger-text">
+                {eligibilityError}
+              </p>
+            )}
+
+            {eligibility && (
+              <EligibilityPanel result={eligibility} />
+            )}
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             {/* JOB MATCH */}
             <div className="border border-app-border bg-app-bg p-4">
@@ -800,6 +915,46 @@ function JobCard({
         </div>
       </div>
     </Panel>
+  );
+}
+
+function EligibilityPanel({ result }: { result: JobEligibilityResult }) {
+  const flaggedChecks = result.checks.filter(
+    (check) => check.status === "fail" || check.status === "unknown",
+  );
+
+  return (
+    <div className="mt-3 space-y-2">
+      {flaggedChecks.length === 0 ? (
+        <p className="text-xs leading-5 text-app-dim">
+          No configured hard requirement rules this job out.
+        </p>
+      ) : (
+        flaggedChecks.map((check) => (
+          <div key={check.constraint} className="flex items-start gap-2">
+            <span
+              aria-hidden="true"
+              className={
+                check.status === "fail"
+                  ? "mt-0.5 text-app-red"
+                  : "mt-0.5 text-app-dim"
+              }
+            >
+              {check.status === "fail" ? "✕" : "?"}
+            </span>
+
+            <div className="min-w-0">
+              <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-app-dim">
+                {formatValue(check.constraint)}
+              </div>
+              <p className="text-xs leading-5 text-app-text">
+                {check.reason}
+              </p>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
   );
 }
 

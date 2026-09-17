@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.main import app
-from apps.api.models import Company, Job, Preference, Profile, User
+from apps.api.models import Company, Job, JobEligibilityResult, Preference, Profile, User
 from apps.api.security import create_access_token
 from apps.api.dependencies import get_db
 
@@ -112,6 +112,65 @@ def test_get_job_eligibility_eligible_response_shape(client, db, test_job):
         check["constraint"] == "employment_type" and check["status"] == "pass"
         for check in data["checks"]
     )
+    assert data["id"]
+    assert data["evaluated_at"]
+
+
+def test_get_job_eligibility_persists_result_for_later_consumption(
+    client, db, test_job,
+):
+    user = _make_user(db, employment_types=["contract"])
+
+    response = client.get(
+        f"/jobs/{test_job.id}/eligibility",
+        headers=_auth_headers(user),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    stored = (
+        db.query(JobEligibilityResult)
+        .filter(
+            JobEligibilityResult.user_id == user.id,
+            JobEligibilityResult.job_id == test_job.id,
+        )
+        .first()
+    )
+
+    assert stored is not None
+    assert str(stored.id) == data["id"]
+    assert stored.status == "ineligible"
+    assert stored.result["failed_constraints"] == ["employment_type"]
+
+
+def test_repeated_get_job_eligibility_upserts_rather_than_duplicates(
+    client, db, test_job,
+):
+    user = _make_user(db, employment_types=["full_time"])
+
+    first = client.get(
+        f"/jobs/{test_job.id}/eligibility",
+        headers=_auth_headers(user),
+    ).json()
+
+    second = client.get(
+        f"/jobs/{test_job.id}/eligibility",
+        headers=_auth_headers(user),
+    ).json()
+
+    assert first["id"] == second["id"]
+
+    rows = (
+        db.query(JobEligibilityResult)
+        .filter(
+            JobEligibilityResult.user_id == user.id,
+            JobEligibilityResult.job_id == test_job.id,
+        )
+        .all()
+    )
+
+    assert len(rows) == 1
 
 
 def test_get_job_eligibility_hard_constraint_beats_would_be_high_match(
