@@ -37,143 +37,129 @@ class ProviderFinding(BaseModel):
     confidence: Literal["high", "medium", "low"]
 
 
-class ProviderObservation(BaseModel):
-    """A single labeled observation, used for fields whose content is
-    open-ended (the AI has something to say, but not a fixed set of keys)."""
+class ProviderReview(BaseModel):
+    """Resume Review: feedback on the resume as written."""
 
     model_config = ConfigDict(extra="forbid")
 
-    label: str = Field(description="Short label for this observation.")
-    value: str = Field(
-        description="The evidence-backed observation itself."
+    strengths: list[str] = Field(
+        default_factory=list,
+        description="Evidence-backed strengths of the resume as written.",
+    )
+    weaknesses: list[str] = Field(
+        default_factory=list,
+        description="Evidence-backed weaknesses of the resume as written.",
+    )
+    findings: list[ProviderFinding] = Field(default_factory=list)
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description="Actionable, truthful suggestions for improving the resume.",
     )
 
 
-class ProviderProfile(BaseModel):
+class ProviderSkillEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(
+    skill: str
+    evidence: str = Field(
+        description=(
+            "Where and how this skill is evidenced in the resume, or a "
+            "note that it only appears in a skills list."
+        )
+    )
+    demonstrated: bool = Field(
+        description="Whether the skill has visible evidence of use, not just a listing."
+    )
+
+
+class ProviderWorkHistoryEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    company: str | None = None
+    title: str | None = None
+    duration: str | None = None
+    summary: str | None = None
+
+
+class ProviderEducationEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    institution: str | None = None
+    credential: str | None = None
+    field_of_study: str | None = None
+    graduation: str | None = None
+
+
+class ProviderProjectEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    description: str
+    technologies: list[str] = Field(default_factory=list)
+
+
+class ProviderDecoding(BaseModel):
+    """Resume Decoding: what the resume says about the candidate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    professional_profile: str | None = Field(
         default=None,
-        description=(
-            "The candidate's name if it appears in the resume text, "
-            "otherwise null."
-        ),
+        description="A short, evidence-backed summary of who the candidate appears to be professionally.",
     )
-    observations: list[ProviderObservation] = Field(
+    technical_profile: str | None = Field(
+        default=None,
+        description="A short, evidence-backed summary of the candidate's technical profile.",
+    )
+    work_history: list[ProviderWorkHistoryEntry] = Field(default_factory=list)
+    education: list[ProviderEducationEntry] = Field(default_factory=list)
+    certifications: list[str] = Field(default_factory=list)
+    projects: list[ProviderProjectEntry] = Field(default_factory=list)
+    skills: list[ProviderSkillEvidence] = Field(default_factory=list)
+    domains: list[str] = Field(
         default_factory=list,
-        description=(
-            "Notable, evidence-backed observations about who the "
-            "candidate appears to be professionally (e.g. contact "
-            "completeness, years of visible experience). Do not invent "
-            "facts not present in the resume."
-        ),
+        description="Industry or problem domains the resume provides evidence for.",
     )
 
 
-class ProviderPositioning(BaseModel):
+class ProviderRoleMatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    apparent_target_role: str | None = None
-    apparent_specialization: str | None = None
-    apparent_seniority: str | None = None
-    positioning_strengths: list[str] = Field(default_factory=list)
-    positioning_risks: list[str] = Field(default_factory=list)
+    role: str
+    rationale: str = Field(
+        description="Why the resume's evidence supports this role."
+    )
 
 
-class ProviderSections(BaseModel):
+class ProviderPositionIdentification(BaseModel):
+    """Position Identification: which roles the resume's evidence supports."""
+
     model_config = ConfigDict(extra="forbid")
 
-    observations: list[ProviderObservation] = Field(
+    primary_roles: list[ProviderRoleMatch] = Field(
         default_factory=list,
-        description=(
-            "Evidence-backed observations about the resume's sections "
-            "(e.g. missing sections, ordering, or content quality)."
-        ),
+        description="Roles the resume most strongly and directly supports.",
     )
-
-
-class ProviderSkills(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    demonstrated: list[str] = Field(
+    secondary_roles: list[ProviderRoleMatch] = Field(
         default_factory=list,
-        description="Skills with visible evidence of use outside a skills list.",
+        description="Roles the resume reasonably supports, but less strongly than the primary roles.",
     )
-    skills_only: list[str] = Field(
+    adjacent_roles: list[ProviderRoleMatch] = Field(
         default_factory=list,
-        description="Skills listed but with no demonstrated evidence elsewhere.",
+        description="Related roles the resume provides partial or transferable evidence for.",
     )
-    weakly_supported: list[str] = Field(
+    supporting_evidence: list[str] = Field(
         default_factory=list,
-        description="Skills with limited or ambiguous supporting evidence.",
+        description="Evidence points from the resume that ground the identified roles.",
     )
-
-
-class ProviderExperience(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    bullet_count: int = Field(
-        description="Total experience bullets found in the resume."
-    )
-    achievement_count: int = Field(
-        description="Bullets that communicate an outcome, not just a duty."
-    )
-    responsibility_count: int = Field(
-        description="Bullets that describe a duty without a stated outcome."
-    )
-    quantified_bullets: int = Field(
-        description="Bullets that contain measurable, quantified evidence."
-    )
-    findings: list[str] = Field(
-        default_factory=list,
-        description="Short, evidence-backed findings about experience quality.",
-    )
-
-
-class ProviderTechnicalDepth(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    programming: list[str] = Field(default_factory=list)
-    machine_learning: list[str] = Field(default_factory=list)
-    deep_learning: list[str] = Field(default_factory=list)
-    generative_ai: list[str] = Field(default_factory=list)
-    cloud: list[str] = Field(default_factory=list)
-    mlops: list[str] = Field(default_factory=list)
-
-
-class ProviderStructure(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    findings: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Short, evidence-backed findings about structural "
-            "consistency and readability."
-        ),
-    )
-
-
-class ProviderSummary(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    strengths: list[str] = Field(default_factory=list)
-    top_priorities: list[str] = Field(default_factory=list)
 
 
 class ProviderAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    profile: ProviderProfile = Field(default_factory=ProviderProfile)
-    positioning: ProviderPositioning = Field(default_factory=ProviderPositioning)
-    sections: ProviderSections = Field(default_factory=ProviderSections)
-    skills: ProviderSkills = Field(default_factory=ProviderSkills)
-    experience: ProviderExperience
-    technical_depth: ProviderTechnicalDepth = Field(
-        default_factory=ProviderTechnicalDepth
-    )
-    structure: ProviderStructure = Field(default_factory=ProviderStructure)
-    findings: list[ProviderFinding] = Field(default_factory=list)
-    summary: ProviderSummary = Field(default_factory=ProviderSummary)
+    review: ProviderReview
+    decoding: ProviderDecoding
+    position_identification: ProviderPositionIdentification
 
 
 logger = logging.getLogger(__name__)

@@ -58,35 +58,78 @@ const ACCEPTED_RESUME_EXTENSIONS = [".pdf", ".docx"];
 const MAX_RESUME_FILE_SIZE = 10 * 1024 * 1024;
 
 
+type ResumeFinding = {
+  category: string;
+  priority: "high" | "medium" | "low";
+  finding: string;
+  evidence: string;
+  impact: string;
+  recommendation: string;
+  confidence: "high" | "medium" | "low";
+};
+
+type ResumeReview = {
+  strengths: string[];
+  weaknesses: string[];
+  findings: ResumeFinding[];
+  suggestions: string[];
+};
+
+type SkillEvidence = {
+  skill: string;
+  evidence: string;
+  demonstrated: boolean;
+};
+
+type WorkHistoryEntry = {
+  company?: string | null;
+  title?: string | null;
+  duration?: string | null;
+  summary?: string | null;
+};
+
+type EducationEntry = {
+  institution?: string | null;
+  credential?: string | null;
+  field_of_study?: string | null;
+  graduation?: string | null;
+};
+
+type ProjectEntry = {
+  name: string;
+  description: string;
+  technologies: string[];
+};
+
+type ResumeDecoding = {
+  professional_profile?: string | null;
+  technical_profile?: string | null;
+  work_history: WorkHistoryEntry[];
+  education: EducationEntry[];
+  certifications: string[];
+  projects: ProjectEntry[];
+  skills: SkillEvidence[];
+  domains: string[];
+};
+
+type RoleMatch = {
+  role: string;
+  rationale: string;
+};
+
+type PositionIdentification = {
+  primary_roles: RoleMatch[];
+  secondary_roles: RoleMatch[];
+  adjacent_roles: RoleMatch[];
+  supporting_evidence: string[];
+};
+
 type ResumeAnalysis = {
   analysis_version: string;
   resume_version_id: string;
-  profile: Record<string, unknown>;
-  positioning: {
-    apparent_target_role?: string | null;
-    apparent_specialization?: string | null;
-    apparent_seniority?: string | null;
-    positioning_strengths: string[];
-    positioning_risks: string[];
-  };
-  sections: Record<string, unknown>;
-  skills: Record<string, unknown>;
-  experience: Record<string, unknown>;
-  technical_depth: Record<string, unknown>;
-  structure: Record<string, unknown>;
-  findings: {
-    category: string;
-    priority: "high" | "medium" | "low";
-    finding: string;
-    evidence: string;
-    impact: string;
-    recommendation: string;
-    confidence: "high" | "medium" | "low";
-  }[];
-  summary: {
-    strengths: string[];
-    top_priorities: string[];
-  };
+  review: ResumeReview;
+  decoding: ResumeDecoding;
+  position_identification: PositionIdentification;
 };
 
 async function authenticatedRequest<T>(
@@ -937,7 +980,7 @@ export default function Page() {
           <div className="mt-8 space-y-8">
             <section className="border border-[#1A3048] bg-[#0B1626] p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
-                AI Resume Analysis
+                Resume Intelligence
               </div>
 
               <div className="mt-4 grid gap-4 border border-[#1A3048] bg-[#05070A] p-4 sm:grid-cols-2">
@@ -965,84 +1008,36 @@ export default function Page() {
                   </div>
                 </div>
               </div>
-
-              <div className="mt-6 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
-                Positioning
-              </div>
-
-              <div className="mt-6 grid gap-5 md:grid-cols-3">
-                <InfoBlock
-                  label="Target Role"
-                  value={
-                    analysis.positioning.apparent_target_role ??
-                    "Not identified"
-                  }
-                />
-
-                <InfoBlock
-                  label="Specialization"
-                  value={
-                    analysis.positioning.apparent_specialization ??
-                    "Not identified"
-                  }
-                />
-
-                <InfoBlock
-                  label="Seniority"
-                  value={
-                    analysis.positioning.apparent_seniority ??
-                    "Not identified"
-                  }
-                />
-              </div>
-
-              <div className="mt-8 grid gap-6 md:grid-cols-2">
-                <ListBlock
-                  title="Positioning Strengths"
-                  items={analysis.positioning.positioning_strengths}
-                />
-
-                <ListBlock
-                  title="Positioning Risks"
-                  items={analysis.positioning.positioning_risks}
-                />
-              </div>
-            </section>
-
-            <section className="grid gap-8 md:grid-cols-2">
-              <DataBlock
-                title="Skills"
-                data={analysis.skills}
-              />
-
-              <DataBlock
-                title="Experience"
-                data={analysis.experience}
-              />
-
-              <DataBlock
-                title="Technical Depth"
-                data={analysis.technical_depth}
-              />
-
-              <DataBlock
-                title="Structure"
-                data={analysis.structure}
-              />
             </section>
 
             <section className="border border-[#1A3048] bg-[#0B1626] p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+                Resume Review
+              </div>
+
+              <div className="mt-6 grid gap-6 md:grid-cols-2">
+                <ListBlock
+                  title="Strengths"
+                  items={analysis.review.strengths}
+                />
+
+                <ListBlock
+                  title="Weaknesses"
+                  items={analysis.review.weaknesses}
+                />
+              </div>
+
+              <div className="mt-6 font-mono text-[9px] uppercase tracking-wider text-[#5E7187]">
                 Findings
               </div>
 
-              {analysis.findings.length === 0 ? (
+              {analysis.review.findings.length === 0 ? (
                 <p className="mt-5 text-sm text-[#8D9AAA]">
                   No findings were returned for this analysis.
                 </p>
               ) : (
                 <div className="mt-6 space-y-5">
-                  {analysis.findings.map((finding, index) => (
+                  {analysis.review.findings.map((finding, index) => (
                     <article
                       key={`${finding.category}-${index}`}
                       className="border border-[#1A3048] bg-[#05070A] p-5"
@@ -1083,18 +1078,191 @@ export default function Page() {
                   ))}
                 </div>
               )}
+
+              <div className="mt-8">
+                <ListBlock
+                  title="Suggestions"
+                  items={analysis.review.suggestions}
+                />
+              </div>
             </section>
 
-            <section className="grid gap-8 md:grid-cols-2">
-              <ListBlock
-                title="Strengths"
-                items={analysis.summary.strengths}
-              />
+            <section className="border border-[#1A3048] bg-[#0B1626] p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+                Resume Decoding
+              </div>
 
-              <ListBlock
-                title="Top Priorities"
-                items={analysis.summary.top_priorities}
-              />
+              <div className="mt-6 grid gap-5 md:grid-cols-2">
+                <InfoBlock
+                  label="Professional Profile"
+                  value={
+                    analysis.decoding.professional_profile ??
+                    "Not identified"
+                  }
+                />
+
+                <InfoBlock
+                  label="Technical Profile"
+                  value={
+                    analysis.decoding.technical_profile ?? "Not identified"
+                  }
+                />
+              </div>
+
+              <div className="mt-8 grid gap-8 md:grid-cols-2">
+                <EntryListBlock
+                  title="Work History"
+                  entries={analysis.decoding.work_history}
+                  render={(entry) => (
+                    <>
+                      <div className="text-sm font-semibold text-[#F2F5F8]">
+                        {[entry.title, entry.company]
+                          .filter(Boolean)
+                          .join(" · ") || "Unlabeled role"}
+                      </div>
+                      {entry.duration && (
+                        <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                          {entry.duration}
+                        </div>
+                      )}
+                      {entry.summary && (
+                        <p className="mt-2 text-sm leading-6 text-[#C7D0DA]">
+                          {entry.summary}
+                        </p>
+                      )}
+                    </>
+                  )}
+                />
+
+                <EntryListBlock
+                  title="Education"
+                  entries={analysis.decoding.education}
+                  render={(entry) => (
+                    <>
+                      <div className="text-sm font-semibold text-[#F2F5F8]">
+                        {[entry.credential, entry.field_of_study]
+                          .filter(Boolean)
+                          .join(" · ") || "Unlabeled credential"}
+                      </div>
+                      {entry.institution && (
+                        <div className="mt-1 text-sm text-[#C7D0DA]">
+                          {entry.institution}
+                        </div>
+                      )}
+                      {entry.graduation && (
+                        <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                          {entry.graduation}
+                        </div>
+                      )}
+                    </>
+                  )}
+                />
+
+                <EntryListBlock
+                  title="Projects"
+                  entries={analysis.decoding.projects}
+                  render={(entry) => (
+                    <>
+                      <div className="text-sm font-semibold text-[#F2F5F8]">
+                        {entry.name}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[#C7D0DA]">
+                        {entry.description}
+                      </p>
+                      {entry.technologies.length > 0 && (
+                        <div className="mt-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
+                          {entry.technologies.join(" • ")}
+                        </div>
+                      )}
+                    </>
+                  )}
+                />
+
+                <div className="space-y-8">
+                  <ListBlock
+                    title="Certifications"
+                    items={analysis.decoding.certifications}
+                  />
+
+                  <ListBlock
+                    title="Domains"
+                    items={analysis.decoding.domains}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-8 border border-[#1A3048] bg-[#05070A] p-5">
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#71849A]">
+                  Skills
+                </div>
+
+                {analysis.decoding.skills.length === 0 ? (
+                  <p className="mt-4 text-sm text-[#5E7187]">
+                    No skills identified.
+                  </p>
+                ) : (
+                  <ul className="mt-4 space-y-4">
+                    {analysis.decoding.skills.map((skill, index) => (
+                      <li
+                        key={`${skill.skill}-${index}`}
+                        className="border-l border-[#294B70] pl-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-sm font-semibold text-[#F2F5F8]">
+                            {skill.skill}
+                          </span>
+                          <span
+                            className={`font-mono text-[9px] uppercase tracking-[0.15em] ${
+                              skill.demonstrated
+                                ? "text-[#1677E8]"
+                                : "text-[#5E7187]"
+                            }`}
+                          >
+                            {skill.demonstrated
+                              ? "Demonstrated"
+                              : "Skills Only"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm leading-6 text-[#C7D0DA]">
+                          {skill.evidence}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+
+            <section className="border border-[#1A3048] bg-[#0B1626] p-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+                Position Identification
+              </div>
+
+              <div className="mt-6 grid gap-6 md:grid-cols-3">
+                <RoleListBlock
+                  title="Primary Roles"
+                  roles={analysis.position_identification.primary_roles}
+                />
+
+                <RoleListBlock
+                  title="Secondary Roles"
+                  roles={analysis.position_identification.secondary_roles}
+                />
+
+                <RoleListBlock
+                  title="Adjacent Roles"
+                  roles={analysis.position_identification.adjacent_roles}
+                />
+              </div>
+
+              <div className="mt-8">
+                <ListBlock
+                  title="Supporting Evidence"
+                  items={
+                    analysis.position_identification.supporting_evidence
+                  }
+                />
+              </div>
             </section>
           </div>
         )}
@@ -1154,44 +1322,76 @@ function ListBlock({
   );
 }
 
-function DataBlock({
+function EntryListBlock<T>({
   title,
-  data,
+  entries,
+  render,
 }: {
   title: string;
-  data: Record<string, unknown>;
+  entries: T[];
+  render: (entry: T) => React.ReactNode;
 }) {
-  const entries = Object.entries(data);
-
   return (
-    <section className="border border-[#1A3048] bg-[#0B1626] p-6">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1677E8]">
+    <div className="border border-[#1A3048] bg-[#05070A] p-5">
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#71849A]">
         {title}
       </div>
 
       {entries.length === 0 ? (
-        <p className="mt-5 text-sm text-[#5E7187]">
-          No structured data returned.
+        <p className="mt-4 text-sm text-[#5E7187]">
+          No items identified.
         </p>
       ) : (
-        <div className="mt-5 space-y-4">
-          {entries.map(([key, value]) => (
-            <div
-              key={key}
-              className="border-b border-[#1A3048] pb-4 last:border-b-0"
+        <ul className="mt-4 space-y-4">
+          {entries.map((entry, index) => (
+            <li
+              key={index}
+              className="border-l border-[#294B70] pl-4"
             >
-              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#5E7187]">
-                {formatLabel(key)}
-              </div>
-
-              <div className="mt-2 text-sm leading-6 text-[#C7D0DA]">
-                {formatValue(value)}
-              </div>
-            </div>
+              {render(entry)}
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </section>
+    </div>
+  );
+}
+
+function RoleListBlock({
+  title,
+  roles,
+}: {
+  title: string;
+  roles: { role: string; rationale: string }[];
+}) {
+  return (
+    <div className="border border-[#1A3048] bg-[#05070A] p-5">
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#71849A]">
+        {title}
+      </div>
+
+      {roles.length === 0 ? (
+        <p className="mt-4 text-sm text-[#5E7187]">
+          No roles identified.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-4">
+          {roles.map((role, index) => (
+            <li
+              key={`${role.role}-${index}`}
+              className="border-l border-[#294B70] pl-4"
+            >
+              <div className="text-sm font-semibold text-[#F2F5F8]">
+                {role.role}
+              </div>
+              <p className="mt-1 text-sm leading-6 text-[#C7D0DA]">
+                {role.rationale}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -1213,26 +1413,3 @@ function FindingField({
   );
 }
 
-function formatLabel(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function formatValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) =>
-        typeof item === "object" && item !== null
-          ? JSON.stringify(item)
-          : String(item),
-      )
-      .join(" • ");
-  }
-
-  if (typeof value === "object" && value !== null) {
-    return JSON.stringify(value);
-  }
-
-  return String(value);
-}
