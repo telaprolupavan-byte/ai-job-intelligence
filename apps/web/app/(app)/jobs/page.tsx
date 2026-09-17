@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { getJobs, type Job } from "../../../lib/jobs";
+import {
+  calculateJobMatch,
+  getJobs,
+  type Job,
+  type JobMatchResult,
+} from "../../../lib/jobs";
 
 type JobFilters = {
   search: string;
@@ -40,11 +45,17 @@ export default function Page() {
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<JobResults>(EMPTY_RESULTS);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [matches, setMatches] = useState<Record<string, JobMatchResult>>({});
 
+  // Keyed by job id so concurrent match requests for different jobs never
+  // overwrite each other's loading/error state.
+  const [matchingJobIds, setMatchingJobIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [matchErrors, setMatchErrors] = useState<Record<string, string>>({});
+  const [isPending, startTransition] = useTransition();
   useEffect(() => {
     let cancelled = false;
-
     startTransition(async () => {
       try {
         const response = await getJobs({
@@ -91,6 +102,39 @@ export default function Page() {
     setFilterForm(EMPTY_FILTERS);
     setAppliedFilters(EMPTY_FILTERS);
     setPage(1);
+  }
+  async function handleCalculateMatch(jobId: string) {
+    setMatchingJobIds((current) => ({ ...current, [jobId]: true }));
+    setMatchErrors((current) => {
+      const next = { ...current };
+      delete next[jobId];
+      return next;
+    });
+
+    try {
+      const match = await calculateJobMatch(jobId);
+
+      setMatches((current) => ({
+        ...current,
+        [jobId]: match,
+      }));
+    } catch (err) {
+      console.error(err);
+
+      setMatchErrors((current) => ({
+        ...current,
+        [jobId]:
+          err instanceof Error
+            ? err.message
+            : "Unable to calculate job match.",
+      }));
+    } finally {
+      setMatchingJobIds((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
+    }
   }
 
   return (
@@ -339,7 +383,14 @@ export default function Page() {
         {!isPending && results.jobs.length > 0 && (
           <div className="space-y-4">
             {results.jobs.map((job) => (
-              <JobCard key={job.id} job={job} />
+              <JobCard
+                key={job.id}
+                job={job}
+                match={matches[job.id]}
+                isMatching={Boolean(matchingJobIds[job.id])}
+                matchError={matchErrors[job.id]}
+                onCalculateMatch={handleCalculateMatch}
+              />
             ))}
           </div>
         )}
@@ -374,103 +425,313 @@ export default function Page() {
     </main>
   );
 }
+function JobCard({
+  job,
+  match,
+  isMatching,
+  matchError,
+  onCalculateMatch,
+}: {
+  job: Job;
+  match?: JobMatchResult;
+  isMatching: boolean;
+  matchError?: string;
+  onCalculateMatch: (jobId: string) => void;
+}) {
+  const visibleMatches = [
+    ...(match?.must_have_matches ?? []),
+    ...(match?.preferred_matches ?? []),
+  ];
 
-function JobCard({ job }: { job: Job }) {
+  const visibleGaps = [
+    ...(match?.must_have_gaps ?? []),
+    ...(match?.preferred_gaps ?? []),
+  ];
+
   return (
     <article className="border border-[#1A3048] bg-[#0B1626] p-6 transition hover:border-[#29496A]">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            {/* JOB TITLE */}
+            <h3 className="text-xl font-semibold tracking-tight text-[#F2F5F8]">
+              {job.title}
+            </h3>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            {/* COMPANY */}
+            <p className="mt-2 text-sm font-medium text-[#8D9AAA]">
+              {job.company || "Company not specified"}
+            </p>
 
-        <div className="min-w-0 flex-1">
+            {/* METADATA */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {job.location && <Tag>{job.location}</Tag>}
 
-          {/* JOB TITLE */}
-          <h3 className="text-xl font-semibold tracking-tight text-[#F2F5F8]">
-            {job.title}
-          </h3>
+              {job.remote_type && (
+                <Tag>{formatValue(job.remote_type)}</Tag>
+              )}
 
-          {/* COMPANY */}
-          <p className="mt-2 text-sm font-medium text-[#8D9AAA]">
-            {job.company || "Company not specified"}
-          </p>
+              {job.employment_type && (
+                <Tag>{formatValue(job.employment_type)}</Tag>
+              )}
+            </div>
 
-          {/* METADATA */}
-          <div className="mt-4 flex flex-wrap gap-2">
+            {/* SALARY */}
+            {(job.salary_min !== null || job.salary_max !== null) && (
+              <div className="mt-5">
+                <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+                  Compensation
+                </div>
 
-            {job.location && (
-              <Tag>{job.location}</Tag>
+                <div className="mt-1 text-sm font-semibold text-[#F2F5F8]">
+                  {formatSalary(job)}
+                </div>
+              </div>
             )}
 
-            {job.remote_type && (
-              <Tag>{formatValue(job.remote_type)}</Tag>
+            {/* DESCRIPTION */}
+            {job.description && (
+              <p className="mt-5 line-clamp-3 max-w-4xl text-sm leading-6 text-[#8D9AAA]">
+                {job.description}
+              </p>
             )}
 
-            {job.employment_type && (
-              <Tag>{formatValue(job.employment_type)}</Tag>
-            )}
+            {/* SOURCE */}
+            <div className="mt-5 flex items-center gap-2">
+              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+                Source
+              </span>
 
+              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#1677E8]">
+                {job.source}
+              </span>
+            </div>
           </div>
 
-          {/* SALARY */}
-          {(job.salary_min !== null || job.salary_max !== null) && (
-            <div className="mt-5">
-              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
-                Compensation
-              </div>
+          {/* ACTIONS */}
+          <div className="flex shrink-0 gap-3 lg:flex-col">
+            {job.source_url && (
+              <a
+                href={job.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-[#1A3048] px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#1677E8] hover:text-white"
+              >
+                View Job
+              </a>
+            )}
 
-              <div className="mt-1 text-sm font-semibold text-[#F2F5F8]">
-                {formatSalary(job)}
-              </div>
-            </div>
-          )}
-
-          {/* DESCRIPTION */}
-          {job.description && (
-            <p className="mt-5 line-clamp-3 max-w-4xl text-sm leading-6 text-[#8D9AAA]">
-              {job.description}
-            </p>
-          )}
-
-          {/* SOURCE */}
-          <div className="mt-5 flex items-center gap-2">
-            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
-              Source
-            </span>
-
-            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#1677E8]">
-              {job.source}
-            </span>
+            {job.application_url && (
+              <a
+                href={job.application_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-[#E50920] px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.12em] text-white transition hover:bg-[#FF1E32]"
+              >
+                Apply
+              </a>
+            )}
           </div>
         </div>
 
-        {/* ACTIONS */}
-        <div className="flex shrink-0 gap-3 lg:flex-col">
+        {/* MATCH PANEL */}
+        <div className="border-t border-[#1A3048] pt-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* JOB MATCH */}
+            <div className="border border-[#1A3048] bg-[#05070A] p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#1677E8]">
+                    Job Match
+                  </div>
 
-          {job.source_url && (
-            <a
-              href={job.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-[#1A3048] px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#1677E8] hover:text-white"
-            >
-              View Job
-            </a>
+                  <div className="mt-2 text-3xl font-bold text-[#F2F5F8]">
+                    {match ? `${Math.round(match.score)}%` : "—"}
+                  </div>
+
+                  {match && (
+                    <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[#506174]">
+                      Confidence: {match.confidence}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isMatching}
+                  onClick={() => onCalculateMatch(job.id)}
+                  className="border border-[#1A3048] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#1677E8] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isMatching ? "Calculating..." : "Calculate Match"}
+                </button>
+              </div>
+
+              {matchError && (
+                <p className="mt-3 text-xs leading-5 text-[#F2A0AA]">
+                  {matchError}
+                </p>
+              )}
+            </div>
+
+            {/* ATS READINESS */}
+            <div className="border border-[#1A3048] bg-[#05070A] p-4">
+              <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#1677E8]">
+                ATS Readiness
+              </div>
+
+              <div className="mt-2 text-3xl font-bold text-[#506174]">
+                Not calculated
+              </div>
+
+              <p className="mt-2 text-xs leading-5 text-[#506174]">
+                ATS Readiness is a separate resume analysis and is not
+                derived from Job Match.
+              </p>
+            </div>
+          </div>
+
+          {/* MATCH DETAILS */}
+          {match && (
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              {/* MATCHING SKILLS */}
+              <MatchList
+                title="Matching Skills"
+                items={visibleMatches.map((item) => ({
+                  label: item.skill,
+                  detail: formatEvidenceType(item.evidence_type),
+                }))}
+                emptyLabel="No matching skills identified."
+              />
+
+              {/* EXPERIENCE / STRENGTHS */}
+              <MatchList
+                title="Strengths"
+                items={(match.strengths ?? []).map((strength) => ({
+                  label: strength,
+                }))}
+                emptyLabel="No additional strengths identified."
+              />
+
+              {/* SKILL GAPS */}
+              <MatchList
+                title="Skill Gaps"
+                items={visibleGaps.map((item) => ({
+                  label: item.skill,
+                  detail: formatEvidenceStatus(item.status),
+                }))}
+                emptyLabel="No skill gaps identified."
+                warning
+              />
+            </div>
           )}
 
-          {job.application_url && (
-            <a
-              href={job.application_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-[#E50920] px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.12em] text-white transition hover:bg-[#FF1E32]"
-            >
-              Apply
-            </a>
-          )}
+          {/* SCORE BREAKDOWN */}
+          {match && match.components.length > 0 && (
+            <div className="mt-4 border border-[#1A3048] bg-[#05070A] p-4">
+              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#1677E8]">
+                Score Breakdown
+              </div>
 
+              <div className="mt-3 space-y-3">
+                {match.components.map((component) => (
+                  <div key={component.name}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium text-[#F2F5F8]">
+                        {formatEvidenceType(component.name)}
+                      </span>
+
+                      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#506174]">
+                        {component.score} / {component.max_score}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-[#506174]">
+                      {component.explanation}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </article>
   );
+}
+function MatchList({
+  title,
+  items,
+  emptyLabel,
+  warning = false,
+}: {
+  title: string;
+  items: Array<{
+    label: string;
+    detail?: string;
+  }>;
+  emptyLabel: string;
+  warning?: boolean;
+}) {
+  return (
+    <div className="border border-[#1A3048] bg-[#05070A] p-4">
+      <div
+        className={`font-mono text-[9px] uppercase tracking-[0.15em] ${
+          warning ? "text-[#E50920]" : "text-[#1677E8]"
+        }`}
+      >
+        {title}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-3 text-xs text-[#506174]">
+          {emptyLabel}
+        </p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {items.slice(0, 6).map((item, index) => (
+            <div
+              key={`${item.label}-${index}`}
+              className="flex items-start gap-2"
+            >
+              <span
+                className={
+                  warning
+                    ? "mt-0.5 text-[#E50920]"
+                    : "mt-0.5 text-[#1677E8]"
+                }
+              >
+                {warning ? "⚠" : "✓"}
+              </span>
+
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-[#F2F5F8]">
+                  {item.label}
+                </div>
+
+                {item.detail && (
+                  <div className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-[#506174]">
+                    {item.detail}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatEvidenceType(value: string): string {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatEvidenceStatus(value: string): string {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function Tag({ children }: { children: React.ReactNode }) {
