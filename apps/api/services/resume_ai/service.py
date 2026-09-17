@@ -12,7 +12,11 @@ from apps.api.services.resume_ai.contracts import ResumeAIResult
 from apps.api.services.resume_ai.deterministic import (
     analyze_resume_deterministically,
 )
-from apps.api.services.resume_ai.interpreter import ResumeAIInterpreter
+from apps.api.services.resume_ai.interpreter import (
+    ANALYSIS_VERSION,
+    PROMPT_VERSION,
+    ResumeAIInterpreter,
+)
 from apps.api.services.resume_ai.providers import create_resume_ai_provider
 
 
@@ -93,6 +97,27 @@ def analyze_resume_version(
             "Resume version not found.",
             status_code=404,
         )
+
+    # Reuse a valid, already-computed analysis for the exact same
+    # ResumeVersion + analyzer/prompt pipeline instead of re-calling the
+    # AI provider on every click. Resume content is immutable per
+    # version, so a cached analysis for this exact pipeline is still
+    # valid indefinitely.
+    cached_analysis = (
+        db.query(ResumeAIAnalysis)
+        .filter(
+            ResumeAIAnalysis.resume_version_id == resume_version_id,
+            ResumeAIAnalysis.user_id == user_id,
+            ResumeAIAnalysis.analysis_version == ANALYSIS_VERSION,
+            ResumeAIAnalysis.analyzer_version == ANALYZER_VERSION,
+            ResumeAIAnalysis.prompt_version == PROMPT_VERSION,
+        )
+        .order_by(ResumeAIAnalysis.created_at.desc())
+        .first()
+    )
+
+    if cached_analysis is not None:
+        return ResumeAIResult.model_validate(cached_analysis.analysis_result)
 
     resume_text = resume_version.content_text.strip()
 
