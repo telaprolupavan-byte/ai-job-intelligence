@@ -3,8 +3,10 @@
 import { useEffect, useState, useTransition } from "react";
 import {
   calculateJobMatch,
+  generateJobIntelligence,
   getJobs,
   type Job,
+  type JobIntelligenceData,
   type JobMatchResult,
 } from "../../../lib/jobs";
 
@@ -53,6 +55,15 @@ export default function Page() {
     Record<string, boolean>
   >({});
   const [matchErrors, setMatchErrors] = useState<Record<string, string>>({});
+  const [intelligence, setIntelligence] = useState<
+    Record<string, JobIntelligenceData>
+  >({});
+  const [intelligenceLoadingIds, setIntelligenceLoadingIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [intelligenceErrors, setIntelligenceErrors] = useState<
+    Record<string, string>
+  >({});
   const [isPending, startTransition] = useTransition();
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +141,40 @@ export default function Page() {
       }));
     } finally {
       setMatchingJobIds((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
+    }
+  }
+
+  async function handleViewIntelligence(jobId: string) {
+    setIntelligenceLoadingIds((current) => ({ ...current, [jobId]: true }));
+    setIntelligenceErrors((current) => {
+      const next = { ...current };
+      delete next[jobId];
+      return next;
+    });
+
+    try {
+      const response = await generateJobIntelligence(jobId);
+
+      setIntelligence((current) => ({
+        ...current,
+        [jobId]: response.intelligence,
+      }));
+    } catch (err) {
+      console.error(err);
+
+      setIntelligenceErrors((current) => ({
+        ...current,
+        [jobId]:
+          err instanceof Error
+            ? err.message
+            : "Unable to load Job Intelligence.",
+      }));
+    } finally {
+      setIntelligenceLoadingIds((current) => {
         const next = { ...current };
         delete next[jobId];
         return next;
@@ -390,6 +435,12 @@ export default function Page() {
                 isMatching={Boolean(matchingJobIds[job.id])}
                 matchError={matchErrors[job.id]}
                 onCalculateMatch={handleCalculateMatch}
+                intelligence={intelligence[job.id]}
+                isLoadingIntelligence={Boolean(
+                  intelligenceLoadingIds[job.id],
+                )}
+                intelligenceError={intelligenceErrors[job.id]}
+                onViewIntelligence={handleViewIntelligence}
               />
             ))}
           </div>
@@ -431,12 +482,20 @@ function JobCard({
   isMatching,
   matchError,
   onCalculateMatch,
+  intelligence,
+  isLoadingIntelligence,
+  intelligenceError,
+  onViewIntelligence,
 }: {
   job: Job;
   match?: JobMatchResult;
   isMatching: boolean;
   matchError?: string;
   onCalculateMatch: (jobId: string) => void;
+  intelligence?: JobIntelligenceData;
+  isLoadingIntelligence: boolean;
+  intelligenceError?: string;
+  onViewIntelligence: (jobId: string) => void;
 }) {
   const visibleMatches = [
     ...(match?.must_have_matches ?? []),
@@ -653,11 +712,201 @@ function JobCard({
               </div>
             </div>
           )}
+
+          {/* JOB INTELLIGENCE (AJI-012) */}
+          <div className="mt-4 border border-[#1A3048] bg-[#05070A] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#1677E8]">
+                  Job Intelligence
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#506174]">
+                  Structured, evidence-backed requirements extracted from
+                  this JD. Not a score or a match — see Job Match above
+                  for that.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={isLoadingIntelligence}
+                onClick={() => onViewIntelligence(job.id)}
+                className="shrink-0 border border-[#1A3048] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8D9AAA] transition hover:border-[#1677E8] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isLoadingIntelligence
+                  ? "Analyzing..."
+                  : intelligence
+                    ? "Refresh"
+                    : "Analyze JD"}
+              </button>
+            </div>
+
+            {intelligenceError && (
+              <p className="mt-3 text-xs leading-5 text-[#F2A0AA]">
+                {intelligenceError}
+              </p>
+            )}
+
+            {intelligence && (
+              <JobIntelligencePanel intelligence={intelligence} />
+            )}
+          </div>
         </div>
       </div>
     </article>
   );
 }
+
+function JobIntelligencePanel({
+  intelligence,
+}: {
+  intelligence: JobIntelligenceData;
+}) {
+  return (
+    <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="border border-[#1A3048] p-3">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+          Identity
+        </div>
+        <dl className="mt-2 space-y-1 text-xs text-[#F2F5F8]">
+          <div>
+            <dt className="inline text-[#506174]">Normalized title: </dt>
+            <dd className="inline">
+              {intelligence.identity.normalized_title ?? "Unknown"}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-[#506174]">Role family: </dt>
+            <dd className="inline">
+              {intelligence.identity.role_family ?? "Unknown"}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-[#506174]">Seniority: </dt>
+            <dd className="inline">
+              {intelligence.identity.seniority ?? "Unknown"}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-[#506174]">Employment type: </dt>
+            <dd className="inline">
+              {formatValue(intelligence.employment.employment_type)}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-[#506174]">Domain: </dt>
+            <dd className="inline">
+              {intelligence.domain.value ?? "Unknown"}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <div className="border border-[#1A3048] p-3">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+          Location &amp; Authorization
+        </div>
+        <dl className="mt-2 space-y-1 text-xs text-[#F2F5F8]">
+          <div>
+            <dt className="inline text-[#506174]">Arrangement: </dt>
+            <dd className="inline">
+              {formatValue(intelligence.location.remote_type)}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-[#506174]">Sponsorship: </dt>
+            <dd className="inline">
+              {formatValue(intelligence.authorization.sponsorship)}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-[#506174]">Citizenship: </dt>
+            <dd className="inline">
+              {formatValue(intelligence.authorization.citizenship)}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-[#506174]">Clearance: </dt>
+            <dd className="inline">
+              {formatValue(intelligence.authorization.clearance)}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <RequirementList
+        title="Required Skills"
+        items={intelligence.required_skills.map((item) => ({
+          label: item.canonical_skill,
+          detail: item.evidence_text,
+        }))}
+        emptyLabel="No explicit required skills detected."
+      />
+
+      <RequirementList
+        title="Preferred Skills"
+        items={intelligence.preferred_skills.map((item) => ({
+          label: item.canonical_skill,
+          detail: item.evidence_text,
+        }))}
+        emptyLabel="No explicit preferred skills detected."
+      />
+
+      <RequirementList
+        title="Required Experience"
+        items={intelligence.required_experience.map((item) => ({
+          label: `${item.minimum_years ?? "?"}+ years${
+            item.area ? ` — ${item.area}` : ""
+          }`,
+          detail: item.evidence_text,
+        }))}
+        emptyLabel="No explicit years-of-experience requirements detected."
+      />
+
+      <RequirementList
+        title="Responsibilities"
+        items={intelligence.responsibilities.map((item) => ({
+          label: item.description,
+        }))}
+        emptyLabel="No responsibilities detected."
+      />
+    </div>
+  );
+}
+
+function RequirementList({
+  title,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  items: Array<{ label: string; detail?: string }>;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="border border-[#1A3048] p-3">
+      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#506174]">
+        {title}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-2 text-xs text-[#506174]">{emptyLabel}</p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {items.slice(0, 8).map((item, index) => (
+            <li key={`${item.label}-${index}`} className="text-xs">
+              <div className="font-medium text-[#F2F5F8]">{item.label}</div>
+              {item.detail && (
+                <div className="mt-0.5 text-[#506174]">{item.detail}</div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function MatchList({
   title,
   items,

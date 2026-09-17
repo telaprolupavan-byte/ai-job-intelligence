@@ -283,3 +283,271 @@ with no database. `tests/test_eligibility_service.py` and
 and the authenticated endpoint, including that two users get independent
 results for the same job and that the public `/jobs` listing never leaks
 personalized eligibility data.
+
+## Job/JD Intelligence (AJI-012)
+
+Job Intelligence answers a different question from everything else in
+the pipeline:
+
+| | Question it answers |
+|---|---|
+| Hard Eligibility | "Can this job even be considered?" |
+| **Job Intelligence (this section)** | **"What does this specific job require?"** |
+| ATS Alignment (AJI-013, future) | "How would an ATS read this resume against this JD?" |
+| Job Match (existing) | "How well does this job fit?" |
+
+It converts a `Job`'s observable JD text into a structured, versioned,
+evidence-backed contract. It is the canonical representation AJI-013
+(ATS Alignment), AJI-014 (Gap Analysis), AJI-015 (Suggestions), and
+AJI-016 (Priority Ranking) all consume — none of them re-parse the raw
+JD text themselves.
+
+**Resume Intelligence vs. Job Intelligence — do not merge these:**
+Resume Intelligence (AJI-010, `apps.api.services.resume_ai`) decodes
+*"who is the candidate and what does the resume demonstrate?"* from a
+`ResumeVersion`. Job Intelligence decodes *"what does this job
+require?"* from a `Job`. Both follow the same two-stage
+deterministic-extraction-then-schema-constrained-AI-decoding shape and
+the same analysis/analyzer/prompt versioning convention, but they are
+independent artifacts about independent entities — neither is a
+prerequisite for the other, and neither computes a score.
+
+### Package layout
+
+`apps/api/services/job_intelligence/` mirrors `resume_ai`'s layout
+(DB-free deterministic + AI pipeline modules colocated with the DB
+orchestration, since — like Resume Intelligence — this is a
+single-purpose intelligence pipeline tied to one entity, not a
+cross-cutting engine like `services.job_matching`/`services.eligibility`):
+
+- `contracts.py` — the full `JobIntelligenceResult` Pydantic contract
+  (see "The contract" below).
+- `deterministic.py` — pure, DB-free extraction from a plain
+  `RawJobDescription` dataclass (not the ORM `Job`, so it is trivial to
+  unit test). Reuses existing building blocks rather than introducing
+  parallel logic: `services.skills` (AJI-009 canonical vocabulary),
+  `services.job_discovery.normalizer` (employment/remote type alias
+  normalization), `services.job_matching.extractor.PREFERRED_SECTION_MARKERS`
+  (section-heading phrases), and
+  `services.eligibility.job_signals.extract_work_authorization_signals`
+  (AJI-011's sponsorship/citizenship/clearance phrase detection, extended
+  here only with the "preferred" nuance eligibility's boolean signals
+  don't need).
+- `prompts.py` / `providers/openai_provider.py` / `providers/factory.py`
+  / `interpreter.py` — the AI semantic decoding stage, structured exactly
+  like `resume_ai`'s equivalent modules (OpenAI Structured Outputs via
+  `client.responses.parse`, a closed `extra="forbid"` schema, the same
+  provider-error handling). A second AI provider abstraction was not
+  introduced — this reuses the same architecture, with its own schema.
+- `validator.py` — merges deterministic extraction with AI semantics
+  into the final contract and is the concrete anti-hallucination check
+  (see "AI safety" below).
+- `service.py` — the DB-touching orchestration layer (fingerprinting,
+  idempotency/caching, persistence), the same role
+  `apps.api.services.resume_ai.service` plays for Resume Intelligence.
+
+### The contract
+
+`JobIntelligenceResult` (`contracts.py`) is deliberately not one giant
+opaque JSON blob's *shape* even though it's stored in a single JSONB
+column (see "Persistence" below) — every field is explicitly typed:
+
+- **Identity**: `original_title` (verbatim), `normalized_title` /
+  `role_family` / `seniority`, each optional and independently
+  confidence-tagged. Never invented when evidence is insufficient — the
+  field simply stays `null`.
+- **Employment**: one of the enumerated employment types (including
+  `contract_to_hire`, distinct from `contract`) or `"unknown"`.
+- **Location**: raw location, parsed city/state/country when the format
+  supports it (e.g. "New York, NY"), `additional_locations`, remote
+  type, and the raw work-arrangement text preserved verbatim (e.g.
+  "Hybrid - Newark, NJ") — never a guessed metro-area/geographic
+  relationship.
+- **`required_skills` / `preferred_skills`** — explicitly separate
+  lists, never collapsed into one (see "Required vs. preferred" below).
+  Each `SkillRequirement` carries the AJI-009 canonical skill name,
+  `evidence_text`, and `confidence`.
+- **`required_experience` / `preferred_experience`** — years, an
+  optional `area` (a canonical skill mentioned in the same clause) and
+  `context` (e.g. "production", "leadership"), each with evidence. Only
+  explicit "N years" patterns are captured; an unrelated number (a
+  founding year, a team size) is never interpreted as experience.
+- **`education`** / **`certifications`** — required/preferred degree or
+  certification mentions with evidence; never inferred from what a
+  company "usually" requires.
+- **`responsibilities`** — always a separate list from every requirement
+  list above (see "Responsibilities vs. requirements" below).
+- **`authorization`** — sponsorship/citizenship/clearance/work-
+  authorization signals, each one of the job's *observable* JD language,
+  never a legal/immigration determination (this is job-side data;
+  AJI-011's `Preference` fields are the user's own declared situation —
+  the two are compared by `services.eligibility`, not by AJI-012).
+- **`compensation`** — captured only when the `Job` row already has
+  salary data; never fabricated.
+- **`domain`** — AI-derived, with confidence and evidence.
+
+### Required vs. preferred (never collapsed)
+
+`deterministic.py` classifies every requirement clause independently
+rather than doing one text-wide split. `iter_clauses_with_default_level`
+clause-splits the *entire* text once and tracks a running section-level
+default (flips from `required` to `preferred` only at a clause that
+*is* a "Preferred Qualifications"/"Nice to Have"-style heading), then
+`classify_level` checks each individual clause for an explicit inline
+marker (`required`, `must`, `minimum`, ... vs. `preferred`, `nice to
+have`, `bonus`, `plus`, ...), which always wins over the section
+default.
+
+This clause-first ordering matters: an earlier implementation ran
+`services.job_matching.extractor.split_preferred_section` (a whole-text,
+single-marker-position split) *before* clause-splitting, which cut a
+sentence like *"Kubernetes experience is nice to have"* in two at the
+marker's position — separating the skill from its own marker and
+losing it entirely. Splitting into clauses first, then classifying each
+clause independently, keeps an inline marker attached to the requirement
+it modifies.
+
+A skill/requirement classified as required anywhere in the JD is never
+also listed as preferred (required always wins on conflict), and a
+preferred marker never promotes a requirement to required.
+
+### Responsibilities vs. requirements
+
+`Job.responsibilities` (a separate column, populated by job discovery)
+is scanned only for `ResponsibilityItem`s (`extract_responsibilities`);
+`Job.description`/`Job.requirements` are scanned only for
+skills/experience/education/certifications
+(`requirement_text()` deliberately excludes `responsibilities`). A
+responsibility is never automatically treated as a hard requirement —
+the existing schema's own field separation makes this the natural,
+minimal implementation rather than a new heuristic.
+
+### AI safety: the evidence-substring check
+
+The AI semantic decoding stage is deliberately narrow: it only decodes
+`normalized_title`, `role_family`, `seniority` (when deterministic
+extraction found nothing), and `domain` — every other field
+(skills, experience, education, certifications, responsibilities,
+authorization, compensation, location, employment) is always
+deterministic, never re-decided by the AI.
+
+`validator.py`'s `_evidence_supported()` is the concrete
+anti-hallucination check: the AI is required to return a verbatim
+evidence quote for every non-null field, and that quote must actually
+appear (case/whitespace-insensitive substring match) in the raw JD text
+before the field is trusted. An AI-claimed value whose evidence doesn't
+match the source text is dropped (the field stays `null`) rather than
+persisted — this is deliberately silent-and-safe, not a hard failure,
+since one bad AI field must never discard an otherwise-valid snapshot.
+
+### Snapshot/versioning and idempotency
+
+`JobIntelligence` (`apps/api/models.py`) follows the same insert-only
+versioning convention as `ResumeAIAnalysis` (see "Analysis/scoring
+versioning convention" above): `analysis_version` / `analyzer_version` /
+`prompt_version` / `model_provider` / `model_name`, since this is an
+AI-derived artifact.
+
+- **`content_fingerprint`** — a SHA-256 hash of every `Job` field that
+  feeds extraction (title, description, requirements, responsibilities,
+  location, country, remote/employment type, salary, contract fields),
+  normalized (whitespace-collapsed, lowercased) before hashing. Computed
+  by `service.compute_job_content_fingerprint()`.
+- **`raw_jd_snapshot`** — a JSONB copy of those same fields at analysis
+  time, independent of the live `Job` row, so a later job edit/
+  rediscovery never silently changes what a historical snapshot says it
+  analyzed.
+- **Idempotency**: `generate_job_intelligence()` looks up an existing
+  row keyed by `(job_id, content_fingerprint, analyzer_version,
+  prompt_version)` before doing any extraction or AI call, exactly
+  mirroring `analyze_resume_version()`'s cache lookup. Same job + same
+  JD content + same pipeline version -> the existing row is returned,
+  with zero re-parsing and zero AI calls. A changed JD (different
+  fingerprint) or a bumped `ANALYZER_VERSION`/`PROMPT_VERSION` always
+  produces a new, additional row — existing rows are never updated or
+  overwritten.
+
+### Partial extraction / failure handling
+
+Deterministic extraction failing is a hard error: nothing is persisted
+(`JobIntelligenceServiceError`, 503). A failed *AI* call (provider
+error, timeout, invalid output) is different — it degrades to a
+`extraction_status = "partial"` snapshot containing only the
+deterministic fields (`identity.normalized_title`/`role_family`/`domain`
+stay `null`), rather than discarding real, evidence-backed deterministic
+data or corrupting the request. `extraction_status` is never anything
+other than `"complete"` or `"partial"` — a fully failed extraction is
+never persisted as if it were valid.
+
+### Persistence and API
+
+`JobIntelligence` is a single table (not over-normalized into one table
+per requirement type) with typed top-level columns for the metadata
+that needs indexing/filtering (`job_id`, `content_fingerprint`,
+versions) and the full typed contract in one `structured_intelligence`
+JSONB column — the same balance `ResumeAIAnalysis` and `JobMatchResult`
+already strike.
+
+- `GET /jobs/{job_id}/intelligence` — returns the newest snapshot only;
+  never recomputes or calls the AI provider on a read (this is what
+  keeps a jobs-list/detail view cheap at scale — see "Performance"
+  below).
+- `POST /jobs/{job_id}/intelligence` — computes-or-reuses (idempotent,
+  per above).
+
+Both require authentication like the rest of the per-job API surface,
+but **Job Intelligence itself has no `user_id` column** — it is shared,
+job-scoped data (see "Shared vs. personalized" immediately below), not
+tied to the requesting user.
+
+### Shared vs. personalized (do not mix these)
+
+Job Intelligence is deliberately the same shared answer for every user
+who looks at a given job — description, requirements, preferred
+qualifications, responsibilities, skills, location, employment type,
+salary, role, seniority, domain, and the job's own observable
+authorization signals. It never stores or derives a
+user-specific score: Hard Eligibility (AJI-011), Job Match (existing),
+ATS Alignment (AJI-013, future), and Suggestions (AJI-015, future) all
+stay in their own user-scoped tables/services and are never written
+into `JobIntelligence.structured_intelligence`.
+
+### Performance
+
+`GET /jobs/{job_id}/intelligence` is a single indexed SELECT — no AI
+call, no re-parsing. `POST` reuses the fingerprint-keyed cache described
+above so viewing/recomputing the same unchanged job repeatedly costs one
+AI call total, not one per request. AJI-012 intentionally does not
+include a bulk/background discovery-time worker that pre-computes
+Job Intelligence for every discovered job — that operationalization
+work belongs to a later ticket, not this one.
+
+### UNKNOWN/absence semantics
+
+Every optional field's absence means exactly one thing: the JD did not
+provide enough evidence, not "the job doesn't have this." `"unknown"` is
+a first-class enum value (employment type, remote type, sponsorship,
+citizenship, clearance, work authorization, compensation period) rather
+than `null`, so a consumer can distinguish "we checked and it's not
+disclosed" from a field that was never populated at all.
+
+### Testing
+
+`tests/test_job_intelligence_deterministic.py` unit-tests every
+deterministic extractor with no database (identity/seniority,
+employment, location, required-vs-preferred, skills, experience,
+education, certifications, responsibilities-vs-requirements,
+authorization, compensation). `tests/test_job_intelligence_contracts.py`
+and `tests/test_job_intelligence_validator.py` cover the Pydantic
+contract's own validation and the AI evidence-substring
+anti-hallucination check. `tests/test_job_intelligence_provider.py`
+mirrors `test_openai_provider.py`'s OpenAI-strict-schema regression
+guard. `tests/test_job_intelligence_service.py` (mocked DB) and
+`tests/test_job_intelligence_versioning.py` (real DB) cover
+idempotency/versioning: same content reuses a snapshot, changed content
+or a bumped analyzer version creates a new one without touching history,
+and a failed AI call degrades to a partial snapshot rather than losing
+the deterministic result. `tests/test_jobs_intelligence_api.py` covers
+authentication, 404s, the shared-across-users behavior, and that no
+personalized (eligibility/Job Match/ATS) field ever appears in the
+response or the public `/jobs` listing.

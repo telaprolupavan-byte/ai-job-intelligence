@@ -12,10 +12,16 @@ from apps.api.models import Company, Job, User
 from apps.api.services.eligibility_service import (
     evaluate_job_eligibility as evaluate_job_eligibility_service,
 )
+from apps.api.services.job_intelligence.service import (
+    JobIntelligenceServiceError,
+    generate_job_intelligence,
+    get_latest_job_intelligence,
+)
 from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
 )
+from apps.api.models import JobIntelligence
 from services.eligibility.contracts import EligibilityResult
 
 
@@ -261,3 +267,94 @@ def get_job_eligibility(
     )
 
     return _eligibility_result_to_response(job.id, result)
+
+
+def _job_intelligence_to_response(record: JobIntelligence) -> dict:
+    return {
+        "id": str(record.id),
+        "job_id": str(record.job_id),
+        "content_fingerprint": record.content_fingerprint,
+        "analysis_version": record.analysis_version,
+        "analyzer_version": record.analyzer_version,
+        "prompt_version": record.prompt_version,
+        "model_provider": record.model_provider,
+        "model_name": record.model_name,
+        "extraction_status": record.extraction_status,
+        "source": record.source,
+        "source_url": record.source_url,
+        "created_at": record.created_at.isoformat(),
+        "intelligence": record.structured_intelligence,
+    }
+
+
+@router.get("/{job_id}/intelligence")
+def get_job_intelligence(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return the most recently computed Job Intelligence (AJI-012) snapshot
+    for a job, without recomputing it. 404s when no snapshot has been
+    generated yet (see POST /jobs/{job_id}/intelligence).
+
+    Job Intelligence is shared, job-scoped data — never user-specific —
+    but this endpoint still requires authentication like the rest of the
+    per-job API surface, and never triggers an AI call on read.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    job = db.query(Job).filter(Job.id == job_uuid).first()
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    record = get_latest_job_intelligence(db, job_id=job_uuid)
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job Intelligence has not been generated for this job yet.",
+        )
+
+    return _job_intelligence_to_response(record)
+
+
+@router.post("/{job_id}/intelligence")
+def create_job_intelligence(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Compute (or idempotently reuse) the Job Intelligence snapshot for a
+    job. Reuses an existing snapshot when the job's observable content
+    and the analyzer/prompt pipeline version are unchanged; otherwise
+    produces a new, additional snapshot without overwriting history.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    try:
+        record = generate_job_intelligence(db, job_id=job_uuid)
+    except JobIntelligenceServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    return _job_intelligence_to_response(record)
