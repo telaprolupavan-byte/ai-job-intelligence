@@ -126,6 +126,15 @@
   --color-app-amber-hover: #ffaa33;
   --color-app-amber-soft: #3a2508;
 
+  /*
+   * Semantic status colors (NERO design tokens, "Accents / States").
+   * Success = success/completion (e.g. eligible, matched, passed).
+   * Critical = blocking/destructive state — distinct from AI Crimson,
+   * which is reserved for brand/primary actions.
+   */
+  --color-app-success: #22a06b;
+  --color-app-critical: #d64545;
+
   --color-app-danger-bg: #22100f;
   --color-app-danger-border: #66271f;
   --color-app-danger-text: #ffb3ab;

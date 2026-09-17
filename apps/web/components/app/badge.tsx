@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 type BadgeProps = {
   children: React.ReactNode;
-  tone?: "neutral" | "blue" | "red" | "amber" | "danger";
+  tone?: "neutral" | "blue" | "red" | "amber" | "success" | "critical" | "danger";
   className?: string;
 };
 
@@ -13,6 +13,8 @@ const TONE_CLASS = {
   // Reserved for predictive/warning states (Spider-Sense) — only ever
   // paired with real data, never shown speculatively.
   amber: "border-app-amber/60 text-app-amber",
+  success: "border-app-success/60 text-app-success",
+  critical: "border-app-critical/60 text-app-critical",
   danger: "border-app-danger-border bg-app-danger-bg text-app-danger-text",
 };
 
