@@ -77,3 +77,76 @@ export async function getJobs(params: {
 
   return response.json();
 }
+export type SkillEvidence = {
+  skill: string;
+  status: "matched" | "missing" | "uncertain";
+  evidence_type:
+    | "explicit"
+    | "experience"
+    | "project"
+    | "education"
+    | "inferred"
+    | "none";
+  evidence: string | null;
+};
+
+export type MatchComponent = {
+  name: string;
+  score: number;
+  max_score: number;
+  explanation: string;
+};
+
+export type JobMatchResult = {
+  id: string;
+  job_id: string;
+  resume_version_id: string;
+  score: number;
+  confidence: string;
+  engine_version: string;
+  strengths: string[];
+  skill_gaps: string[];
+  components: MatchComponent[];
+  must_have_matches: SkillEvidence[];
+  must_have_gaps: SkillEvidence[];
+  preferred_matches: SkillEvidence[];
+  preferred_gaps: SkillEvidence[];
+};
+
+export async function calculateJobMatch(
+  jobId: string,
+): Promise<JobMatchResult> {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("ai_job_intelligence_token")
+      : null;
+
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/match`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {}),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to calculate job match.";
+
+    throw new Error(message);
+  }
+
+  return data as JobMatchResult;
+}

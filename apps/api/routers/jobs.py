@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -149,10 +151,18 @@ def calculate_job_match(
     authenticated user against a specific job.
     """
 
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
     # 1. Load the job.
     job = (
         db.query(Job)
-        .filter(Job.id == job_id)
+        .filter(Job.id == job_uuid)
         .first()
     )
 

@@ -378,10 +378,12 @@ def build_match_result(
         if match.status == MatchStatus.MATCHED
     ]
 
+    # MISSING and UNCERTAIN both belong in "gaps" - neither is a confirmed
+    # match, and UNCERTAIN must never be silently dropped from the result.
     missing_must_have = [
         match
         for match in must_have_matches
-        if match.status == MatchStatus.MISSING
+        if match.status in (MatchStatus.MISSING, MatchStatus.UNCERTAIN)
     ]
 
     matched_preferred = [
@@ -393,7 +395,7 @@ def build_match_result(
     missing_preferred = [
         match
         for match in preferred_matches
-        if match.status == MatchStatus.MISSING
+        if match.status in (MatchStatus.MISSING, MatchStatus.UNCERTAIN)
     ]
 
     strengths = [
