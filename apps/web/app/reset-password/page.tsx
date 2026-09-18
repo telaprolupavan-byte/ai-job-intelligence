@@ -3,34 +3,42 @@
 import Link from "next/link";
 import { Suspense, FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { login } from "@/lib/auth";
+import { resetPassword } from "@/lib/auth";
 
-function LoginForm() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const token = searchParams.get("token") ?? "";
 
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const registered = searchParams.get("registered") === "true";
-  const resetSuccess = searchParams.get("reset") === "true";
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setError("");
+
+    if (!token) {
+      setError("This reset link is invalid. Request a new one.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login(email, password);
-      router.push("/dashboard");
+      await resetPassword(token, password);
+      router.push("/login?reset=true");
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to sign in.",
+          : "Unable to reset your password.",
       );
     } finally {
       setLoading(false);
@@ -47,79 +55,73 @@ function LoginForm() {
             </p>
 
             <h1 className="font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight sm:text-5xl">
-              Welcome back.
+              Set a new password.
             </h1>
 
             <p className="mt-5 text-sm leading-6 text-app-muted">
-              Access your personalized job intelligence workspace.
+              Choose a new password for your account.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label
-                htmlFor="email"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
+          {!token && (
+            <div
+              role="alert"
+              className="mb-5 rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm"
+            >
+              This reset link is invalid or incomplete. Request a new one
+              from the{" "}
+              <Link
+                href="/forgot-password"
+                className="underline underline-offset-4"
               >
-                Email
-              </label>
-
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
-                placeholder="you@example.com"
-              />
+                forgot password
+              </Link>{" "}
+              page.
             </div>
+          )}
 
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label
                 htmlFor="password"
                 className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
               >
-                Password
+                New Password
               </label>
 
               <input
                 id="password"
                 type="password"
                 required
+                minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
-                placeholder="Your password"
+                placeholder="Minimum 8 characters"
               />
-
-              <div className="mt-2 text-right">
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-app-muted underline underline-offset-4 hover:text-app-red"
-                >
-                  Forgot password?
-                </Link>
-              </div>
             </div>
 
-            {registered && (
-              <div
-                role="status"
-                className="rounded-lg border border-app-border bg-app-surface px-4 py-3 text-sm"
+            <div>
+              <label
+                htmlFor="confirm-password"
+                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
               >
-                Account created. Sign in to continue.
-              </div>
-            )}
+                Confirm New Password
+              </label>
 
-            {resetSuccess && (
-              <div
-                role="status"
-                className="rounded-lg border border-app-border bg-app-surface px-4 py-3 text-sm"
-              >
-                Password reset. Sign in with your new password.
-              </div>
-            )}
+              <input
+                id="confirm-password"
+                type="password"
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(event) =>
+                  setConfirmPassword(event.target.value)
+                }
+                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
+                placeholder="Repeat your new password"
+              />
+            </div>
 
             {error && (
               <div
@@ -132,20 +134,20 @@ function LoginForm() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !token}
               className="w-full rounded-lg bg-crimson-fill px-5 py-3 text-sm font-medium text-white transition hover:bg-crimson-fill-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "AUTHENTICATING..." : "SIGN IN →"}
+              {loading ? "RESETTING..." : "RESET PASSWORD →"}
             </button>
           </form>
 
           <p className="mt-8 text-center text-sm text-app-muted">
-            Do not have an account?{" "}
+            Remembered your password?{" "}
             <Link
-              href="/register"
+              href="/login"
               className="text-app-text underline underline-offset-4 hover:text-app-red"
             >
-              Create account
+              Sign in
             </Link>
           </p>
         </div>
@@ -154,7 +156,7 @@ function LoginForm() {
   );
 }
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
@@ -165,7 +167,7 @@ export default function LoginPage() {
         </main>
       }
     >
-      <LoginForm />
+      <ResetPasswordForm />
     </Suspense>
   );
 }
