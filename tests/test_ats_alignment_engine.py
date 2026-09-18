@@ -389,7 +389,17 @@ def test_no_requirements_are_silently_ignored():
 # Scoring: deterministic aggregation, boundary conditions
 # ---------------------------------------------------------------------------
 
-def test_score_all_matched_is_100():
+def test_score_all_matched_with_bare_resume_is_capped_by_structure():
+    # AJI-020: with a single matched must-have skill and no other JD
+    # requirements, Requirement Coverage/Keyword Alignment/Evidence &
+    # Experience are all 100, but this resume's raw_text is empty, so it
+    # fails 4 of 5 Structure & Parseability checks (only
+    # "consistent_heading_style" passes, since no
+    # heading_style_inconsistency finding exists on empty text) ->
+    # structure = 20. Weighted sum = 40 + 25 + 25 + (0.1 * 20) = 92,
+    # under the must-have ceiling (100), so it is not capped further.
+    # See test_ats_scoring_engine.py for full weighted-formula coverage,
+    # including a fully-structured resume that reaches exactly 100.
     requirement = skill_requirement("python")
     resume = make_resume(
         skill_evidence={
@@ -399,7 +409,7 @@ def test_score_all_matched_is_100():
 
     result = evaluate_ats_alignment([requirement], resume)
 
-    assert result.overall_score == 100.0
+    assert result.overall_score == 92.0
 
 
 def test_score_all_missing_is_0():
@@ -439,7 +449,8 @@ def test_no_score_when_no_requirements():
 
 
 def test_compute_overall_score_empty_list_returns_none():
-    assert compute_overall_score([]) is None
+    resume = make_resume()
+    assert compute_overall_score([], [], resume) is None
 
 
 def test_compute_overall_confidence_empty_list_returns_none():

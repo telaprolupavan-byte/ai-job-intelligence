@@ -10,15 +10,21 @@ Job Match). This avoids a second, independent resume-parsing
 implementation (AJI-013 section 20).
 
 `analysis` is accepted structurally (duck-typed: any object exposing
-`.skills` and `.skill_evidence`, as
+`.skills`, `.skill_evidence`, `.sections`, `.emails`, `.phones`,
+`.bullets`, and `.structural_findings`, as
 `apps.api.services.resume_ai.deterministic.DeterministicResumeAnalysis`
 does) rather than imported by type, so this module has zero import
-dependency on apps.api.
+dependency on apps.api. The section/contact/bullet fields feed AJI-020's
+Structure & Parseability score (see
+services.ats_alignment.scoring.compute_structure_parseability) — they
+were already computed by `analyze_resume_deterministically()` for
+AJI-010 Resume Intelligence, so no second resume structure parser is
+introduced here.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from services.skills import normalize_skill
@@ -33,12 +39,24 @@ class ResumeEvidenceProfile:
     keyword search directly against it — every match is a literal
     substring of the resume, never an unverified AI claim (AJI-013
     section 7/8).
+
+    `detected_sections`/`has_contact_info`/`has_bullet_points`/
+    `structural_finding_types` are presence-only signals (booleans/sets),
+    never counts — this is what keeps the Structure & Parseability score
+    (AJI-020) unaffected by resume length: a one-page and a three-page
+    resume that both have an Experience section, contact info, and
+    bullet-point formatting score identically on this dimension.
     """
 
     raw_text: str
     skills: list[str]
     skill_evidence: dict[str, dict]
     years_experience: float | None
+
+    detected_sections: frozenset[str] = field(default_factory=frozenset)
+    has_contact_info: bool = False
+    has_bullet_points: bool = False
+    structural_finding_types: frozenset[str] = field(default_factory=frozenset)
 
 
 def build_resume_evidence_profile(
@@ -53,9 +71,28 @@ def build_resume_evidence_profile(
         dict.fromkeys(skill for skill in normalized_skills if skill)
     )
 
+    detected_sections = frozenset(
+        section.name for section in getattr(analysis, "sections", [])
+    )
+
+    has_contact_info = bool(getattr(analysis, "emails", None)) or bool(
+        getattr(analysis, "phones", None)
+    )
+
+    has_bullet_points = bool(getattr(analysis, "bullets", None))
+
+    structural_finding_types = frozenset(
+        finding["type"]
+        for finding in getattr(analysis, "structural_findings", [])
+    )
+
     return ResumeEvidenceProfile(
         raw_text=raw_text,
         skills=normalized_skills,
         skill_evidence=analysis.skill_evidence,
         years_experience=years_experience,
+        detected_sections=detected_sections,
+        has_contact_info=has_contact_info,
+        has_bullet_points=has_bullet_points,
+        structural_finding_types=structural_finding_types,
     )

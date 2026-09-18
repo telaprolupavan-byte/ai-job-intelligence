@@ -70,6 +70,30 @@ class RequirementAlignment:
 
 
 @dataclass
+class ScoreComponent:
+    """One independently-computed, independently-explainable contributor
+    to the overall ATS Alignment score (AJI-020).
+
+    `weight` is this component's fraction of the overall 0-100 score
+    (from `services.ats_alignment.weights.SCORE_WEIGHTS`), `score` is its
+    own 0-100 value, and `weighted_score` (`weight * score`) is exactly
+    what it contributes to `AtsAlignmentResult.overall_score` before the
+    required-requirement guardrail is applied. Mirrors
+    `services.job_matching.contracts.MatchComponent`'s existing
+    explainable-breakdown convention.
+    """
+
+    name: str
+    weight: float
+    score: float
+    explanation: str
+
+    @property
+    def weighted_score(self) -> float:
+        return round(self.weight * self.score, 2)
+
+
+@dataclass
 class AtsAlignmentResult:
     """The full ATS Alignment result for one (resume version, JD) pair."""
 
@@ -81,6 +105,9 @@ class AtsAlignmentResult:
     must_have_matched: int = 0
     preferred_total: int = 0
     preferred_matched: int = 0
+
+    components: list[ScoreComponent] = field(default_factory=list)
+    must_have_ceiling: float | None = None
 
     engine_version: str = "1.0.0"
     scoring_version: str = "placeholder-1.0"
