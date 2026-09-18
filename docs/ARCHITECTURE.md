@@ -1511,3 +1511,100 @@ Persistence (an ORM model/Alembic migration), an API router, idempotent
 caching keyed off a real `content_fingerprint`, and wiring this model
 into any consumer (ATS Alignment or otherwise) are all explicitly left
 for a follow-up ticket — see the package-layout note above for why.
+
+### Contract semantics clarification (supervisor review pass)
+
+A follow-up review pass asked for the contract's semantics to be made
+explicit so downstream NERO systems cannot interpret requirements
+inconsistently. No behavior changed in this pass — it is documentation
+only (`contracts.py` docstrings are the authoritative, in-code version
+of everything below; this section summarizes them). The full detail
+lives on `ImportanceTier`, `RequirementItem`, `RequirementGroup`, and
+`ScreeningConstraint` in `contracts.py`.
+
+**Importance tiers** (`required`/`preferred`/`contextual`/
+`informational`) answer "how did the JD weight this?" and are metadata
+only — AJI-020A never scores or screens with them itself (see
+"Downstream contract" below). `required`: the JD states this is needed.
+`preferred`: wanted, not mandatory. `contextual`: the JD mentions it to
+describe the job/team/stack, not as something the candidate must
+demonstrate. `informational`: purely descriptive JD content (this is the
+tier every `responsibility` item is confined to, alongside
+`contextual`, by a model validator — a responsibility can never be
+`required`/`preferred`). `hard_requirement` is a **separate, orthogonal**
+field: it is `True` only when the JD used explicit strict/gating
+language (`deterministic.HARD_REQUIREMENT_MARKERS`) for that specific
+item, never merely because `importance == "required"`. The one enforced
+relationship between the two: `hard_requirement=True` requires
+`importance == "required"` (the reverse does not hold — most `required`
+items are not `hard_requirement`). Neither field affects screening;
+screening is modeled exclusively by `screening_constraints` (see below).
+
+**`hard_requirement`** qualifies when a `RequirementItem`
+(skill/experience/education/certification — never a responsibility, and
+never a screening constraint, which has no such field) used unusually
+strict JD language. It is classification metadata for a future
+consumer's own scoring/gating decision, not an instruction this module
+carries out itself. Not every hard requirement is a screening
+constraint, and screening constraints are never represented as
+requirements (see the `RequirementItem`/`ScreeningConstraint` boundary
+below) — the two model types are disjoint by construction.
+
+**`RequirementItem` vs. `screening_constraints`**: screening constraints
+(work authorization, sponsorship, citizenship, security clearance,
+background check, drug screening, minimum age, driver's license, or
+`other`) are pass/fail gates extracted by their own, separate
+deterministic pass (`extract_screening_constraints`) and are never
+converted into, or mixed into, `requirements`. A clause can legitimately
+produce both a `RequirementItem` and a `ScreeningConstraint` when it
+genuinely names both kinds of thing (e.g. "must have AWS certification
+and pass a background check"), but a screening-only clause never
+produces a skill/experience/education/certification item for the same
+gate. `RequirementGroup.member_ids` can never reference a
+`ScreeningConstraint.id`. The `ScreeningConstraintType` enum above is
+the complete supported taxonomy today — there is no `location` type
+(location/eligibility comparison is AJI-011 Hard Eligibility's
+user-side concern, not JD requirement language); this pass documents
+that boundary rather than expanding it.
+
+**Relationships** (`AND`/`OR`/`MIN_COUNT`/`EQUIVALENT`) are flat,
+order-independent sets of `RequirementItem` ids — order in `member_ids`
+never carries meaning, and nesting (a group referencing another group)
+is not supported. `AND`: every member required. `OR`: any one member
+suffices. `MIN_COUNT`: an explicit `minimum_count` (schema-enforced
+`1 <= minimum_count <= len(member_ids)`) of the listed members suffices;
+the deterministic extractor never fabricates a group, or pads
+`member_ids`, below the JD's own evidenced member count. `EQUIVALENT`:
+created *only* by the deterministic extractor matching an explicit JD
+phrase ("... or equivalent ...") — never by an AI judgment call or a
+similarity heuristic (the AI stage's output schema has no field capable
+of expressing a relationship at all, so it cannot produce or influence
+one). It represents an equivalence the JD itself explicitly stated, and
+must not be read as "similar technology", "related technology", or "the
+AI thinks these are close" — that boundary is distinct from, and does
+not weaken, the related-but-different technology protection described
+above (React vs. React Native, etc.). Every `member_ids` entry is
+validated against the result's own `requirements` list; a dangling or
+out-of-scope reference (including one aimed at a screening constraint)
+fails validation rather than being silently kept.
+
+**Downstream contract**: AJI-020A produces normalized requirement
+intelligence — a structured, versioned reading of the JD — and nothing
+more. Future consumers (ATS Alignment, Job Match, Gap Analysis, a future
+Priority Ranking ticket) are expected to consume this contract rather
+than independently re-parsing or re-interpreting raw JD language
+themselves, mirroring the "one canonical reading, many consumers"
+principle AJI-012 `JobIntelligenceResult` already established. Wiring
+any such consumer to this contract remains explicitly out of scope here
+(AJI-020B or later).
+
+`tests/test_requirement_intelligence_contracts.py` carries the
+executable proof of the above: that `importance` and `hard_requirement`
+remain independently representable (a `required` item may or may not be
+`hard_requirement`; a non-`required` item can never be
+`hard_requirement`), that a `RequirementGroup` can never reference a
+`ScreeningConstraint.id`, that `MIN_COUNT` enforces its explicit
+minimum/member bounds, that the AI decoding stage's schema cannot carry
+a relationship (so `EQUIVALENT` cannot silently become general
+AI-judged similarity), and that every relationship reference is
+validated.
