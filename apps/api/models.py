@@ -472,6 +472,65 @@ class Job(Base):
     )
 
 
+class DiscoveryRun(Base):
+    """Observability record for one invocation of the Job Discovery
+    pipeline (POST /internal/job-discovery/run). Append-only - a run is
+    inserted when it starts and updated once when it finishes, never
+    deleted, so operators have an audit trail of what discovery actually
+    did without needing to grep application logs."""
+
+    __tablename__ = "discovery_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    source: Mapped[str] = mapped_column(
+        String(100),
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="running",
+    )
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        index=True,
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+    )
+
+    fetched_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    inserted_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    updated_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    rejected_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        String(1000),
+    )
+
+
 class SavedJob(Base):
     """A user's application-tracking record for one job.
 

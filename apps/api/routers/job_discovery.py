@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from apps.api.config import settings
 from apps.api.database import get_db
+from apps.api.models import DiscoveryRun
 from apps.api.services.job_discovery_service import (
     JobDiscoveryServiceError,
     run_configured_discovery,
@@ -86,3 +88,38 @@ def trigger_job_discovery(db: Session = Depends(get_db)):
         "rejected": summary.rejected,
         "rejected_reasons": summary.rejected_reasons,
     }
+
+
+@router.get(
+    "/runs",
+    dependencies=[Depends(_verify_trigger_token)],
+)
+def list_discovery_runs(
+    db: Session = Depends(get_db),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """Recent Discovery Run history, most recent first - the observability
+    surface for whatever calls POST /run on a schedule."""
+    runs = db.execute(
+        select(DiscoveryRun)
+        .order_by(DiscoveryRun.started_at.desc())
+        .limit(limit)
+    ).scalars().all()
+
+    return [
+        {
+            "id": str(run.id),
+            "source": run.source,
+            "status": run.status,
+            "started_at": run.started_at.isoformat(),
+            "completed_at": (
+                run.completed_at.isoformat() if run.completed_at else None
+            ),
+            "fetched": run.fetched_count,
+            "inserted": run.inserted_count,
+            "updated": run.updated_count,
+            "rejected": run.rejected_count,
+            "error_message": run.error_message,
+        }
+        for run in runs
+    ]
