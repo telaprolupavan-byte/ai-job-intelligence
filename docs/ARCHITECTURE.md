@@ -1608,3 +1608,234 @@ minimum/member bounds, that the AI decoding stage's schema cannot carry
 a relationship (so `EQUIVALENT` cannot silently become general
 AI-judged similarity), and that every relationship reference is
 validated.
+
+## Requirement Intelligence Persistence & API (AJI-020B)
+
+AJI-020B adds persistence and an authenticated API around AJI-020A's
+pure, DB-free pipeline — it does not touch AJI-020A's contract,
+extraction, or validation logic at all (every file under
+`apps/api/services/requirement_intelligence/` from AJI-020A is
+unmodified; this ticket only adds new files alongside them). It also
+does not wire Requirement Intelligence into ATS Alignment, Job Match, or
+Gap Analysis — those remain future work.
+
+### Persistence architecture
+
+`apps/api/models.py`'s `RequirementIntelligence` is a single table
+(mirroring `JobIntelligence`'s balance of typed top-level columns for
+what needs indexing/filtering plus one JSONB column for the full
+contract) rather than decomposed into per-requirement/per-relationship/
+per-screening-constraint tables: the AJI-020A result is already a single
+structured, closed-schema (`extra="forbid"`) contract, and every other
+AI-derived artifact in this system (`JobIntelligence`, `AtsAlignmentResult`,
+`GapAnalysis`) persists its full result the same way. `structured_intelligence`
+holds `RequirementIntelligenceResult.model_dump(mode="json")` verbatim —
+nothing is re-derived, summarized, or dropped in persistence, and a
+persisted row can be re-validated straight back through
+`RequirementIntelligenceResult.model_validate(...)` to prove nothing was
+lost (see `test_full_ajI_020a_result_survives_persistence_without_loss`).
+
+**Personalized, unlike `JobIntelligence`**: this ticket's spec
+explicitly requires the row to be associated with a `user_id` (not just
+`job_id`), and requires that "a user must never be able to read another
+user's snapshot." `RequirementIntelligence` is therefore built on the
+same personalized shape as `AtsAlignmentResult`/`GapAnalysis`
+(`user_id` + `job_id`, both `ForeignKey(..., ondelete="CASCADE")`,
+indexed), not `JobIntelligence`'s shared/job-scoped shape — even though
+AJI-020A's own extraction never reads resume/user data and so would
+produce byte-identical output for every user who analyzes the same job.
+This is a product decision handed down by the ticket, not a claim that
+the requirement *content* itself varies by user — see the model's
+docstring in `apps/api/models.py`.
+
+### Snapshot identity / content fingerprint
+
+`persistence_service.compute_requirement_content_fingerprint(job)`
+hashes exactly the four `Job` fields AJI-020A's pipeline reads
+(`title`/`description`/`requirements`/`responsibilities`), normalized
+(whitespace-collapsed, lowercased, newline-joined) and SHA-256'd — the
+same canonicalization convention `job_intelligence.service.
+compute_job_content_fingerprint` already established, but **deliberately
+scoped narrower**: `JobIntelligence`'s fingerprint additionally covers
+location/salary/employment-type/contract fields AJI-020A never reads, so
+reusing it here would create a spurious "new snapshot" on a `Job` edit
+that cannot possibly change this pipeline's output. No timestamp, random
+value, or model-generated text ever feeds it (see
+`test_irrelevant_job_edit_does_not_create_a_new_snapshot` and
+`test_fingerprint_scoped_to_pipeline_relevant_fields_only`).
+
+### Idempotency and uniqueness
+
+A snapshot is looked up (and reused, skipping AJI-020A's pipeline and
+any AI call entirely) by
+`(user_id, job_id, content_fingerprint, analyzer_version, prompt_version,
+model_provider, model_name)` — wider than `JobIntelligence`'s four-part
+key, per this ticket's explicit instruction that a changed "model/
+provider configuration" must also be able to produce a new snapshot.
+`model_provider`/`model_name` for the lookup are read directly off
+`apps.api.config.settings` (no network call, no provider-specific
+import — see `persistence_service._prospective_model_identity`), so a
+cache hit is decided before AJI-020A's pipeline (and any AI call) ever
+runs.
+
+A `UniqueConstraint` on that same seven-column tuple
+(`uq_requirement_intelligence_identity`) backstops the application-level
+lookup against a concurrent double-insert. Existing insert-only tables in
+this codebase (`JobIntelligence`, `AtsAlignmentResult`, `GapAnalysis`)
+rely on the lookup-before-insert alone with no DB constraint; this ticket
+adds one where the AJI-020B spec explicitly asked for it ("use an
+explicit uniqueness constraint where appropriate") — a legitimate
+divergence, not new precedent forced onto AJI-020A's own tables, which
+this ticket does not touch.
+
+### Versioning and immutability
+
+`analysis_version`/`analyzer_version`/`prompt_version`/`model_provider`/
+`model_name` are copied verbatim from the AJI-020A result onto the row —
+never recomputed or replaced by a persistence-layer constant — so a
+historical row keeps whatever version actually produced it even after
+AJI-020A's own constants are bumped later. Rows are insert-only, exactly
+like every other AI-derived artifact in this system: a changed JD
+(different fingerprint), a bumped analyzer/prompt version, or a changed
+AI provider/model configuration always produces a new, additional row;
+existing rows are never updated, overwritten, or exposed through any
+edit endpoint (there isn't one — see "API boundary" below).
+
+One implementation note worth recording: `persistence_service.py`
+imports `apps.api.services.requirement_intelligence.service` as a
+*module* (`requirement_intelligence_service.ANALYZER_VERSION`/
+`.PROMPT_VERSION`), not via `from ... import ANALYZER_VERSION`. AJI-020A's
+`build_requirement_intelligence()` reads those two names as its own
+module globals at call time; a `from...import` copy taken once at import
+time would silently drift out of sync with whatever that function
+actually stamps onto a result if the source module's attribute changes
+after import (this was caught by
+`test_analyzer_version_bump_creates_new_snapshot`/
+`test_prompt_version_bump_creates_new_snapshot` during development,
+which raised a real `UniqueViolation` under the naive `from...import`
+form). Referencing the module keeps the lookup key and the stamped
+result permanently reading the same single source of truth.
+
+### Known limitation: partial-result self-healing vs. row growth
+
+Because `model_provider`/`model_name` are part of the idempotency key, a
+"partial" row (AI stage failed/unavailable) always has both `NULL` — and
+Postgres never treats `NULL` as equal to `NULL`, so this key can never
+match an existing partial row. Effect: every subsequent request
+*retries* AJI-020A's AI stage rather than permanently serving a stale
+partial result once cached (an improvement over `JobIntelligence`'s
+narrower key, which can get stuck serving a partial snapshot forever).
+The cost: repeated requests for the same job while the AI provider stays
+down each create one additional partial row rather than reusing a single
+one. This is a direct, disclosed consequence of the ticket's own
+instruction to key on model/provider configuration, not an oversight;
+smoothing it further (e.g. a short-lived "don't retry more than once a
+minute" rule) is out of this ticket's scope (no rate limiting, no Redis,
+no background worker — see the ticket's own scope-protection list) and
+is flagged here rather than silently invented.
+
+### Service layer
+
+`apps/api/services/requirement_intelligence/persistence_service.py` is
+the sole DB-touching orchestration layer, mirroring
+`apps.api.services.job_intelligence.service`'s and `apps.api.services.
+ats_alignment_service`'s DB/pure-core split: `get_latest_requirement_
+intelligence` (read-only, never recomputes) and `generate_requirement_
+intelligence` (idempotent create-or-reuse). All business logic
+(extraction, AI decoding, validation) stays in AJI-020A's own
+`service.build_requirement_intelligence()`; this layer only resolves the
+`Job`, computes the fingerprint/idempotency key, and persists the
+result. No AI provider is imported or hardcoded here — `settings.
+ai_provider`/`settings.ai_model` are the only provider-related values
+this module ever reads directly (see "AI provider boundary" below).
+
+### API
+
+Two authenticated endpoints on the existing `/jobs` router (same file,
+same `get_current_user` dependency, same 404/error-shape conventions as
+every other per-job endpoint):
+
+- `GET /jobs/{job_id}/requirement-intelligence` — returns the
+  authenticated user's newest snapshot; 404s if none exists yet. Never
+  recomputes or calls the AI provider on a read (mirrors `GET .../
+  intelligence` and `GET .../ats`).
+- `POST /jobs/{job_id}/requirement-intelligence` — computes-or-reuses
+  (idempotent, per above).
+
+No PUT/PATCH/DELETE — snapshots are immutable and insert-only, so there
+is nothing to edit and nothing a generic CRUD surface would add (per the
+ticket's explicit "not a generic database-management API" instruction).
+
+### Authorization
+
+Every request requires authentication (`Depends(get_current_user)`);
+`user_id` is always the resolved authenticated user's own id, never
+taken from a request parameter or body. A job lookup miss and a
+not-yet-generated snapshot both 404 identically for any authenticated
+user, and `get_latest_requirement_intelligence`/`generate_requirement_
+intelligence` always filter by the caller's own `user_id` — there is no
+code path that can return another user's row (`test_requirement_
+intelligence_is_not_visible_to_other_users`,
+`test_different_users_get_independent_requirement_intelligence_records`).
+The public `/jobs` listing never includes Requirement Intelligence data
+(`test_public_jobs_listing_never_includes_requirement_intelligence`).
+`Job.id`/`User.id` are always server-resolved database values; the
+original JD text remains untrusted input exactly as AJI-020A already
+handles it (evidence-substring anti-hallucination check, prompt-
+injection diagnostics) — this ticket adds no new trust boundary.
+
+### AI provider boundary
+
+No new AI provider is introduced. `persistence_service.py` never imports
+`OpenAIRequirementIntelligenceProvider` or any OpenAI-specific symbol —
+it only reads the generic `settings.ai_provider`/`settings.ai_model`
+values (the same ones AJI-020A's own
+`providers.factory.create_requirement_intelligence_provider` reads) to
+compute the prospective idempotency key before invoking AJI-020A's
+pipeline. A provider failure is handled exactly as AJI-020A already
+handles it — degrade to `extraction_status = "partial"`, never lose the
+deterministic result, never raise — so this ticket introduces no new
+fallback behavior.
+
+### Migration
+
+`apps/api/alembic/versions/8a040c819900_add_requirement_intelligence.py`
+(`down_revision = '6fdd95443549'`, the prior head) creates the
+`requirement_intelligence` table with FKs to `jobs`/`users`
+(`ondelete="CASCADE"`), indexes on `user_id`/`job_id`/
+`content_fingerprint`, and the `uq_requirement_intelligence_identity`
+unique constraint described above. Verified against a real local
+Postgres 16 instance: fresh-database `alembic upgrade head` (the full
+chain from `a6f4cbc0a2a0` through this migration), `downgrade -1`
+(cleanly drops the table/indexes), and re-`upgrade head` all succeed; no
+other table is touched.
+
+### Deferred consumers
+
+Wiring Requirement Intelligence into ATS Alignment, Job Match, Gap
+Analysis, or a future Priority Ranking ticket is explicitly out of scope
+for both AJI-020A and AJI-020B — this ticket only makes the contract
+persistable and retrievable. Any such consumer is future work.
+
+### Testing
+
+`tests/test_requirement_intelligence_persistence_service.py` (FakeDB,
+mirrors `test_job_intelligence_service.py`) covers wiring: persist a new
+snapshot, reuse a cached one without invoking AJI-020A's pipeline, a
+missing job, a propagated `RequirementIntelligenceServiceError`, and
+fingerprint determinism/scoping. `tests/test_requirement_intelligence_
+persistence_versioning.py` (real DB, mirrors `test_job_intelligence_
+versioning.py`) covers the actual SQL filtering: same-content reuse,
+changed-JD versioning without touching history, that an irrelevant `Job`
+edit does *not* bust the cache, analyzer/prompt/model-configuration
+version bumps each producing a new row, `get_latest` returning the
+newest row, raw JD snapshot immutability across versions, and a full
+AJI-020A-result-survives-persistence-losslessly round trip (including
+provenance spans re-verified against the job's own text, and the
+persisted JSON re-validated through `RequirementIntelligenceResult`
+itself). `tests/test_jobs_requirement_intelligence_api.py` (real DB +
+`TestClient`, mirrors `test_jobs_ats_api.py`) covers authentication,
+404s, response shape, idempotency, user isolation, the public listing
+exclusion, and both AJI-020A failure modes (provider failure degrading
+to a 200 "partial" response, deterministic failure surfacing as 503)
+through the actual HTTP layer.

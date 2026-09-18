@@ -795,6 +795,160 @@ class JobIntelligence(Base):
     )
 
 
+class RequirementIntelligence(Base):
+    """A single versioned Requirement Intelligence snapshot (AJI-020B),
+    persisting the AJI-020A `RequirementIntelligenceResult` contract
+    (`apps.api.services.requirement_intelligence.contracts`) produced by
+    `apps.api.services.requirement_intelligence.persistence_service`.
+
+    Insert-only, like `JobIntelligence`/`AtsAlignmentResult`/
+    `GapAnalysis` (see "Analysis/scoring versioning convention" above): a
+    new row is created whenever the analyzed job content
+    (`content_fingerprint`), the analyzer/prompt pipeline version, or the
+    configured AI provider/model changes. Historical snapshots are never
+    overwritten or mutated — `structured_intelligence` is the complete,
+    lossless AJI-020A result exactly as validated by that module; this
+    table adds persistence/identity around it and never re-derives or
+    edits any part of it.
+
+    Unlike `JobIntelligence` (shared, job-scoped, no `user_id`), this
+    table is personalized (has a `user_id`), per the AJI-020B product
+    decision: a user must never be able to read another user's snapshot.
+    The requirement *content* itself does not vary by user (AJI-020A
+    never looks at resume/user data), but the persisted snapshot's
+    access is still scoped like `AtsAlignmentResult`/`GapAnalysis` — see
+    docs/ARCHITECTURE.md's AJI-020B section for why.
+    """
+
+    __tablename__ = "requirement_intelligence"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Deterministic content identity, scoped to exactly the `Job` fields
+    # AJI-020A's extraction pipeline reads (title/description/
+    # requirements/responsibilities — see
+    # persistence_service.compute_requirement_content_fingerprint).
+    # Deliberately a *different* fingerprint from `JobIntelligence.
+    # content_fingerprint`, which additionally covers location/salary/
+    # employment-type fields AJI-020A's pipeline never reads — hashing
+    # those here would create a new "snapshot" on an edit that could not
+    # possibly change this pipeline's output.
+    content_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    # A snapshot of the exact Job fields this analysis was computed from,
+    # captured at analysis time — independent of the live `Job` row, so a
+    # later edit/rediscovery of the job never silently changes what a
+    # historical snapshot says it analyzed. Mirrors
+    # `JobIntelligence.raw_jd_snapshot`.
+    raw_jd_snapshot: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    # See docs/ARCHITECTURE.md's "Analysis/scoring versioning convention"
+    # — copied verbatim from the AJI-020A result, never recomputed here,
+    # so historical rows keep whatever version produced them even after
+    # AJI-020A's own constants are bumped later.
+    analysis_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    analyzer_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    prompt_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    model_provider: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    model_name: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    # "complete" (deterministic + AI semantics both succeeded) or
+    # "partial" (the AI semantic decoding stage failed/was unavailable).
+    # Never "failed" — a failed extraction is not persisted at all. Same
+    # convention as `JobIntelligence.extraction_status`.
+    extraction_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="complete",
+    )
+
+    # The complete, validated AJI-020A `RequirementIntelligenceResult`
+    # (model_dump(mode="json")) — persisted losslessly, not decomposed
+    # into separate tables (see docs/ARCHITECTURE.md's AJI-020B section
+    # for why: it is already a single structured, closed-schema contract,
+    # and every other AI-derived artifact in this system persists its
+    # full contract the same way).
+    structured_intelligence: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        # Defensive backstop against a concurrent double-insert of the
+        # exact same identity; the primary idempotency mechanism is the
+        # look-up-before-insert in
+        # persistence_service.generate_requirement_intelligence (see its
+        # docstring for why `model_provider`/`model_name` are part of
+        # this key, unlike `JobIntelligence`'s narrower one). Postgres
+        # treats NULL as distinct from NULL, so this does not block
+        # multiple "partial" rows (model_provider/model_name both NULL)
+        # from coexisting — acceptable, since a partial row already
+        # represents a failed AI attempt, and the application-level
+        # lookup is what actually prevents redundant work within a
+        # single request.
+        UniqueConstraint(
+            "user_id",
+            "job_id",
+            "content_fingerprint",
+            "analyzer_version",
+            "prompt_version",
+            "model_provider",
+            "model_name",
+            name="uq_requirement_intelligence_identity",
+        ),
+    )
+
+
 class JobEligibilityResult(Base):
     """The persisted Hard Eligibility snapshot for one (user, job) pair
     (AJI-011).

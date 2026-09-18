@@ -31,7 +31,17 @@ from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
 )
-from apps.api.models import AtsAlignmentResult, GapAnalysis, JobIntelligence
+from apps.api.services.requirement_intelligence.persistence_service import (
+    RequirementIntelligencePersistenceError,
+    generate_requirement_intelligence,
+    get_latest_requirement_intelligence,
+)
+from apps.api.models import (
+    AtsAlignmentResult,
+    GapAnalysis,
+    JobIntelligence,
+    RequirementIntelligence,
+)
 from services.eligibility.contracts import EligibilityResult
 
 
@@ -387,6 +397,103 @@ def create_job_intelligence(
         ) from exc
 
     return _job_intelligence_to_response(record)
+
+
+def _requirement_intelligence_to_response(record: RequirementIntelligence) -> dict:
+    return {
+        "id": str(record.id),
+        "job_id": str(record.job_id),
+        "content_fingerprint": record.content_fingerprint,
+        "analysis_version": record.analysis_version,
+        "analyzer_version": record.analyzer_version,
+        "prompt_version": record.prompt_version,
+        "model_provider": record.model_provider,
+        "model_name": record.model_name,
+        "extraction_status": record.extraction_status,
+        "created_at": record.created_at.isoformat(),
+        "intelligence": record.structured_intelligence,
+    }
+
+
+@router.get("/{job_id}/requirement-intelligence")
+def get_requirement_intelligence(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return the authenticated user's most recently computed Requirement
+    Intelligence (AJI-020A/AJI-020B) snapshot for a job, without
+    recomputing it. 404s when no snapshot has been generated yet (see
+    POST /jobs/{job_id}/requirement-intelligence).
+
+    Requirement Intelligence is persisted per-user (see
+    apps/api/models.py's `RequirementIntelligence` docstring) — a user
+    can only ever read their own snapshots, never another user's.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    job = db.query(Job).filter(Job.id == job_uuid).first()
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    record = get_latest_requirement_intelligence(
+        db, user_id=current_user.id, job_id=job_uuid
+    )
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Requirement Intelligence has not been generated for "
+            "this job yet.",
+        )
+
+    return _requirement_intelligence_to_response(record)
+
+
+@router.post("/{job_id}/requirement-intelligence")
+def create_requirement_intelligence(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Compute (or idempotently reuse) the Requirement Intelligence
+    (AJI-020A/AJI-020B) snapshot for the authenticated user against a
+    job. Reuses an existing snapshot when the job's observable content,
+    the analyzer/prompt pipeline version, and the configured AI
+    provider/model are all unchanged; otherwise produces a new,
+    additional snapshot without overwriting history.
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    try:
+        record = generate_requirement_intelligence(
+            db, user_id=current_user.id, job_id=job_uuid
+        )
+    except RequirementIntelligencePersistenceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    return _requirement_intelligence_to_response(record)
 
 
 def _ats_alignment_to_response(record: AtsAlignmentResult) -> dict:
