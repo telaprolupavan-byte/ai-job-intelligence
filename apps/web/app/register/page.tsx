@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { register } from "@/lib/auth";
+import AppButton from "@/components/app/app-button";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -58,95 +59,106 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label
-                htmlFor="email"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
-              >
-                Email
-              </label>
+          <div className="rounded-[18px] border border-app-border bg-app-panel p-8 sm:p-10">
+            <h2 className="mb-6 text-lg font-bold text-app-text">
+              Create account
+            </h2>
 
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
-                placeholder="you@example.com"
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
+                >
+                  Email
+                </label>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
-              >
-                Password
-              </label>
-
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
-                placeholder="Minimum 8 characters"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirm-password"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
-              >
-                Confirm Password
-              </label>
-
-              <input
-                id="confirm-password"
-                type="password"
-                required
-                minLength={8}
-                value={confirmPassword}
-                onChange={(event) =>
-                  setConfirmPassword(event.target.value)
-                }
-                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
-                placeholder="Repeat your password"
-              />
-            </div>
-
-            {error && (
-              <div
-                role="alert"
-                className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm text-app-text"
-              >
-                {error}
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-[9px] border border-app-border bg-app-panel px-4 py-3 text-sm outline-none transition focus:border-app-blue"
+                  placeholder="you@example.com"
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-crimson-fill px-5 py-3 text-sm font-medium text-white transition hover:bg-crimson-fill-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "CREATING ACCOUNT..." : "CREATE ACCOUNT →"}
-            </button>
-          </form>
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
+                >
+                  Password
+                </label>
 
-          <p className="mt-8 text-center text-sm text-app-muted">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="text-app-text underline underline-offset-4 hover:text-app-red"
-            >
-              Sign in
-            </Link>
-          </p>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-[9px] border border-app-border bg-app-panel px-4 py-3 text-sm outline-none transition focus:border-app-blue"
+                  placeholder="Minimum 8 characters"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirm-password"
+                  className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
+                >
+                  Confirm Password
+                </label>
+
+                <input
+                  id="confirm-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(event) =>
+                    setConfirmPassword(event.target.value)
+                  }
+                  className="w-full rounded-[9px] border border-app-border bg-app-panel px-4 py-3 text-sm outline-none transition focus:border-app-blue"
+                  placeholder="Repeat your password"
+                />
+              </div>
+
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm text-app-text"
+                >
+                  {error}
+                </div>
+              )}
+
+              <AppButton
+                type="submit"
+                loading={loading}
+                className="w-full normal-case tracking-normal"
+              >
+                Create account
+              </AppButton>
+            </form>
+
+            <p className="mt-6 text-xs leading-5 text-app-muted">
+              By continuing, you keep control of your resume edits and job
+              decisions.
+            </p>
+
+            <p className="mt-6 text-center text-sm text-app-muted">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="text-app-text underline underline-offset-4 hover:text-app-red"
+              >
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </main>
