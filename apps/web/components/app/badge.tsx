@@ -2,7 +2,18 @@ import { cn } from "@/lib/utils";
 
 type BadgeProps = {
   children: React.ReactNode;
-  tone?: "neutral" | "blue" | "red" | "amber" | "success" | "critical" | "danger";
+  tone?:
+    | "neutral"
+    | "blue"
+    | "red"
+    | "amber"
+    | "success"
+    | "critical"
+    | "danger"
+    | "blue-soft"
+    | "red-soft"
+    | "success-soft"
+    | "neutral-soft";
   className?: string;
 };
 
@@ -27,6 +38,13 @@ const TONE_CLASS = {
   // status) — kept as-is; no Figma reference confirms it should switch
   // to a solid fill, so only its shape is unified with the other tones.
   danger: "border border-app-danger-border bg-app-danger-bg text-app-danger-text",
+  // "Soft" pills — desaturated background + colored text, matching the
+  // NERO Dashboard — Desktop Figma (node 33:3) status pill treatment
+  // (Resume readiness, Validation, Resume Analysis status chips).
+  "blue-soft": "bg-app-blue-soft text-app-blue",
+  "red-soft": "bg-app-red-soft text-app-red",
+  "success-soft": "bg-app-success-soft text-app-success",
+  "neutral-soft": "border border-app-border bg-app-surface text-app-muted",
 };
 
 export default function Badge({
