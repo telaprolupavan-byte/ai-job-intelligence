@@ -356,6 +356,17 @@ def calculate_ats_alignment(
         "preferred_total": result.preferred_total,
         "preferred_matched": result.preferred_matched,
         "scoring_version": result.scoring_version,
+        "must_have_ceiling": result.must_have_ceiling,
+        "score_components": [
+            {
+                "name": component.name,
+                "weight": component.weight,
+                "score": component.score,
+                "weighted_score": component.weighted_score,
+                "explanation": component.explanation,
+            }
+            for component in result.components
+        ],
         "requirement_results": [
             {
                 "requirement_id": item.requirement_id,

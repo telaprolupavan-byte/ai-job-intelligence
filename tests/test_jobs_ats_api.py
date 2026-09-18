@@ -216,6 +216,22 @@ def test_post_ats_generates_and_returns_shape(client, db, test_job):
         assert item["category"] in {"must_have", "preferred"}
         assert item["confidence"] in {"high", "medium", "low"}
 
+    # AJI-020: the weighted score breakdown is part of the response shape.
+    assert len(data["score_components"]) == 4
+    component_names = {component["name"] for component in data["score_components"]}
+    assert component_names == {
+        "requirement_coverage",
+        "keyword_terminology_alignment",
+        "resume_evidence_experience",
+        "structure_parseability",
+    }
+    for component in data["score_components"]:
+        assert 0.0 <= component["score"] <= 100.0
+    assert 0.0 <= data["overall_score"] <= 100.0
+    assert data["must_have_ceiling"] is None or (
+        0.0 <= data["must_have_ceiling"] <= 100.0
+    )
+
 
 def test_get_ats_after_post_returns_same_record(client, db, test_job):
     user = _make_user(db)

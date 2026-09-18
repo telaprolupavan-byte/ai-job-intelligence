@@ -680,21 +680,24 @@ minimum, a lower degree than required, a certification whose name is only
 partially present); `missing` means no such evidence exists in the
 resume. No requirement is ever silently dropped from the result set.
 
-### Scoring: an explicit placeholder formula (not a product decision)
+### Scoring: an explicit placeholder formula (superseded by AJI-020)
 
-The AJI-013 spec explicitly states no Must-Have/Preferred weighting
-formula has been approved, and instructs the Builder not to invent one.
-`services/ats_alignment/scoring.py::compute_overall_score()` therefore
-implements the simplest defensible placeholder — every requirement
-(regardless of category) counts equally — clearly documented as a
-placeholder in that module's docstring, versioned via
-`SCORING_VERSION = "placeholder-1.0"` (persisted on every row, in
-`AtsAlignmentResult.result["scoring_version"]`), and isolated behind one
-small function so the real, approved formula can replace its body later
-without touching the engine, persistence, or API layers. Do not read
-`SCORING_VERSION`'s value or this module's behavior as an approved
-weighting policy — it exists purely so a future formula change is
-auditable, the same way `JobMatchResult.engine_version` already is.
+The AJI-013 spec explicitly stated no Must-Have/Preferred weighting
+formula had been approved yet, and instructed the Builder not to invent
+one. `services/ats_alignment/scoring.py::compute_overall_score()`
+therefore originally implemented the simplest defensible placeholder —
+every requirement (regardless of category) counted equally — versioned
+via `SCORING_VERSION = "placeholder-1.0"`, isolated behind one small
+function specifically so the real, approved formula could replace its
+body later without touching the engine, persistence, or API layers.
+
+**This placeholder was replaced by the approved weighted formula in
+AJI-020** (see that section below) — `compute_overall_score()` no longer
+implements equal-weighting, and `SCORING_VERSION` is now
+`"weighted-1.0"`. This subsection is kept for history (older
+`AtsAlignmentResult` rows persisted under the placeholder formula are
+never rewritten — see AJI-020's "Persistence and backward compatibility"
+below).
 
 ### Persistence, versioning, and idempotency
 
@@ -1332,3 +1335,168 @@ response bundle (including that Greenhouse's entry requires
 own API response carries no company name), that an absent provider is
 left out of the report list rather than shown as zeroes, and the CLI
 entry point end to end via a temp file.
+
+## ATS Real Scoring Engine (AJI-020)
+
+AJI-013 shipped ATS Alignment's per-requirement evidence engine
+(matched/partial/missing verdicts for skill/experience/education/
+certification requirements) with an explicitly-documented placeholder
+score aggregation — every requirement counted equally, pending an
+approved weighting formula (see "Scoring: an explicit placeholder
+formula" above). AJI-020 delivers that approved formula. It does not
+touch requirement-level evidence evaluation
+(`services/ats_alignment/engine.py`'s `_evaluate_skill`/
+`_evaluate_experience`/`_evaluate_education`/`_evaluate_certification`),
+Job Match, Gap Analysis, or Job Intelligence — only how the per-
+requirement verdicts already produced are aggregated into
+`AtsAlignmentResult.overall_score`.
+
+### Architecture: AI understands, deterministic engine scores
+
+The pipeline this ticket implements against is unchanged: an AI stage
+(AJI-012 Job Intelligence) turns unstructured JD text into structured,
+evidence-backed requirements; a wholly deterministic stage (AJI-013's
+engine, now AJI-020's scoring) turns those requirements plus a
+deterministically-parsed resume into a score. AJI-020 adds no AI call of
+its own — the four weighted components below are pure functions of
+already-extracted, already-evidence-checked data (per-requirement
+statuses, canonical skill lists, resume structural signals), consistent
+with AJI-013's "AI usage: v1 is entirely deterministic" decision, which
+this ticket does not revisit.
+
+### The four weighted components
+
+`services/ats_alignment/weights.py::SCORE_WEIGHTS` is the single,
+centralized source of truth for the approved baseline weights (deliberately
+isolated from `scoring.py` itself so a future re-weighting touches exactly
+one module, mirroring how `services/job_matching/scorer.py` keeps its own
+component `max_score` values as the one place Job Match's weighting
+lives):
+
+| Component | Weight | What it measures |
+|---|---|---|
+| Requirement Coverage | 40% | Breadth: the share of *every* extracted requirement (must-have and preferred; skill/experience/education/certification) the resume matches or partially matches. The direct successor to AJI-013's placeholder formula, now scoped to one of four dimensions instead of standing in for the whole score. |
+| Keyword & Terminology Alignment | 25% | A raw, presence-only keyword-scan signal: what fraction of the JD's required/preferred skill vocabulary appears anywhere in the resume's own canonical skill list. Deliberately boolean (present/absent), not a mention count, and deliberately a different signal from Requirement Coverage's structural matched/partial/missing verdicts — it models the literal keyword-matching behavior real ATS parsers are known for. |
+| Resume Evidence & Experience | 25% | Depth: for skill and experience requirements specifically (not education/certification, which have no "demonstrated vs. skills-only" distinction), how strongly the resume demonstrates them — reusing the engine's existing `matched` (demonstrated professional/project usage, or years at/above the minimum) vs. `partial` (skills-section-only mention, or years below the minimum) verdicts rather than re-deriving evidence strength. |
+| Structure & Parseability | 10% | A fixed, five-check, presence-only checklist of whether a resume is legible to an ATS parser at all: contact info present, an Experience section heading detected, a Skills section heading detected, bullet-point formatting used, and no detected heading-style inconsistency. Every check is a boolean derived from AJI-010's existing `analyze_resume_deterministically()` output (sections/emails/phones/bullets/structural findings) — no second resume-structure parser was introduced. |
+
+`services/ats_alignment/scoring.py::compute_overall_score()` computes all
+four components unconditionally (a component with nothing to check, e.g.
+no skill keywords in the JD, returns full credit rather than penalizing —
+the same "no requirements -> full credit" convention
+`services/job_matching/scorer.py` already uses) and sums
+`weight * component.score` into a weighted total before the guardrail
+below is applied.
+
+### Exact/normalized/acronym/semantic matching (reused, not reinvented)
+
+Keyword & Terminology Alignment's "exact, normalized, acronym, and
+semantic matching, without conflating related-but-different technologies"
+requirement is satisfied entirely by the canonical skill vocabulary
+`services.skills` already established (AJI-009) and that both Job
+Intelligence extraction and Resume Intelligence extraction already
+resolve every skill mention through before AJI-020 ever sees them:
+`"python3"`/`"python 3"` -> `python` (normalized), `"k8s"` -> `kubernetes`
+(acronym), `"Google Cloud Platform"`/`"GCP"` -> `gcp` (semantic alias) all
+resolve to one canonical identity upstream, while curating each canonical
+skill's alias set individually is exactly what keeps a related-but-
+different technology (e.g. `python` vs. `pytorch`) from ever being
+silently conflated — `services/skills/canonical.py`'s own design note
+("Unknown skills are normalized conservatively... rather than being
+mapped to a potentially incorrect known skill") already states this
+principle. AJI-020 therefore does not add a second, parallel matching
+implementation; `compute_keyword_alignment()` is a thin presence-overlap
+check over identifiers both sides already canonicalized.
+
+### The required-requirement guardrail (a ceiling, not an invented penalty)
+
+The AJI-020 ticket explicitly disallows inventing an arbitrary scoring
+penalty for missing must-have requirements. Rather than subtracting a
+made-up point value, `compute_must_have_ceiling()` computes a
+mathematical ceiling: **the overall score can never exceed the resume's
+own must-have coverage percentage** (the same `matched=1.0`/`partial=0.5`/
+`missing=0.0` point scale Requirement Coverage already uses, scoped to
+must-have requirements only). A resume missing a required skill cannot
+score highly overall merely because its keywords, evidence, or resume
+formatting look good elsewhere. This mirrors the precedent already
+established for Hard Eligibility vs. Job Match/ATS Alignment above ("a
+high ATS/Job Match score must never override a hard eligibility
+constraint") — applied here *within* the ATS score itself as a ceiling
+rather than a separate pass/fail gate, since ATS Alignment (unlike Hard
+Eligibility) always produces a graded score. When a job has no must-have
+requirements at all, `must_have_ceiling` is `None` and no ceiling is
+applied — there is nothing to gate on.
+
+### Resume-length neutrality
+
+Every one of the four components is presence/ratio-based, never a
+function of word count, mention count, or page count:
+Requirement Coverage and Resume Evidence & Experience use boolean
+per-requirement statuses; Keyword & Terminology Alignment uses set
+membership, not mention frequency; Structure & Parseability uses boolean
+section/contact/bullet presence. `tests/test_ats_scoring_engine.py`
+asserts this directly — an identical resume padded with several times its
+own content (repeated bullets, or the entire document duplicated) scores
+identically to the unpadded version, both at the component level and the
+full `evaluate_ats_alignment()` level.
+
+### Persistence and backward compatibility
+
+No schema/migration change was needed: `AtsAlignmentResult.result`
+(`apps/api/models.py`) was already a flexible JSONB column, so the new
+`score_components` (the four `ScoreComponent` breakdowns) and
+`must_have_ceiling` keys are simply additional entries in that same
+column, alongside the pre-existing `requirement_results`/
+`must_have_total`/etc. keys.
+
+`services/ats_alignment/engine.py::ENGINE_VERSION` was bumped
+(`"1.0.0"` -> `"2.0.0"`) because the scoring formula changed in a way
+that produces a different result for the same input — per the
+"Analysis/scoring versioning convention" above, this guarantees every
+`AtsAlignmentResult` persisted under the old placeholder formula is left
+untouched (insert-only, never rewritten), and that rechecking any job
+always computes a fresh row under the new formula rather than reusing a
+placeholder-scored cache hit (`apps/api/services/ats_alignment_service.py`'s
+idempotency lookup is keyed on `engine_version`). Reading an old,
+placeholder-scored row back through `GET /jobs/{job_id}/ats` still works —
+`_ats_alignment_to_response()` uses `.get("score_components", [])` and
+`.get("must_have_ceiling")` specifically so a historical row missing
+those keys degrades to an empty breakdown instead of a `KeyError`, rather
+than being silently migrated or discarded.
+
+### API and frontend
+
+`GET`/`POST /jobs/{job_id}/ats` (unchanged routes) now include
+`score_components` (the four-entry breakdown, each with `name`, `weight`,
+`score`, `weighted_score`, `explanation`) and `must_have_ceiling` in their
+response body. The Jobs list page's existing `AtsAlignmentPanel`
+(`apps/web/app/(app)/jobs/page.tsx`, already present since AJI-013) gained
+a small four-tile breakdown row rendering these percentages next to the
+existing must-have/preferred requirement list — no new route, page, or
+workflow was introduced.
+
+### Known limitations / explicit non-decisions
+
+- **Structure & Parseability's five checks are a Builder-level, defensible
+  implementation of the concept**, not a Planner-approved enumeration —
+  the AJI-020 spec names the 10% weight for this dimension but does not
+  specify which exact structural signals to check. The checklist was
+  built entirely from AJI-010's existing, already-tested extraction
+  (sections/contact/bullets/structural findings) rather than inventing new
+  resume parsing, and each of the five checks is weighted equally (no
+  invented sub-weighting between them). Revisit if the Planner specifies a
+  different or more granular checklist.
+- **The "24 evaluation scenarios" referenced by the AJI-020 task
+  description were not found anywhere in this repository** (no ticket
+  file, spec document, or prior ARCHITECTURE.md section enumerates them).
+  `tests/test_ats_scoring_engine.py` and the additions to
+  `tests/test_ats_alignment_service.py`/`tests/test_jobs_ats_api.py`
+  instead implement comprehensive scenario coverage against this
+  document's own stated requirements (each weighted component in
+  isolation, exact/normalized/acronym/semantic keyword matching,
+  related-but-different-skill non-conflation, the must-have guardrail,
+  score bounds, determinism, resume-length neutrality, historical
+  preservation, job isolation, and resume-version isolation) rather than
+  a specific numbered list. If an authoritative 24-scenario document
+  exists outside this repository, it should be reconciled against this
+  test suite in a follow-up.
