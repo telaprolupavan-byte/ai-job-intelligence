@@ -5,7 +5,6 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import {
   calculateAtsAlignment,
-  calculateGapAnalysis,
   calculateJobMatch,
   generateJobIntelligence,
   getJobEligibility,
@@ -13,8 +12,6 @@ import {
   type AtsAlignmentResult,
   type AtsAlignmentStatus,
   type AtsRequirementResult,
-  type GapAnalysisResult,
-  type GapSuggestion,
   type Job,
   type JobEligibilityResult,
   type JobIntelligenceData,
@@ -131,13 +128,6 @@ function JobsPageInner() {
     {},
   );
   const [atsErrors, setAtsErrors] = useState<Record<string, string>>({});
-  const [gapResults, setGapResults] = useState<
-    Record<string, GapAnalysisResult>
-  >({});
-  const [gapLoadingIds, setGapLoadingIds] = useState<Record<string, boolean>>(
-    {},
-  );
-  const [gapErrors, setGapErrors] = useState<Record<string, string>>({});
 
   // AJI-019: the ONE page-level source of truth for which ResumeVersion
   // Job Match, ATS Alignment, and Gap Analysis all use. null means the
@@ -436,43 +426,6 @@ function JobsPageInner() {
     }
   }
 
-  async function handleCalculateGapAnalysis(jobId: string) {
-    setGapLoadingIds((current) => ({ ...current, [jobId]: true }));
-    setGapErrors((current) => {
-      const next = { ...current };
-      delete next[jobId];
-      return next;
-    });
-
-    try {
-      const result = await calculateGapAnalysis(
-        jobId,
-        selectedResumeVersionId ?? undefined,
-      );
-
-      setGapResults((current) => ({
-        ...current,
-        [jobId]: result,
-      }));
-    } catch (err) {
-      console.error(err);
-
-      setGapErrors((current) => ({
-        ...current,
-        [jobId]:
-          err instanceof Error
-            ? err.message
-            : "Unable to calculate Gap Analysis.",
-      }));
-    } finally {
-      setGapLoadingIds((current) => {
-        const next = { ...current };
-        delete next[jobId];
-        return next;
-      });
-    }
-  }
-
   async function handleCheckEligibility(jobId: string) {
     setEligibilityLoadingIds((current) => ({ ...current, [jobId]: true }));
     setEligibilityErrors((current) => {
@@ -676,34 +629,6 @@ function JobsPageInner() {
             </div>
         </form>
 
-        {/* RESUME VERSION SELECTION (AJI-019) */}
-        <div className="mb-6 rounded-xl border border-app-border bg-app-panel px-5 py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div
-                id="resume-version-selector-label"
-                className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue"
-              >
-                Resume In Use
-              </div>
-              <p className="mt-1 text-xs leading-5 text-app-muted">
-                Select the resume NERO should use for Match, ATS, and Gap
-                Analysis.
-              </p>
-            </div>
-
-            <ResumeVersionSelector
-              status={resumeVersionState.status}
-              options={resumeVersionState.options}
-              defaultOptionId={resumeVersionState.defaultOptionId}
-              selectedId={selectedResumeVersionId}
-              onSelect={setSelectedResumeVersionId}
-              errorMessage={resumeVersionState.error}
-              onRetry={loadResumeVersions}
-            />
-          </div>
-        </div>
-
         {/* ERROR */}
         {error && (
           <div className="mb-6">
@@ -711,8 +636,8 @@ function JobsPageInner() {
           </div>
         )}
 
-        {/* RESULTS HEADER */}
-        <div className="mb-5 flex items-end justify-between">
+        {/* RESULTS TOOLBAR (selector placement per AJI-019 — Jobs Placement Reference) */}
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
               Discovery Results
@@ -721,13 +646,23 @@ function JobsPageInner() {
             <h2 className="mt-1 text-xl font-semibold">
               Available Opportunities
             </h2>
+
+            {!isPending && (
+              <p className="mt-1 text-xs text-app-faint">
+                {results.totalJobs} results · Resume choice applies to the
+                next intelligence calculation.
+              </p>
+            )}
           </div>
 
-          {!isPending && (
-            <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-              {results.totalJobs} Results
-            </div>
-          )}
+          <ResumeVersionSelector
+            status={resumeVersionState.status}
+            options={resumeVersionState.options}
+            defaultOptionId={resumeVersionState.defaultOptionId}
+            selectedId={selectedResumeVersionId}
+            onSelect={setSelectedResumeVersionId}
+            onRetry={loadResumeVersions}
+          />
         </div>
 
         {/* LOADING */}
@@ -796,10 +731,6 @@ function JobsPageInner() {
                 isCalculatingAts={Boolean(atsLoadingIds[job.id])}
                 atsError={atsErrors[job.id]}
                 onCalculateAts={handleCalculateAts}
-                gap={gapResults[job.id]}
-                isCalculatingGap={Boolean(gapLoadingIds[job.id])}
-                gapError={gapErrors[job.id]}
-                onCalculateGap={handleCalculateGapAnalysis}
               />
             ))}
           </div>
@@ -1033,10 +964,6 @@ function JobCard({
   isCalculatingAts,
   atsError,
   onCalculateAts,
-  gap,
-  isCalculatingGap,
-  gapError,
-  onCalculateGap,
 }: {
   job: Job;
   application?: Application;
@@ -1057,10 +984,6 @@ function JobCard({
   isCalculatingAts: boolean;
   atsError?: string;
   onCalculateAts: (jobId: string) => void;
-  gap?: GapAnalysisResult;
-  isCalculatingGap: boolean;
-  gapError?: string;
-  onCalculateGap: (jobId: string) => void;
 }) {
   const visibleMatches = [
     ...(match?.must_have_matches ?? []),
@@ -1410,45 +1333,6 @@ function JobCard({
               <JobIntelligencePanel intelligence={intelligence} />
             )}
           </div>
-
-          {/* GAP ANALYSIS (AJI-015 / AJI-019 resume-version wiring) */}
-          <div className="mt-4 rounded-lg border border-app-border bg-app-bg p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
-                  Gap Analysis
-                </div>
-                <p className="mt-1 text-xs leading-5 text-app-faint">
-                  For each requirement your resume doesn&apos;t fully
-                  demonstrate, why it&apos;s a gap and what you could
-                  truthfully do about it. Uses the resume version
-                  selected above.
-                </p>
-              </div>
-
-              <AppButton
-                variant="ghost"
-                size="sm"
-                loading={isCalculatingGap}
-                onClick={() => onCalculateGap(job.id)}
-                className="shrink-0"
-              >
-                {isCalculatingGap
-                  ? "Analyzing..."
-                  : gap
-                    ? "Recalculate"
-                    : "Analyze Gaps"}
-              </AppButton>
-            </div>
-
-            {gapError && (
-              <p className="mt-3 text-xs leading-5 text-app-danger-text">
-                {gapError}
-              </p>
-            )}
-
-            {gap && <GapAnalysisPanel result={gap} />}
-          </div>
         </div>
       </div>
     </Panel>
@@ -1696,97 +1580,6 @@ function AtsRequirementGroup({
                   )}
                 </div>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function GapAnalysisPanel({ result }: { result: GapAnalysisResult }) {
-  const mustHave = result.gaps.filter(
-    (gap) => gap.category === "must_have",
-  );
-  const preferred = result.gaps.filter(
-    (gap) => gap.category === "preferred",
-  );
-
-  return (
-    <div className="mt-4 rounded-lg border border-app-border bg-app-bg p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
-          Requirement Gaps
-        </div>
-        <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-app-faint">
-          Must-Have {result.must_have_gap_count} · Preferred{" "}
-          {result.preferred_gap_count}
-        </div>
-      </div>
-
-      {result.gaps.length === 0 ? (
-        <p className="mt-3 text-xs leading-5 text-app-dim">
-          No gaps identified — your resume fully demonstrates this JD&apos;s
-          requirements.
-        </p>
-      ) : (
-        <div className="mt-3 grid gap-4 lg:grid-cols-2">
-          <GapSuggestionGroup
-            title="Must-Have Gaps"
-            items={mustHave}
-            emptyLabel="No must-have gaps detected."
-          />
-          <GapSuggestionGroup
-            title="Preferred Gaps"
-            items={preferred}
-            emptyLabel="No preferred gaps detected."
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GapSuggestionGroup({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string;
-  items: GapSuggestion[];
-  emptyLabel: string;
-}) {
-  return (
-    <div className="rounded-lg border border-app-border p-3">
-      <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-        {title}
-      </div>
-
-      {items.length === 0 ? (
-        <p className="mt-2 text-xs text-app-faint">{emptyLabel}</p>
-      ) : (
-        <ul className="mt-2 space-y-3">
-          {items.map((item) => (
-            <li key={item.requirement_id} className="text-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-app-text">
-                  {item.requirement_text}
-                </span>
-                <span className="font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
-                  {formatValue(item.status)}
-                </span>
-              </div>
-
-              <p className="mt-1 leading-5 text-app-faint">
-                {item.explanation}
-              </p>
-
-              <p className="mt-1 leading-5 text-app-dim">
-                <span className="font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
-                  Suggestion:{" "}
-                </span>
-                {item.suggestion_text}
-              </p>
             </li>
           ))}
         </ul>
