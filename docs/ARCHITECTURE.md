@@ -1839,3 +1839,29 @@ itself). `tests/test_jobs_requirement_intelligence_api.py` (real DB +
 exclusion, and both AJI-020A failure modes (provider failure degrading
 to a 200 "partial" response, deterministic failure surfacing as 503)
 through the actual HTTP layer.
+
+### Architecture lock (AJI-020B final review)
+
+The following is a final, reviewed architecture decision for AJI-020B
+and must not be changed without a new ticket:
+
+A `RequirementIntelligence` snapshot is immutable and uniquely
+identified by the 7-dimension tuple `user_id`, `job_id`,
+`content_fingerprint`, `analyzer_version`, `prompt_version`,
+`model_provider`, `model_name` (see "Idempotency and uniqueness" above
+for the lookup/`UniqueConstraint` mechanics). A change to any one of
+these dimensions may produce a new, additional snapshot; existing
+snapshots are never overwritten, edited, or deleted by any code path in
+this system (see "Versioning and immutability" above). The
+partial-row-growth behavior under a sustained provider/model-configuration
+change (see "Known limitation" above) is an accepted trade-off for this
+ticket, not a defect to fix here.
+
+Explicitly not introduced, and out of scope for AJI-020B: cleanup jobs
+for old/partial rows, overwrite-in-place behavior, provider fallback
+logic beyond AJI-020A's own existing degrade-to-partial handling, Redis
+or any other external cache, new caching infrastructure beyond the
+database persistence described above, and AI provider-selection logic
+(this layer only reads `settings.ai_provider`/`settings.ai_model`; it
+never chooses or overrides a provider). Introducing any of these is a
+new ticket's scope, not a fix or extension of AJI-020B.
