@@ -124,3 +124,77 @@ def test_trigger_runs_discovery_with_valid_token_and_configured_source(
         .count()
         == 1
     )
+
+
+def test_list_runs_rejects_missing_token(client):
+    response = client.get("/internal/job-discovery/runs")
+    assert response.status_code == 503
+
+
+def test_list_runs_rejects_wrong_token(client, monkeypatch):
+    monkeypatch.setattr(settings, "job_discovery_trigger_token", "secret-1")
+
+    response = client.get(
+        "/internal/job-discovery/runs",
+        headers={"X-Discovery-Trigger-Token": "wrong"},
+    )
+    assert response.status_code == 401
+
+
+def test_list_runs_returns_recorded_runs_after_trigger(client, monkeypatch, db):
+    monkeypatch.setattr(settings, "job_discovery_trigger_token", "secret-1")
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+
+    fake_job = DiscoveredJob(
+        source="greenhouse",
+        source_job_id="gh-600",
+        title="Platform Engineer",
+        company="Example Inc",
+        description="Build platforms.",
+        requirements=None,
+        responsibilities=None,
+        location="Remote, USA",
+        country="USA",
+        remote_type="remote",
+        employment_type="full_time",
+        salary_min=None,
+        salary_max=None,
+        salary_currency=None,
+        contract_duration=None,
+        contract_worker_type=None,
+        source_url="https://boards.greenhouse.io/example/jobs/600",
+        application_url="https://boards.greenhouse.io/example/jobs/600",
+        posted_at=None,
+        expires_at=None,
+    )
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        lambda self: [fake_job],
+    )
+
+    trigger_response = client.post(
+        "/internal/job-discovery/run",
+        headers={"X-Discovery-Trigger-Token": "secret-1"},
+    )
+    assert trigger_response.status_code == 200
+
+    runs_response = client.get(
+        "/internal/job-discovery/runs",
+        headers={"X-Discovery-Trigger-Token": "secret-1"},
+    )
+    assert runs_response.status_code == 200
+    runs = runs_response.json()
+    assert len(runs) == 1
+    assert runs[0]["source"] == "greenhouse"
+    assert runs[0]["status"] == "succeeded"
+    assert runs[0]["fetched"] == 1
+    assert runs[0]["inserted"] == 1
+    assert runs[0]["started_at"] is not None
+    assert runs[0]["completed_at"] is not None
+    assert runs[0]["error_message"] is None

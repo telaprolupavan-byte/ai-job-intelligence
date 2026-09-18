@@ -96,6 +96,14 @@ feature, or a scheduled CI workflow) that calls it, e.g.:
   -H "X-Discovery-Trigger-Token: $JOB_DISCOVERY_TRIGGER_TOKEN"
 ```
 
+**Observability:** every invocation of `POST /run` records one
+`DiscoveryRun` row (source, status, started/completed timestamps, fetched
+/inserted/updated/rejected counts, and a safe/truncated error message on
+failure). `GET /internal/job-discovery/runs` (same trigger-token auth)
+returns the most recent runs, newest first, so an operator or the
+external scheduler can check run history without grepping application
+logs.
+
 This was chosen over adding an in-process scheduler, a task queue
 (Celery/RQ), or a message broker (Redis/Kafka) because:
 - The current deployment (`docker-compose.yml`: one `api` container, one

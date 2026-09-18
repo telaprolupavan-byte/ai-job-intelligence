@@ -1,7 +1,7 @@
 import pytest
 
 from apps.api.config import settings
-from apps.api.models import Job
+from apps.api.models import DiscoveryRun, Job
 from apps.api.services.job_discovery_service import (
     JobDiscoveryNotConfiguredError,
     JobDiscoveryServiceError,
@@ -166,3 +166,144 @@ def test_run_configured_discovery_surfaces_adapter_failure(db, monkeypatch):
     assert "board unreachable" in str(exc_info.value)
 
     assert db.query(Job).filter(Job.source == "greenhouse").count() == 0
+
+
+def test_source_failure_does_not_invalidate_existing_jobs(db, monkeypatch):
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        lambda self: [_sample_discovered_job("gh-existing", "Existing Role")],
+    )
+    run_configured_discovery(db)
+    assert (
+        db.query(Job)
+        .filter(Job.source == "greenhouse", Job.external_job_id == "gh-existing")
+        .count()
+        == 1
+    )
+
+    def _raise(self):
+        raise GreenhouseAdapterError("board unreachable")
+
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        _raise,
+    )
+
+    with pytest.raises(JobDiscoveryServiceError):
+        run_configured_discovery(db)
+
+    still_present = (
+        db.query(Job)
+        .filter(Job.source == "greenhouse", Job.external_job_id == "gh-existing")
+        .one()
+    )
+    assert still_present.title == "Existing Role"
+    assert still_present.is_active is True
+
+
+def test_run_configured_discovery_records_discovery_run_on_success(
+    db, monkeypatch
+):
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        lambda self: [_sample_discovered_job("gh-1", "Backend Engineer")],
+    )
+
+    run_configured_discovery(db)
+
+    run = db.query(DiscoveryRun).filter(DiscoveryRun.source == "greenhouse").one()
+    assert run.status == "succeeded"
+    assert run.fetched_count == 1
+    assert run.inserted_count == 1
+    assert run.updated_count == 0
+    assert run.rejected_count == 0
+    assert run.error_message is None
+    assert run.started_at is not None
+    assert run.completed_at is not None
+
+
+def test_run_configured_discovery_records_discovery_run_on_adapter_failure(
+    db, monkeypatch
+):
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+
+    def _raise(self):
+        raise GreenhouseAdapterError("board unreachable")
+
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        _raise,
+    )
+
+    with pytest.raises(JobDiscoveryServiceError):
+        run_configured_discovery(db)
+
+    run = db.query(DiscoveryRun).filter(DiscoveryRun.source == "greenhouse").one()
+    assert run.status == "failed"
+    assert "board unreachable" in run.error_message
+    assert run.completed_at is not None
+
+
+def test_run_configured_discovery_raises_on_database_failure_during_commit(
+    db, monkeypatch
+):
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        lambda self: [_sample_discovered_job("gh-db-fail", "DB Failure Role")],
+    )
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.run_discovery_pipeline",
+        lambda db_, jobs: (_ for _ in ()).throw(
+            Exception("simulated database outage")
+        ),
+    )
+
+    with pytest.raises(JobDiscoveryServiceError) as exc_info:
+        run_configured_discovery(db)
+
+    assert exc_info.value.status_code == 503
+    assert "simulated database outage" in str(exc_info.value)
+
+    # The session is left with an unflushed/aborted transaction after a
+    # failure like this - exactly as it would be for the real request
+    # session, which get_db() rolls back on close. Do the same here
+    # before asserting on state with the same session.
+    db.rollback()
+
+    # No job data or run record should have been half-persisted.
+    assert (
+        db.query(Job)
+        .filter(Job.source == "greenhouse", Job.external_job_id == "gh-db-fail")
+        .count()
+        == 0
+    )
+    assert db.query(DiscoveryRun).filter(DiscoveryRun.source == "greenhouse").count() == 0
