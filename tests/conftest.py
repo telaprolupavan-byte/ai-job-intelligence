@@ -11,6 +11,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from apps.api.database import engine
+from apps.api.rate_limit import reset_rate_limits
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    reset_rate_limits()
+    yield
+    reset_rate_limits()
 
 
 @pytest.fixture

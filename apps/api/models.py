@@ -473,6 +473,16 @@ class Job(Base):
 
 
 class SavedJob(Base):
+    """A user's application-tracking record for one job.
+
+    This is the single row that carries a job from "saved" through the
+    application pipeline (see ApplicationStatusEvent for the append-only
+    history of every status it has passed through). One row per
+    (user, job) - the unique constraint below is what makes "save" an
+    idempotent action and prevents a duplicate tracking record for the
+    same job.
+    """
+
     __tablename__ = "saved_jobs"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -496,9 +506,68 @@ class SavedJob(Base):
         default="saved",
     )
 
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    job: Mapped["Job"] = relationship()
+
+    status_events: Mapped[list["ApplicationStatusEvent"]] = relationship(
+        back_populates="saved_job",
+        order_by="ApplicationStatusEvent.created_at",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "job_id",
+            name="uq_saved_job_user_job",
+        ),
+    )
+
+
+class ApplicationStatusEvent(Base):
+    """Append-only history of every status an application has passed
+    through, so the Application Detail view can show a real timeline
+    instead of only the current status. Never updated or deleted - a
+    status change always adds a new row."""
+
+    __tablename__ = "application_status_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    saved_job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("saved_jobs.id", ondelete="CASCADE"),
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(50),
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    saved_job: Mapped["SavedJob"] = relationship(
+        back_populates="status_events",
     )
 
 

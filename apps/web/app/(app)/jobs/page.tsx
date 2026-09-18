@@ -17,6 +17,8 @@ import {
   type JobIntelligenceData,
   type JobMatchResult,
 } from "@/lib/jobs";
+import { saveJob } from "@/lib/applications";
+import { Bookmark, BookmarkCheck } from "lucide-react";
 import Container from "@/components/app/container";
 import Panel, { PanelHeader } from "@/components/app/panel";
 import Badge from "@/components/app/badge";
@@ -630,6 +632,45 @@ function FilterField({
   );
 }
 
+function SaveJobButton({ jobId }: { jobId: string }) {
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+
+  async function handleClick() {
+    if (state === "saving" || state === "saved") return;
+
+    setState("saving");
+
+    try {
+      await saveJob(jobId);
+      setState("saved");
+    } catch {
+      setState("error");
+    }
+  }
+
+  return (
+    <AppButton
+      variant="secondary"
+      loading={state === "saving"}
+      onClick={handleClick}
+      aria-label={state === "saved" ? "Job saved" : "Save job"}
+    >
+      {state === "saved" ? (
+        <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" />
+      ) : (
+        <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />
+      )}
+      {state === "saved"
+        ? "Saved"
+        : state === "error"
+          ? "Retry Save"
+          : "Save"}
+    </AppButton>
+  );
+}
+
 function JobCard({
   job,
   match,
@@ -735,6 +776,8 @@ function JobCard({
 
           {/* ACTIONS */}
           <div className="flex shrink-0 gap-3 lg:flex-col">
+            <SaveJobButton jobId={job.id} />
+
             {job.source_url && (
               <AppButton
                 variant="secondary"

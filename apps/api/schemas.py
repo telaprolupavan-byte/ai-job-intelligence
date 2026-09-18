@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -163,3 +165,61 @@ class ResumeUploadResponse(BaseModel):
     warnings: list[str]
     is_new_resume: bool
     duplicate: bool
+
+# =========================
+# Application Tracking
+# =========================
+
+APPLICATION_STATUSES = [
+    "saved",
+    "applied",
+    "interviewing",
+    "offer",
+    "rejected",
+    "withdrawn",
+]
+
+ApplicationStatus = Literal[
+    "saved",
+    "applied",
+    "interviewing",
+    "offer",
+    "rejected",
+    "withdrawn",
+]
+
+
+class CreateApplicationRequest(BaseModel):
+    job_id: str
+
+
+class UpdateApplicationStatusRequest(BaseModel):
+    status: ApplicationStatus
+
+
+class ApplicationJobSummary(BaseModel):
+    id: str
+    title: str
+    company: str | None
+    location: str | None
+    employment_type: str | None
+    remote_type: str | None
+    application_url: str | None
+
+
+class ApplicationStatusEventResponse(BaseModel):
+    status: str
+    created_at: str
+
+
+class ApplicationResponse(BaseModel):
+    id: str
+    job: ApplicationJobSummary
+    status: str
+    applied_at: str | None
+    created_at: str
+    updated_at: str
+
+
+class ApplicationDetailResponse(ApplicationResponse):
+    status_history: list[ApplicationStatusEventResponse]

@@ -57,3 +57,58 @@ Adding another provider (e.g. Lever) means implementing the same
 `JobSourceAdapter` interface (`services/job_discovery/sources/base.py`) and
 reusing the existing normalizer/validator/deduplicator/persistence/pipeline —
 no source-specific logic belongs in the generic pipeline.
+
+## Operationalizing discovery (running it without a developer manually
+## invoking Python)
+
+Until this was addressed, this pipeline existed and was fully unit-tested
+but nothing in the running application ever called it — the only
+documented invocation path was the manual snippet above. That gap is now
+closed by `apps/api/services/job_discovery_service.py` (the DB-touching
+orchestration layer, mirroring every other `*_service.py` in this
+codebase) and `POST /internal/job-discovery/run`
+(`apps/api/routers/job_discovery.py`).
+
+**Configuration** (`.env`, see `.env.example`):
+
+| Variable | Purpose |
+|---|---|
+| `JOB_DISCOVERY_GREENHOUSE_BOARD_TOKEN` | Which company's Greenhouse board to ingest. **Unset by default** — which real company's postings AJI has permission to aggregate is a product/legal decision, not the Builder's to make by hardcoding a company into shared config. |
+| `JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME` | Display name stored on discovered jobs. |
+| `JOB_DISCOVERY_TRIGGER_TOKEN` | Shared secret required in the `X-Discovery-Trigger-Token` header. There is no admin/role concept on `User` to gate this endpoint with instead — it is a system-to-system credential for whatever calls it (cron, a platform scheduled task), never handed to a user. |
+
+The endpoint is a hard `503` until both the source and the trigger token
+are configured — it never runs with an implicit/guessed source, and it
+never returns a fabricated "success" when unconfigured or when the
+upstream board can't be reached (a real fetch failure surfaces as `502`
+with the underlying error, e.g. DNS/timeout/HTTP-status details).
+
+**Trigger mechanism — the trade-off that was made:** the smallest
+mechanism that satisfies "must eventually support scheduled/controlled
+discovery without requiring a developer to manually run a Python
+snippet" is an authenticated HTTP endpoint plus an *external* scheduler
+(a `cron` entry, the hosting platform's native scheduled-task/cron
+feature, or a scheduled CI workflow) that calls it, e.g.:
+
+```
+# crontab -e, on whatever host/runner can reach the API
+0 */6 * * * curl -fsS -X POST https://api.your-domain.example/internal/job-discovery/run \
+  -H "X-Discovery-Trigger-Token: $JOB_DISCOVERY_TRIGGER_TOKEN"
+```
+
+This was chosen over adding an in-process scheduler, a task queue
+(Celery/RQ), or a message broker (Redis/Kafka) because:
+- The current deployment (`docker-compose.yml`: one `api` container, one
+  `db` container) has no existing worker/queue infrastructure, and
+  discovery for one board is a single, fast, synchronous HTTP call — it
+  does not need background execution, retries-with-backoff infrastructure,
+  or horizontal worker scaling at this stage.
+- An external scheduler keeps "when to run" (an ops concern that changes
+  per environment/cadence) out of the application's own deployment
+  unit — no code change is needed to change the schedule, add a second
+  board, or pause discovery.
+- If/when discovery needs to run against many boards on independent
+  schedules, retry failed fetches with backoff, or run as a true
+  background job decoupled from a request/response cycle, that is the
+  point to introduce a task queue — not before there is more than one
+  board to ingest.
