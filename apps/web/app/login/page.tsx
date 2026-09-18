@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/lib/auth";
+import AppButton from "@/components/app/app-button";
 
 function LoginForm() {
   const router = useRouter();
@@ -54,80 +55,101 @@ function LoginForm() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label
-                htmlFor="email"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
-              >
-                Email
-              </label>
+          <div className="rounded-[18px] border border-app-border bg-app-panel p-8 sm:p-10">
+            <div className="mb-6">
+              <div className="font-[family-name:var(--font-display)] text-2xl font-bold text-app-text">
+                NERO
+              </div>
 
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
-                placeholder="you@example.com"
-              />
+              <h2 className="mt-4 text-lg font-bold text-app-text">
+                Sign in to your intelligence workspace
+              </h2>
+
+              <p className="mt-2 text-xs leading-5 text-app-muted">
+                Your resume, jobs, matches, and applications in one place.
+              </p>
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
-              >
-                Password
-              </label>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
+                >
+                  Email
+                </label>
 
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm outline-none transition focus:border-app-blue"
-                placeholder="Your password"
-              />
-            </div>
-
-            {registered && (
-              <div
-                role="status"
-                className="rounded-lg border border-app-border bg-app-surface px-4 py-3 text-sm"
-              >
-                Account created. Sign in to continue.
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-[9px] border border-app-border bg-app-panel px-4 py-3 text-sm outline-none transition focus:border-app-blue"
+                  placeholder="you@example.com"
+                />
               </div>
-            )}
 
-            {error && (
-              <div
-                role="alert"
-                className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm"
-              >
-                {error}
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mono mb-2 block text-xs uppercase tracking-wider text-app-muted"
+                >
+                  Password
+                </label>
+
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-[9px] border border-app-border bg-app-panel px-4 py-3 text-sm outline-none transition focus:border-app-blue"
+                  placeholder="Enter your password"
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-crimson-fill px-5 py-3 text-sm font-medium text-white transition hover:bg-crimson-fill-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "AUTHENTICATING..." : "SIGN IN →"}
-            </button>
-          </form>
+              {registered && (
+                <div
+                  role="status"
+                  className="rounded-lg border border-app-border bg-app-surface px-4 py-3 text-sm"
+                >
+                  Account created. Sign in to continue.
+                </div>
+              )}
 
-          <p className="mt-8 text-center text-sm text-app-muted">
-            Do not have an account?{" "}
-            <Link
-              href="/register"
-              className="text-app-text underline underline-offset-4 hover:text-app-red"
-            >
-              Create account
-            </Link>
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm"
+                >
+                  {error}
+                </div>
+              )}
+
+              <AppButton
+                type="submit"
+                loading={loading}
+                className="w-full normal-case tracking-normal"
+              >
+                Sign in
+              </AppButton>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-app-muted">
+              New to NERO?{" "}
+              <Link
+                href="/register"
+                className="text-app-text underline underline-offset-4 hover:text-app-red"
+              >
+                Create an account
+              </Link>
+            </p>
+          </div>
+
+          <p className="mt-6 text-center text-xs leading-5 text-app-muted">
+            Your decisions remain under your control. NERO does not
+            auto-apply.
           </p>
         </div>
       </div>
