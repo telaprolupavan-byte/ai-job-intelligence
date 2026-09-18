@@ -1252,6 +1252,43 @@ what has and hasn't happened, not a scorecard result to act on. Run
 `run_eval.py` in an environment with network access to those hosts and
 the real credentials to get an actual comparison.
 
+### AJI-018C: offline ingestion for the Product Owner comparison table
+
+A follow-up ticket asked for the actual comparison table (Greenhouse +
+the four candidates) as evidence for a Product Owner provider-selection
+decision. Confirmed at the time: this session's egress policy denies all
+**five** hosts outright, including `boards-api.greenhouse.io` - not only
+the four candidates - so no path in this repository could populate the
+table by calling any of these APIs directly.
+
+`services/provider_scorecard/report.py` (`ProviderReport`,
+`build_provider_report`, `render_markdown_table`) and
+`services/provider_scorecard/ingest.py` close that gap without ever
+opening network access from this environment: `ingest.py` takes raw API
+responses fetched by someone who *does* have real access (their own
+machine, a CI runner with an open policy) and runs them through the same
+normalize/deduplicate/validate primitives every other part of this
+workflow already uses, adding `report_metrics.py`'s AI/ML keyword
+heuristic, FT/Contract/Remote counts, salary/application-URL rates, and
+posting-freshness/API-reliability metrics the table asked for. Every
+`eval_adapters/*.py` module gained a `parse_response()` method (split out
+of `search()`, same behavior, covered by the pre-existing adapter tests
+unchanged) so ingestion reuses the exact same field-mapping logic a live
+call would use rather than a second, ingestion-only implementation.
+
+Global deduplication for this table is deliberately across every
+scenario for a provider, not per scenario (unlike `ScenarioMeasurement`,
+which is per-scenario) - the same posting surfacing under two scenario
+searches must count once in "Unique jobs," not twice. A scenario that was
+attempted and failed is recorded as `{"_error": "..."}` in the input
+bundle rather than omitted, which is what makes "API reliability" a real
+measurement instead of unconditionally reading 100%. `ProviderReport` has
+no score/rank/winner field, per the ticket's explicit "no automatic score
+or winner" requirement - the rendered table is numbers only, and the
+Product Owner/Planner decision stays a separate, human step exactly like
+every other placeholder-vs-decision boundary in this document (see
+"Scoring: an explicit placeholder formula" above).
+
 ### Testing
 
 `tests/test_provider_scorecard_contracts.py` covers `ProviderScorecard`'s
@@ -1276,3 +1313,22 @@ fix (a Muse location like `"Flexible / Remote"` no longer false-positives
 on the `"FL"` marker the way a raw-substring version would), and that The
 Muse's adapter never sends `scenario.keywords` as a query parameter (its
 public API has nothing to map it onto).
+
+`tests/test_provider_scorecard_report_metrics.py` covers the AJI-018C
+AI/ML keyword heuristic, employment/remote-type counting against
+normalized values, salary/application-URL presence, and freshness
+(including that it returns `None` rather than a fabricated `0` when no
+job discloses a posting date, and that mixed aware/naive datetimes from
+different providers don't raise).
+`tests/test_provider_scorecard_report.py` covers `build_provider_report()`'s
+global (cross-scenario) deduplication, that validity reuses the shared
+validator, that reliability accounts for recorded error scenarios (and is
+`None` rather than a misleading `0%`/`100%` when nothing was attempted),
+and that the rendered table has one column per provider, every requested
+row, and no score/rank/winner language anywhere in it.
+`tests/test_provider_scorecard_ingest.py` covers parsing a multi-provider
+response bundle (including that Greenhouse's entry requires
+`meta.greenhouse_company_name` and raises without it, since Greenhouse's
+own API response carries no company name), that an absent provider is
+left out of the report list rather than shown as zeroes, and the CLI
+entry point end to end via a temp file.

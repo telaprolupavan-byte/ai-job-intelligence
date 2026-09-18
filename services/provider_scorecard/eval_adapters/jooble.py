@@ -61,12 +61,17 @@ class JoobleEvalAdapter:
         url = SEARCH_URL.format(api_key=self.api_key)
         payload = post_json(url, body, timeout=self.request_timeout)
 
+        return self.parse_response(payload, scenario_id=scenario.scenario_id)
+
+    def parse_response(self, payload: dict, *, scenario_id: str = "") -> list[DiscoveredJob]:
+        """See AdzunaEvalAdapter.parse_response's docstring - same purpose."""
+
         jobs = payload.get("jobs")
 
         if not isinstance(jobs, list):
             raise RuntimeError(
                 f"Jooble returned an unexpected response shape for "
-                f"scenario '{scenario.scenario_id}'."
+                f"scenario '{scenario_id}'."
             )
 
         return [self._to_discovered_job(raw) for raw in jobs]

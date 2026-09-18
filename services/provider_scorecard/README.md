@@ -70,6 +70,58 @@ free text, Adzuna has no remote/hybrid/onsite field) - these are exactly
 the kind of finding this workflow exists to surface before committing to
 build a real adapter for any of them.
 
+## AJI-018C: the live comparison table (Greenhouse included)
+
+The Product Owner-facing deliverable is a table with one column per
+provider (Greenhouse + the four candidates) and these rows: Raw jobs,
+Valid jobs, Unique jobs, Duplicate %, AI/ML jobs, FT jobs, Contract jobs,
+Remote jobs, Salary available, Application URL, Freshness, API
+reliability. **No score, rank, or "winner" column** — that decision
+belongs to the Product Owner/Planner reading the numbers, never to this
+code (see `report.py`'s `ProviderReport` docstring).
+
+This session's egress policy denies all five hosts outright, including
+`boards-api.greenhouse.io` — not just the four candidates — so nothing
+here can populate that table by calling any of these APIs directly, and
+run_eval.py's own live-run attempt (below) proves it rather than just
+asserting it. `services/provider_scorecard/ingest.py` exists for exactly
+this situation: it builds the same table from raw API responses fetched
+by someone who *does* have real access, so the table reflects genuine
+measured data instead of either fabricated numbers or an empty template.
+
+```
+python -m services.provider_scorecard.ingest path/to/responses.json
+```
+
+See `ingest.py`'s module docstring for the exact input file format, and
+`response_bundle.example.json` (fabricated data, clearly marked) for a
+worked example. In short: fetch each provider's raw response yourself for
+each scenario in your shared scenario set (Greenhouse via its normal
+board-token URL; Adzuna/Jooble/USAJOBS with your own API keys; The Muse
+needs no key), save the response bodies into one JSON file keyed by
+provider then scenario ID, and hand that file to `ingest.py`. A request
+that failed when you made it (rate limited, timed out, 5xx) can be
+recorded as `{"_error": "..."}` instead of a response body — that's what
+makes "API reliability" a real measurement rather than always reading
+100% because only successes got recorded. A provider you have no access
+to is simply left out of the bundle; it will be missing from the table
+rather than shown as zeroes (a provider that was never asked is not the
+same thing as one that returned nothing).
+
+Every metric in the table is computed the same way `ScenarioMeasurement`
+computes its own (reusing the same normalize/deduplicate/validate
+primitives - see "What each stage reuses" below), plus:
+`report_metrics.py` adds "AI/ML jobs" (a documented keyword heuristic
+over title+description, not an authoritative taxonomy), FT/Contract/
+Remote counts (compared against the normalizer's own canonical values,
+so raw-casing input like `"Full-Time"` still counts correctly),
+salary/application-URL availability, and posting freshness (median days
+since `posted_at`, `None`/`"N/A"` rather than a fabricated `0` when a
+provider discloses no dates at all). Deduplication for this table is
+global across every scenario for a given provider, not per scenario - the
+same posting surfacing under two different scenario searches counts once
+in "Unique jobs," not twice.
+
 ## Running a comparison
 
 ```python

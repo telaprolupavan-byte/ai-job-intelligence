@@ -80,13 +80,18 @@ class UsaJobsEvalAdapter:
 
         payload = get_json(url, headers=headers, timeout=self.request_timeout)
 
+        return self.parse_response(payload, scenario_id=scenario.scenario_id)
+
+    def parse_response(self, payload: dict, *, scenario_id: str = "") -> list[DiscoveredJob]:
+        """See AdzunaEvalAdapter.parse_response's docstring - same purpose."""
+
         search_result = payload.get("SearchResult") or {}
         items = search_result.get("SearchResultItems")
 
         if not isinstance(items, list):
             raise RuntimeError(
                 f"USAJOBS returned an unexpected response shape for "
-                f"scenario '{scenario.scenario_id}'."
+                f"scenario '{scenario_id}'."
             )
 
         return [self._to_discovered_job(item) for item in items]

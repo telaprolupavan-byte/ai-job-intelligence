@@ -81,12 +81,24 @@ class AdzunaEvalAdapter:
         url = SEARCH_URL.format(country=self.country) + "?" + urllib.parse.urlencode(params)
         payload = get_json(url, timeout=self.request_timeout)
 
+        return self.parse_response(payload, scenario_id=scenario.scenario_id)
+
+    def parse_response(self, payload: dict, *, scenario_id: str = "") -> list[DiscoveredJob]:
+        """
+        Map an already-fetched raw Adzuna ``/search`` response body into
+        ``DiscoveredJob``s. Split out from ``search()`` so a response
+        fetched outside this process (e.g. by a developer who has real
+        network access and API keys this session doesn't) can still be
+        measured by the Provider Scorecard pipeline - see
+        ``services/provider_scorecard/ingest.py``.
+        """
+
         results = payload.get("results")
 
         if not isinstance(results, list):
             raise RuntimeError(
                 f"Adzuna returned an unexpected response shape for "
-                f"scenario '{scenario.scenario_id}'."
+                f"scenario '{scenario_id}'."
             )
 
         return [self._to_discovered_job(raw) for raw in results]

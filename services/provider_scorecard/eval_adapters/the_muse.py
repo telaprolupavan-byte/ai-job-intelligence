@@ -58,12 +58,17 @@ class TheMuseEvalAdapter:
         url = SEARCH_URL + "?" + urllib.parse.urlencode(params)
         payload = get_json(url, timeout=self.request_timeout)
 
+        return self.parse_response(payload, scenario_id=scenario.scenario_id)
+
+    def parse_response(self, payload: dict, *, scenario_id: str = "") -> list[DiscoveredJob]:
+        """See AdzunaEvalAdapter.parse_response's docstring - same purpose."""
+
         results = payload.get("results")
 
         if not isinstance(results, list):
             raise RuntimeError(
                 f"The Muse returned an unexpected response shape for "
-                f"scenario '{scenario.scenario_id}'."
+                f"scenario '{scenario_id}'."
             )
 
         return [self._to_discovered_job(raw) for raw in results]
