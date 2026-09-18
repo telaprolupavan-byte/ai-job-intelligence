@@ -1,0 +1,39 @@
+{
+  "_readme": "TEMPLATE ONLY - every value below is fabricated for illustration. See ingest.py's module docstring for the full format. Delete this key (and any provider section you have no real data for) before running ingest.py for real.",
+  "meta": {
+    "greenhouse_company_name": "Example Inc"
+  },
+  "greenhouse": {
+    "backend-remote": {
+      "jobs": [
+        {
+          "id": 1,
+          "title": "Backend Engineer",
+          "location": {"name": "Remote - US"},
+          "content": "<p>Example description.</p>",
+          "absolute_url": "https://boards.greenhouse.io/example/jobs/1",
+          "updated_at": "2024-01-15T00:00:00Z",
+          "metadata": [{"name": "Employment Type", "value": "Full-time"}]
+        }
+      ]
+    },
+    "frontend-nyc": {
+      "_error": "HTTP 500 Internal Server Error"
+    }
+  },
+  "the_muse": {
+    "frontend-nyc": {
+      "results": [
+        {
+          "id": 555,
+          "name": "Frontend Engineer",
+          "contents": "<p>Example description.</p>",
+          "company": {"name": "Example Inc"},
+          "locations": [{"name": "New York, NY"}],
+          "publication_date": "2024-01-05T00:00:00Z",
+          "refs": {"landing_page": "https://www.themuse.com/jobs/example/frontend-engineer"}
+        }
+      ]
+    }
+  }
+}
