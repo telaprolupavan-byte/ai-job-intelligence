@@ -18,6 +18,11 @@ from apps.api.dependencies import get_db
 from apps.api.main import app
 from apps.api.models import Resume, ResumeAIAnalysis, ResumeVersion, User
 from apps.api.security import create_access_token
+from apps.api.services.resume_ai.interpreter import (
+    ANALYSIS_VERSION,
+    PROMPT_VERSION,
+)
+from apps.api.services.resume_ai.service import ANALYZER_VERSION
 from apps.api.services.resume_service import resolve_stored_file, RESUME_UPLOAD_DIR
 
 
@@ -467,9 +472,9 @@ def test_versions_list_reflects_per_version_analysis_state(
         id=uuid4(),
         user_id=user.id,
         resume_version_id=version_1_id,
-        analysis_version="1.0",
-        analyzer_version="1.0",
-        prompt_version="1.0",
+        analysis_version=ANALYSIS_VERSION,
+        analyzer_version=ANALYZER_VERSION,
+        prompt_version=PROMPT_VERSION,
         model_provider="test",
         model_name="test-model",
         analysis_result={"summary": {"strengths": ["x"]}},
@@ -562,9 +567,9 @@ def test_ai_analysis_is_scoped_to_exact_version(client, headers, db, user):
         id=uuid4(),
         user_id=user.id,
         resume_version_id=version_1_id,
-        analysis_version="1.0",
-        analyzer_version="1.0",
-        prompt_version="1.0",
+        analysis_version=ANALYSIS_VERSION,
+        analyzer_version=ANALYZER_VERSION,
+        prompt_version=PROMPT_VERSION,
         model_provider="test",
         model_name="test-model",
         analysis_result={"summary": {"strengths": ["v1 strength"]}},
@@ -573,9 +578,9 @@ def test_ai_analysis_is_scoped_to_exact_version(client, headers, db, user):
         id=uuid4(),
         user_id=user.id,
         resume_version_id=version_2_id,
-        analysis_version="1.0",
-        analyzer_version="1.0",
-        prompt_version="1.0",
+        analysis_version=ANALYSIS_VERSION,
+        analyzer_version=ANALYZER_VERSION,
+        prompt_version=PROMPT_VERSION,
         model_provider="test",
         model_name="test-model",
         analysis_result={"summary": {"strengths": ["v2 strength"]}},
@@ -608,9 +613,9 @@ def test_ai_analysis_never_crosses_resumes(client, headers, db, user):
         id=uuid4(),
         user_id=user.id,
         resume_version_id=resume_a.json()["version_id"],
-        analysis_version="1.0",
-        analyzer_version="1.0",
-        prompt_version="1.0",
+        analysis_version=ANALYSIS_VERSION,
+        analyzer_version=ANALYZER_VERSION,
+        prompt_version=PROMPT_VERSION,
         model_provider="test",
         model_name="test-model",
         analysis_result={"summary": {"strengths": ["resume A"]}},
@@ -624,3 +629,60 @@ def test_ai_analysis_never_crosses_resumes(client, headers, db, user):
     )
 
     assert resp_b.status_code == 404
+
+
+def test_legacy_schema_analysis_is_treated_as_not_yet_analyzed(
+    client, headers, db, user
+):
+    """A ResumeAIAnalysis row saved under an older analyzer/prompt
+    pipeline (e.g. the pre-Resume-Intelligence flat schema) has a
+    different, incompatible shape than what the current API contract and
+    frontend expect. Serving it as-is previously crashed the resume page
+    with "Cannot read properties of undefined (reading 'strengths')"
+    because the old payload has no `review` key. It must instead be
+    treated the same as "not yet analyzed" so the frontend falls back to
+    its existing 404 handling instead of crashing.
+    """
+    result = upload(client, headers, RESUME_TEXT_AI)
+    resume_id = result.json()["id"]
+    version_id = result.json()["version_id"]
+
+    legacy_analysis = ResumeAIAnalysis(
+        id=uuid4(),
+        user_id=user.id,
+        resume_version_id=version_id,
+        analysis_version="1.0",
+        analyzer_version="1.0",
+        prompt_version="1.0",
+        model_provider="test",
+        model_name="test-model",
+        # The old flat schema this app used before the "Resume
+        # Intelligence" restructure - no `review`/`decoding`/
+        # `position_identification` keys at all.
+        analysis_result={
+            "profile": "Some profile text",
+            "positioning": {},
+            "sections": [],
+            "skills": [],
+            "experience": [],
+            "technical_depth": {},
+            "structure": {},
+            "findings": [],
+            "summary": "Some summary",
+        },
+    )
+    db.add(legacy_analysis)
+    db.flush()
+
+    get_resp = client.get(
+        f"/resumes/versions/{version_id}/ai-analysis", headers=headers
+    )
+    assert get_resp.status_code == 404
+
+    versions = {
+        v["id"]: v
+        for v in client.get(
+            f"/resumes/{resume_id}/versions", headers=headers
+        ).json()
+    }
+    assert versions[version_id]["has_analysis"] is False
