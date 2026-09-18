@@ -87,14 +87,69 @@ with the underlying error, e.g. DNS/timeout/HTTP-status details).
 mechanism that satisfies "must eventually support scheduled/controlled
 discovery without requiring a developer to manually run a Python
 snippet" is an authenticated HTTP endpoint plus an *external* scheduler
-(a `cron` entry, the hosting platform's native scheduled-task/cron
-feature, or a scheduled CI workflow) that calls it, e.g.:
+that calls it. That scheduler is now implemented as its own tiny service
+in `docker-compose.yml` (`discovery-scheduler` — see
+`deploy/discovery-scheduler/`, AJI-017.1): a minimal Alpine container
+running `run_scheduler.sh`, a plain POSIX-sh loop that does nothing but
+`sleep`, then `curl -X POST .../internal/job-discovery/run` with the
+same `JOB_DISCOVERY_TRIGGER_TOKEN` the `api` service is configured with,
+forever. It is not a second discovery execution path — it only calls the
+one existing endpoint, exactly as an operator's own crontab entry would:
 
 ```
-# crontab -e, on whatever host/runner can reach the API
-0 */6 * * * curl -fsS -X POST https://api.your-domain.example/internal/job-discovery/run \
+# what discovery-scheduler does every DISCOVERY_INTERVAL_SECONDS (21600 = 6h by default)
+curl -fsS -X POST http://api:8000/internal/job-discovery/run \
   -H "X-Discovery-Trigger-Token: $JOB_DISCOVERY_TRIGGER_TOKEN"
 ```
+
+If you'd rather use your platform's own scheduled-task feature or a
+`cron` entry on a host that can reach the API instead of the bundled
+`discovery-scheduler` container, that continues to work unchanged — the
+container is just the default so discovery runs automatically out of the
+box with `docker compose up`, without an operator having to set up
+scheduling themselves. Either way the initial frequency (every 6 hours)
+is an operational default, not a product requirement — change
+`DISCOVERY_INTERVAL_SECONDS` (or your own cron expression) per
+environment without a code change.
+
+**Why a plain loop, not cron-inside-the-container:** real cron
+(`crond`) was the first option considered, since it's the standard
+"platform-native" primitive for scheduled execution on Linux. It was set
+aside in favor of a plain `while true; do …; sleep …; done` loop because
+env-var propagation from a container's process environment into a cron
+job's environment is a well-known footgun (`crond` does not hand its own
+environment to jobs it spawns) that adds real failure surface for no
+benefit here — this scheduler has exactly one job to run, so a loop that
+inherits the container's environment directly is simpler and strictly
+more predictable than getting cron's environment handling right for a
+one-line crontab.
+
+**Why not Redis/Celery/Kafka/RabbitMQ/Kubernetes/a worker fleet:** none
+of that is justified by what this scheduler actually needs to do — wait
+on an interval, then make one outbound HTTP call. `discovery-scheduler`
+doesn't touch the database, doesn't know about Greenhouse, and doesn't
+retry with backoff
+(a failed call just waits for the next interval, and the failure is
+already recorded as a `DiscoveryRun` row by the API). Introducing a
+broker or task queue for that would add real operational surface (a
+broker to run and monitor, worker processes, retry/dead-letter handling)
+that nothing here needs yet. Revisit when there is more than one board to
+schedule independently, or when a failed fetch needs automatic
+retry-with-backoff rather than waiting for the next scheduled run.
+
+**Concurrency — avoiding overlapping runs:** `run_configured_discovery`
+(`apps/api/services/job_discovery_service.py`) is guarded by an
+in-process `threading.Lock`, so a second trigger (the scheduler firing
+while a manual trigger is still in flight, or a misconfigured second
+scheduler) is rejected with `409` rather than running concurrently. A
+plain in-process lock is correct *only* because `api` runs as a single
+uvicorn worker process (see `apps/api/Dockerfile` — no `--workers` flag);
+scaling `api` to multiple worker processes or containers would require
+replacing this with a DB-level lock (e.g. a Postgres advisory lock)
+instead of reaching for distributed-locking infrastructure. Separately,
+`discovery-scheduler` itself is a single sequential loop, so it can never
+overlap with itself by construction — the lock exists for *other*
+callers of the same endpoint, not to protect against the scheduler.
 
 **Observability:** every invocation of `POST /run` records one
 `DiscoveryRun` row (source, status, started/completed timestamps, fetched
@@ -103,20 +158,3 @@ failure). `GET /internal/job-discovery/runs` (same trigger-token auth)
 returns the most recent runs, newest first, so an operator or the
 external scheduler can check run history without grepping application
 logs.
-
-This was chosen over adding an in-process scheduler, a task queue
-(Celery/RQ), or a message broker (Redis/Kafka) because:
-- The current deployment (`docker-compose.yml`: one `api` container, one
-  `db` container) has no existing worker/queue infrastructure, and
-  discovery for one board is a single, fast, synchronous HTTP call — it
-  does not need background execution, retries-with-backoff infrastructure,
-  or horizontal worker scaling at this stage.
-- An external scheduler keeps "when to run" (an ops concern that changes
-  per environment/cadence) out of the application's own deployment
-  unit — no code change is needed to change the schedule, add a second
-  board, or pause discovery.
-- If/when discovery needs to run against many boards on independent
-  schedules, retry failed fetches with backoff, or run as a true
-  background job decoupled from a request/response cycle, that is the
-  point to introduce a task queue — not before there is more than one
-  board to ingest.

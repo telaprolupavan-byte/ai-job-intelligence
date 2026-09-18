@@ -17,6 +17,7 @@ configures them.
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -54,6 +55,28 @@ class JobDiscoveryNotConfiguredError(JobDiscoveryServiceError):
             "JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME to enable it.",
             status_code=503,
         )
+
+
+class JobDiscoveryAlreadyRunningError(JobDiscoveryServiceError):
+    def __init__(self) -> None:
+        super().__init__(
+            "A discovery run is already in progress. Try again once it "
+            "finishes.",
+            status_code=409,
+        )
+
+
+# Guards run_configured_discovery against overlapping executions (e.g. the
+# scheduler firing while an operator's manual trigger is still in flight).
+# A plain in-process threading.Lock is enough - and *only* enough - because
+# the api container runs a single uvicorn worker process (see the
+# Dockerfile: no --workers flag) with sync path operations dispatched to a
+# thread pool within that one process, not across multiple processes or
+# containers. If this deployment is ever scaled to multiple worker
+# processes/containers, this must become a DB-level lock (e.g. Postgres
+# advisory locks) instead - do not reach for distributed locking
+# infrastructure (Redis, etc.) before that is actually true.
+_discovery_lock = threading.Lock()
 
 
 @dataclass
@@ -96,51 +119,66 @@ def run_configured_discovery(db: Session) -> DiscoveryRunSummary:
 
     Records one DiscoveryRun row for observability (source, start/end
     time, status, counts, safe error info) - whether the run succeeds or
-    fails. A run that never starts (e.g. no source configured) has
-    nothing to record, since no attempt was made.
+    fails. A run that never starts (e.g. no source configured, or one is
+    already in progress) has nothing to record, since no attempt was made.
+
+    Rejects with JobDiscoveryAlreadyRunningError (409) rather than
+    running concurrently with another in-flight call - see
+    `_discovery_lock` for why a plain in-process lock is sufficient here.
     """
     source = build_configured_source()
 
-    run = DiscoveryRun(id=uuid.uuid4(), source=source.source_name, status="running")
-    db.add(run)
+    if not _discovery_lock.acquire(blocking=False):
+        raise JobDiscoveryAlreadyRunningError()
 
     try:
-        discovered_jobs = source.fetch_jobs()
-    except GreenhouseAdapterError as exc:
-        run.status = "failed"
-        run.completed_at = datetime.utcnow()
-        run.error_message = str(exc)[:_ERROR_MESSAGE_MAX_LEN]
-        db.commit()
-        raise JobDiscoveryServiceError(
-            f"Unable to fetch jobs from {source.source_name}: {exc}",
-            status_code=502,
-        ) from exc
+        run = DiscoveryRun(
+            id=uuid.uuid4(), source=source.source_name, status="running"
+        )
+        db.add(run)
 
-    try:
-        result: PipelineResult = run_discovery_pipeline(db, discovered_jobs)
+        try:
+            discovered_jobs = source.fetch_jobs()
+        except GreenhouseAdapterError as exc:
+            run.status = "failed"
+            run.completed_at = datetime.utcnow()
+            run.error_message = str(exc)[:_ERROR_MESSAGE_MAX_LEN]
+            db.commit()
+            raise JobDiscoveryServiceError(
+                f"Unable to fetch jobs from {source.source_name}: {exc}",
+                status_code=502,
+            ) from exc
 
-        run.status = "succeeded"
-        run.completed_at = datetime.utcnow()
-        run.fetched_count = len(discovered_jobs)
-        run.inserted_count = len(result.inserted)
-        run.updated_count = len(result.updated)
-        run.rejected_count = len(result.rejected)
+        try:
+            result: PipelineResult = run_discovery_pipeline(db, discovered_jobs)
 
-        db.commit()
-    except Exception as exc:  # noqa: BLE001 - e.g. a DB outage mid-run
-        # A failure here (including in db.commit() itself) means the
-        # DiscoveryRun "running" row never got committed either, so there
-        # is nothing to update in place. Not attempting a second write in
-        # the same broken transaction is deliberate: the caller (the
-        # request's get_db dependency) rolls the session back on close,
-        # and this failure mode is rare enough that losing the run's own
-        # observability row is an acceptable trade-off against the risk
-        # of a second write compounding a real DB outage.
-        logger.error("Discovery run for %s failed: %s", source.source_name, exc)
-        raise JobDiscoveryServiceError(
-            f"Job discovery run failed while persisting results: {exc}",
-            status_code=503,
-        ) from exc
+            run.status = "succeeded"
+            run.completed_at = datetime.utcnow()
+            run.fetched_count = len(discovered_jobs)
+            run.inserted_count = len(result.inserted)
+            run.updated_count = len(result.updated)
+            run.rejected_count = len(result.rejected)
+
+            db.commit()
+        except Exception as exc:  # noqa: BLE001 - e.g. a DB outage mid-run
+            # A failure here (including in db.commit() itself) means the
+            # DiscoveryRun "running" row never got committed either, so
+            # there is nothing to update in place. Not attempting a
+            # second write in the same broken transaction is deliberate:
+            # the caller (the request's get_db dependency) rolls the
+            # session back on close, and this failure mode is rare enough
+            # that losing the run's own observability row is an
+            # acceptable trade-off against the risk of a second write
+            # compounding a real DB outage.
+            logger.error(
+                "Discovery run for %s failed: %s", source.source_name, exc
+            )
+            raise JobDiscoveryServiceError(
+                f"Job discovery run failed while persisting results: {exc}",
+                status_code=503,
+            ) from exc
+    finally:
+        _discovery_lock.release()
 
     return DiscoveryRunSummary(
         source=source.source_name,

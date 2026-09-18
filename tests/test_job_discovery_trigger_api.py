@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -6,6 +8,31 @@ from apps.api.dependencies import get_db
 from apps.api.main import app
 from apps.api.models import Job
 from services.job_discovery.contracts import DiscoveredJob
+
+
+def _fake_discovered_job(source_job_id: str, title: str) -> DiscoveredJob:
+    return DiscoveredJob(
+        source="greenhouse",
+        source_job_id=source_job_id,
+        title=title,
+        company="Example Inc",
+        description="Build things.",
+        requirements=None,
+        responsibilities=None,
+        location="Remote, USA",
+        country="USA",
+        remote_type="remote",
+        employment_type="full_time",
+        salary_min=None,
+        salary_max=None,
+        salary_currency=None,
+        contract_duration=None,
+        contract_worker_type=None,
+        source_url=f"https://boards.greenhouse.io/example/jobs/{source_job_id}",
+        application_url=f"https://boards.greenhouse.io/example/jobs/{source_job_id}",
+        posted_at=None,
+        expires_at=None,
+    )
 
 
 @pytest.fixture
@@ -198,3 +225,68 @@ def test_list_runs_returns_recorded_runs_after_trigger(client, monkeypatch, db):
     assert runs[0]["started_at"] is not None
     assert runs[0]["completed_at"] is not None
     assert runs[0]["error_message"] is None
+
+
+def test_overlapping_triggers_reject_the_second_and_recover_afterwards(
+    client, monkeypatch
+):
+    """End-to-end, through the real HTTP endpoint on real threads: a
+    trigger that arrives while one is already in flight (e.g. the
+    scheduler firing during a slow manual trigger, or two scheduler
+    instances misconfigured to overlap) is rejected with 409 rather than
+    running concurrently, and the lock is released afterwards so a later
+    run is not permanently blocked by the earlier one."""
+    monkeypatch.setattr(settings, "job_discovery_trigger_token", "secret-1")
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_fetch(self):
+        started.set()
+        release.wait(timeout=5)
+        return [_fake_discovered_job("gh-slow", "Slow Fetch Role")]
+
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        _slow_fetch,
+    )
+
+    results = {}
+
+    def _first_call():
+        results["first"] = client.post(
+            "/internal/job-discovery/run",
+            headers={"X-Discovery-Trigger-Token": "secret-1"},
+        )
+
+    first_thread = threading.Thread(target=_first_call)
+    first_thread.start()
+    assert started.wait(timeout=5), "first call never reached fetch_jobs"
+
+    second_response = client.post(
+        "/internal/job-discovery/run",
+        headers={"X-Discovery-Trigger-Token": "secret-1"},
+    )
+    assert second_response.status_code == 409
+
+    release.set()
+    first_thread.join(timeout=5)
+    assert not first_thread.is_alive()
+    assert results["first"].status_code == 200
+    assert results["first"].json()["inserted"] == 1
+
+    # Recovery after a rejected overlap (the lock being released so a
+    # later run is not permanently blocked) is covered, single-threaded,
+    # by test_run_configured_discovery_rejects_overlapping_run in
+    # test_job_discovery_service.py - deliberately not repeated here on a
+    # second real thread against the shared test-session `db` fixture,
+    # which (unlike a real request's own freshly-opened session) is not
+    # safe to reuse across threads once a background thread has already
+    # committed through it.
