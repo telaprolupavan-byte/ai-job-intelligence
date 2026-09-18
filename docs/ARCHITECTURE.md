@@ -1237,6 +1237,21 @@ concrete future need emerges to track scorecards over time or expose them
 outside engineering, and treat that as its own ticket rather than folding
 it into this one.
 
+### Evaluation-only adapters for real candidates (not yet run)
+
+`services/provider_scorecard/eval_adapters/` (Adzuna, Jooble, USAJOBS, The
+Muse) and `services/provider_scorecard/run_eval.py` exist so a real
+comparison can be run - see the package README's "Evaluating real
+candidate providers" section for required credentials per provider and
+each adapter's documented data-quality gaps. These are explicitly **not**
+production `services.job_discovery.sources` adapters. They have not been
+executed against live data: the session they were authored in has an
+egress policy that denies all four hosts outright, and none of the three
+that require an API key had one configured - this is a stated fact about
+what has and hasn't happened, not a scorecard result to act on. Run
+`run_eval.py` in an environment with network access to those hosts and
+the real credentials to get an actual comparison.
+
 ### Testing
 
 `tests/test_provider_scorecard_contracts.py` covers `ProviderScorecard`'s
@@ -1252,4 +1267,12 @@ input like `"Fully Remote"`/`"full time"` still passes), that an invalid
 job is counted rather than dropped, that an adapter exception degrades to
 a failed measurement instead of raising and aborting the whole provider
 comparison, and that `compare_providers()` runs the identical scenario
-list against every adapter.
+list against every adapter. `tests/test_provider_scorecard_us_location.py`
+and `tests/test_provider_scorecard_eval_adapters.py` cover the four
+evaluation-only adapters against canned fixture payloads (not live calls,
+per the section above): each adapter's `from_env()` skip/build behavior,
+field mapping into `DiscoveredJob`, the country heuristic's word-boundary
+fix (a Muse location like `"Flexible / Remote"` no longer false-positives
+on the `"FL"` marker the way a raw-substring version would), and that The
+Muse's adapter never sends `scenario.keywords` as a query parameter (its
+public API has nothing to map it onto).

@@ -33,6 +33,43 @@ provider is worth building a real `JobSourceAdapter` for
 ("Implementation") is a Product Owner call, made by comparing scorecards
 across candidates.
 
+## Evaluating real candidate providers (Adzuna, Jooble, USAJOBS, The Muse)
+
+`services/provider_scorecard/eval_adapters/` has one `ProviderSearchAdapter`
+per candidate, and `run_eval.py` is a ready-to-run CLI:
+
+```
+python -m services.provider_scorecard.run_eval
+```
+
+These are **evaluation-only** - not `services.job_discovery.sources`
+production adapters, not wired into the API/DB/scheduler anywhere. A
+provider missing its required env vars is skipped, not failed:
+
+| Provider | Required env vars | Signup needed? |
+|---|---|---|
+| Adzuna   | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` (`ADZUNA_COUNTRY` optional) | Yes - free at developer.adzuna.com |
+| Jooble   | `JOOBLE_API_KEY` | Yes - free at jooble.org/api/about |
+| USAJOBS  | `USAJOBS_API_KEY`, `USAJOBS_USER_AGENT_EMAIL` | Yes - free at developer.usajobs.gov |
+| The Muse | none (`THE_MUSE_API_KEY` optional, raises rate limit) | No |
+
+**Status as of this writing:** these adapters were authored and unit-
+tested (against fixture payloads matching each provider's published API
+docs) in a sandboxed session whose egress policy denies all four hosts
+(`adzuna.com`, `jooble.org`, `usajobs.gov`, `themuse.com`) outright, and
+with no credentials configured for the three that require them. They
+have therefore never been executed against live data - run `run_eval.py`
+somewhere with both network access to those hosts and the credentials
+above to get real numbers, and treat that first run's raw output as the
+actual verification of the field mappings, not this README.
+
+Each adapter's own docstring documents provider-specific data-quality
+gaps discovered just from reading each API's documentation (e.g. The
+Muse has no free-text keyword search, Jooble's salary is unstructured
+free text, Adzuna has no remote/hybrid/onsite field) - these are exactly
+the kind of finding this workflow exists to surface before committing to
+build a real adapter for any of them.
+
 ## Running a comparison
 
 ```python
