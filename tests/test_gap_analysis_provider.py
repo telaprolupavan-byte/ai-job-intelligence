@@ -6,6 +6,7 @@ tests/test_job_intelligence_provider.py's conventions.
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from apps.api.services.gap_analysis.providers.openai_provider import (
     GapAnalysisProviderError,
@@ -148,4 +149,67 @@ def test_provider_wraps_authentication_error(mock_openai):
     )
 
     with pytest.raises(GapAnalysisProviderError, match="authentication failed"):
+        provider.generate_gap_suggestions(gap_candidates=[], job_context={})
+
+
+@patch("apps.api.services.gap_analysis.providers.openai_provider.OpenAI")
+def test_provider_wraps_timeout_error(mock_openai):
+    from openai import APITimeoutError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APITimeoutError(request=MagicMock())
+
+    provider = OpenAIGapAnalysisProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(GapAnalysisProviderError, match="timed out"):
+        provider.generate_gap_suggestions(gap_candidates=[], job_context={})
+
+
+@patch("apps.api.services.gap_analysis.providers.openai_provider.OpenAI")
+def test_provider_wraps_connection_error(mock_openai):
+    from openai import APIConnectionError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APIConnectionError(request=MagicMock())
+
+    provider = OpenAIGapAnalysisProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(GapAnalysisProviderError, match="Could not connect"):
+        provider.generate_gap_suggestions(gap_candidates=[], job_context={})
+
+
+@patch("apps.api.services.gap_analysis.providers.openai_provider.OpenAI")
+def test_provider_wraps_generic_api_error(mock_openai):
+    from openai import APIError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APIError(
+        "server error", MagicMock(), body=None
+    )
+
+    provider = OpenAIGapAnalysisProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(GapAnalysisProviderError, match="OpenAI API request failed"):
+        provider.generate_gap_suggestions(gap_candidates=[], job_context={})
+
+
+@patch("apps.api.services.gap_analysis.providers.openai_provider.OpenAI")
+def test_provider_wraps_malformed_output_as_safe_error(mock_openai):
+    """A raw schema-validation failure from the SDK must not escape as-is
+    — it is caught by the generic handler and re-raised as the safe,
+    application-level error type."""
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = ValidationError.from_exception_data(
+        "ProviderGapAnalysis", []
+    )
+
+    provider = OpenAIGapAnalysisProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(
+        GapAnalysisProviderError, match="Unexpected Gap Analysis provider error"
+    ):
         provider.generate_gap_suggestions(gap_candidates=[], job_context={})
