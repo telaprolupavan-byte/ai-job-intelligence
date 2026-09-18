@@ -17,7 +17,13 @@ import {
   type JobIntelligenceData,
   type JobMatchResult,
 } from "@/lib/jobs";
-import { saveJob } from "@/lib/applications";
+import {
+  getApplications,
+  removeSavedJob,
+  saveJob,
+  updateApplicationStatus,
+  type Application,
+} from "@/lib/applications";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import Container from "@/components/app/container";
 import Panel, { PanelHeader } from "@/components/app/panel";
@@ -118,6 +124,14 @@ function JobsPageInner() {
     {},
   );
   const [atsErrors, setAtsErrors] = useState<Record<string, string>>({});
+
+  // This user's existing saved/applied tracking record for each job,
+  // keyed by job id (not by application id) - looked up once so the
+  // Jobs list can show persisted "Saved"/"Applied" state rather than
+  // resetting on every reload.
+  const [applicationsByJobId, setApplicationsByJobId] = useState<
+    Record<string, Application>
+  >({});
   const [isPending, startTransition] = useTransition();
 
   // Keeps the URL in sync with the active search so a refresh, a shared
@@ -178,6 +192,49 @@ function JobsPageInner() {
       cancelled = true;
     };
   }, [appliedFilters, page]);
+
+  // Loaded once (not per-page/filter): this is the user's own tracking
+  // state, independent of which page of job results is showing.
+  useEffect(() => {
+    let cancelled = false;
+
+    getApplications()
+      .then((applications) => {
+        if (cancelled) return;
+
+        setApplicationsByJobId(
+          Object.fromEntries(
+            applications.map((application) => [
+              application.job.id,
+              application,
+            ]),
+          ),
+        );
+      })
+      .catch(() => {
+        // Not fatal to browsing jobs - Save/Mark as Applied will simply
+        // start from an untracked state if this fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function handleApplicationChange(
+    jobId: string,
+    application: Application | null,
+  ) {
+    setApplicationsByJobId((current) => {
+      const next = { ...current };
+      if (application) {
+        next[jobId] = application;
+      } else {
+        delete next[jobId];
+      }
+      return next;
+    });
+  }
 
   function handleSearch(event: React.FormEvent) {
     event.preventDefault();
@@ -536,6 +593,8 @@ function JobsPageInner() {
               <JobCard
                 key={job.id}
                 job={job}
+                application={applicationsByJobId[job.id]}
+                onApplicationChange={handleApplicationChange}
                 match={matches[job.id]}
                 isMatching={Boolean(matchingJobIds[job.id])}
                 matchError={matchErrors[job.id]}
@@ -632,47 +691,147 @@ function FilterField({
   );
 }
 
-function SaveJobButton({ jobId }: { jobId: string }) {
-  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle",
+function formatApplicationStatus(status: string): string {
+  return status
+    .split("_")
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function JobTrackingActions({
+  jobId,
+  application,
+  onApplicationChange,
+}: {
+  jobId: string;
+  application?: Application;
+  onApplicationChange: (jobId: string, application: Application | null) => void;
+}) {
+  const [pending, setPending] = useState<"save" | "apply" | "remove" | null>(
+    null,
   );
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleClick() {
-    if (state === "saving" || state === "saved") return;
-
-    setState("saving");
+  async function handleSave() {
+    setPending("save");
+    setError(null);
 
     try {
-      await saveJob(jobId);
-      setState("saved");
+      const result = await saveJob(jobId);
+      onApplicationChange(jobId, result);
     } catch {
-      setState("error");
+      setError("Could not save job.");
+    } finally {
+      setPending(null);
     }
   }
 
+  async function handleMarkApplied() {
+    if (!application) return;
+
+    setPending("apply");
+    setError(null);
+
+    try {
+      const result = await updateApplicationStatus(application.id, "applied");
+      onApplicationChange(jobId, result);
+    } catch {
+      setError("Could not mark as applied.");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function handleRemove() {
+    if (!application) return;
+
+    setPending("remove");
+    setError(null);
+
+    try {
+      await removeSavedJob(application.id);
+      onApplicationChange(jobId, null);
+    } catch {
+      setError("Could not remove saved job.");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  if (!application) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <AppButton
+          variant="secondary"
+          loading={pending === "save"}
+          onClick={handleSave}
+          aria-label="Save job"
+        >
+          <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />
+          Save
+        </AppButton>
+        {error && <p className="text-xs text-app-danger-text">{error}</p>}
+      </div>
+    );
+  }
+
+  // Once the user has explicitly marked the job Applied (or further
+  // along), it's an Application, not merely a saved job - NERO never
+  // auto-applies, so this state only ever comes from the user's own
+  // "Mark as Applied" action or a status update on the Application
+  // Detail page, never from clicking the external Apply link.
+  if (application.status !== "saved") {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <Badge tone="blue-soft">
+          {formatApplicationStatus(application.status)}
+        </Badge>
+        <AppButton
+          variant="ghost"
+          size="sm"
+          href={`/applications/${application.id}`}
+        >
+          View Application
+        </AppButton>
+      </div>
+    );
+  }
+
   return (
-    <AppButton
-      variant="secondary"
-      loading={state === "saving"}
-      onClick={handleClick}
-      aria-label={state === "saved" ? "Job saved" : "Save job"}
-    >
-      {state === "saved" ? (
+    <div className="flex flex-col items-end gap-2">
+      <AppButton
+        variant="secondary"
+        disabled
+        aria-label="Job saved"
+      >
         <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" />
-      ) : (
-        <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />
-      )}
-      {state === "saved"
-        ? "Saved"
-        : state === "error"
-          ? "Retry Save"
-          : "Save"}
-    </AppButton>
+        Saved
+      </AppButton>
+      <AppButton
+        variant="primary"
+        size="sm"
+        loading={pending === "apply"}
+        onClick={handleMarkApplied}
+      >
+        Mark as Applied
+      </AppButton>
+      <AppButton
+        variant="ghost"
+        size="sm"
+        loading={pending === "remove"}
+        onClick={handleRemove}
+      >
+        Remove
+      </AppButton>
+      {error && <p className="text-xs text-app-danger-text">{error}</p>}
+    </div>
   );
 }
 
 function JobCard({
   job,
+  application,
+  onApplicationChange,
   match,
   isMatching,
   matchError,
@@ -691,6 +850,8 @@ function JobCard({
   onCalculateAts,
 }: {
   job: Job;
+  application?: Application;
+  onApplicationChange: (jobId: string, application: Application | null) => void;
   match?: JobMatchResult;
   isMatching: boolean;
   matchError?: string;
@@ -776,7 +937,11 @@ function JobCard({
 
           {/* ACTIONS */}
           <div className="flex shrink-0 gap-3 lg:flex-col">
-            <SaveJobButton jobId={job.id} />
+            <JobTrackingActions
+              jobId={job.id}
+              application={application}
+              onApplicationChange={onApplicationChange}
+            />
 
             {job.source_url && (
               <AppButton

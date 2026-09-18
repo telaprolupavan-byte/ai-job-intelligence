@@ -160,9 +160,16 @@ export default function ApplicationDetailPage() {
                   : undefined
               }
               action={
-                <Badge tone={STATUS_TONE[application.status]}>
-                  {formatStatus(application.status)}
-                </Badge>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge tone={STATUS_TONE[application.status]}>
+                    {formatStatus(application.status)}
+                  </Badge>
+                  {application.applied_at && (
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-app-faint">
+                      Applied {formatDate(application.applied_at)}
+                    </span>
+                  )}
+                </div>
               }
             />
 

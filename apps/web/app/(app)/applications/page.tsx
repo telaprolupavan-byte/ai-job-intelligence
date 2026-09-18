@@ -34,6 +34,12 @@ function formatStatus(status: string): string {
     .join(" ");
 }
 
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString(undefined, {
+    dateStyle: "medium",
+  });
+}
+
 export default function ApplicationsPage() {
   const router = useRouter();
 
@@ -127,6 +133,11 @@ export default function ApplicationsPage() {
                             ? ` · ${application.job.location}`
                             : ""}
                         </div>
+                        {application.applied_at && (
+                          <div className="mt-1 text-xs text-app-faint">
+                            Applied {formatDate(application.applied_at)}
+                          </div>
+                        )}
                       </div>
 
                       <Badge
