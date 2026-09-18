@@ -283,3 +283,35 @@ def test_calculate_job_match_without_authentication(
     )
 
     assert response.status_code == 401
+
+
+def test_calculate_job_match_rejects_other_users_resume_version_id(
+    client,
+    db,
+    test_job,
+    test_resume,
+    auth_headers,
+):
+    """A resume_version_id belonging to a different user must be
+    rejected the same way as a nonexistent one, never exposing that
+    user's resume data or even confirming the ID exists."""
+    other_user = User(
+        id=uuid4(),
+        email=f"match-other-{uuid4()}@example.com",
+        password_hash="test-password-hash",
+    )
+    db.add(other_user)
+    db.flush()
+
+    other_token = create_access_token(str(other_user.id))
+
+    response = client.post(
+        f"/jobs/{test_job.id}/match",
+        params={
+            "resume_version_id": str(test_resume.versions[0].id),
+        },
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resume version not found."

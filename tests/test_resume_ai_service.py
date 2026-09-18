@@ -7,6 +7,9 @@ import pytest
 
 from apps.api.models import ResumeAIAnalysis
 from apps.api.services.resume_ai import service
+from apps.api.services.resume_ai.providers.openai_provider import (
+    ResumeAIProviderError,
+)
 
 
 class FakeProvider:
@@ -87,6 +90,7 @@ class FakeDB:
         self.added = []
         self.committed = False
         self.refreshed = []
+        self.rolled_back = False
 
     def query(self, model, *args, **kwargs):
         if model is ResumeAIAnalysis:
@@ -101,6 +105,9 @@ class FakeDB:
 
     def refresh(self, item):
         self.refreshed.append(item)
+
+    def rollback(self):
+        self.rolled_back = True
 
 
 def make_resume_version(text: str):
@@ -374,3 +381,58 @@ def test_analyze_resume_version_reuses_cached_analysis(monkeypatch):
     assert provider.resume_text is None
     assert db.added == []
     assert db.committed is False
+
+
+class FailingProvider:
+    provider_name = "fake"
+    model_name = "fake-model"
+
+    def generate_structured_analysis(
+        self,
+        *,
+        resume_text: str,
+        deterministic_analysis: dict,
+    ) -> dict:
+        raise ResumeAIProviderError("OpenAI request timed out.")
+
+
+def test_analyze_resume_version_provider_failure_raises_safe_error_and_rolls_back(
+    monkeypatch,
+):
+    """Unlike Job Intelligence and Gap Analysis, Resume AI has no
+    deterministic-only result to degrade to (the AI review/decoding *is*
+    the deliverable), so a provider failure must surface as a safe 503
+    service error rather than persisting a broken/partial analysis."""
+    resume_version = make_resume_version(
+        """
+        John Doe
+        EXPERIENCE
+        - Built Python applications
+
+        SKILLS
+        Python
+        """
+    )
+
+    db = FakeDB(resume_version)
+
+    monkeypatch.setattr(
+        service,
+        "create_resume_ai_provider",
+        lambda: FailingProvider(),
+    )
+
+    with pytest.raises(
+        service.ResumeAIServiceError,
+        match="Unable to generate a valid resume AI analysis",
+    ) as exc_info:
+        service.analyze_resume_version(
+            db=db,
+            user_id=resume_version.resume.user_id,
+            resume_version_id=resume_version.id,
+        )
+
+    assert exc_info.value.status_code == 503
+    assert db.added == []
+    assert db.committed is False
+    assert db.rolled_back is True

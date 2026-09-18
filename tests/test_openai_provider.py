@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from apps.api.services.resume_ai.providers.openai_provider import (
     OpenAIResumeProvider,
@@ -151,6 +152,103 @@ def test_openai_provider_rejects_missing_structured_response(mock_openai):
     with pytest.raises(
         ResumeAIProviderError,
         match="no structured resume analysis",
+    ):
+        provider.generate_structured_analysis(
+            resume_text="Resume text",
+            deterministic_analysis={},
+        )
+
+
+@patch("apps.api.services.resume_ai.providers.openai_provider.OpenAI")
+def test_openai_provider_wraps_authentication_error(mock_openai):
+    from openai import AuthenticationError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = AuthenticationError(
+        "bad key", response=MagicMock(status_code=401), body=None
+    )
+
+    provider = OpenAIResumeProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(ResumeAIProviderError, match="authentication failed"):
+        provider.generate_structured_analysis(
+            resume_text="Resume text",
+            deterministic_analysis={},
+        )
+
+
+@patch("apps.api.services.resume_ai.providers.openai_provider.OpenAI")
+def test_openai_provider_wraps_timeout_error(mock_openai):
+    from openai import APITimeoutError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APITimeoutError(request=MagicMock())
+
+    provider = OpenAIResumeProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(ResumeAIProviderError, match="timed out"):
+        provider.generate_structured_analysis(
+            resume_text="Resume text",
+            deterministic_analysis={},
+        )
+
+
+@patch("apps.api.services.resume_ai.providers.openai_provider.OpenAI")
+def test_openai_provider_wraps_connection_error(mock_openai):
+    from openai import APIConnectionError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APIConnectionError(request=MagicMock())
+
+    provider = OpenAIResumeProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(ResumeAIProviderError, match="Could not connect"):
+        provider.generate_structured_analysis(
+            resume_text="Resume text",
+            deterministic_analysis={},
+        )
+
+
+@patch("apps.api.services.resume_ai.providers.openai_provider.OpenAI")
+def test_openai_provider_wraps_generic_api_error(mock_openai):
+    from openai import APIError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APIError(
+        "server error", MagicMock(), body=None
+    )
+
+    provider = OpenAIResumeProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(ResumeAIProviderError, match="OpenAI API request failed"):
+        provider.generate_structured_analysis(
+            resume_text="Resume text",
+            deterministic_analysis={},
+        )
+
+
+@patch("apps.api.services.resume_ai.providers.openai_provider.OpenAI")
+def test_openai_provider_wraps_malformed_output_as_safe_error(mock_openai):
+    """Simulates the SDK failing to coerce the model's raw output into the
+    declared schema (e.g. a field of the wrong type). The provider must
+    not let a raw pydantic ValidationError escape to the caller — it
+    should be caught by the generic handler and re-raised as the safe,
+    application-level error type.
+    """
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = ValidationError.from_exception_data(
+        "ProviderAnalysis", []
+    )
+
+    provider = OpenAIResumeProvider(api_key="test-key", model_name="test-model")
+
+    with pytest.raises(
+        ResumeAIProviderError, match="Unexpected resume AI provider error"
     ):
         provider.generate_structured_analysis(
             resume_text="Resume text",

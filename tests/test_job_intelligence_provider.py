@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from apps.api.services.job_intelligence.providers.openai_provider import (
     JobIntelligenceProviderError,
@@ -114,6 +115,111 @@ def test_provider_rejects_missing_structured_response(mock_openai):
     with pytest.raises(
         JobIntelligenceProviderError,
         match="no structured Job Intelligence semantics",
+    ):
+        provider.generate_job_semantics(
+            raw_jd_text="Job description",
+            deterministic_context={},
+        )
+
+
+@patch("apps.api.services.job_intelligence.providers.openai_provider.OpenAI")
+def test_provider_wraps_authentication_error(mock_openai):
+    from openai import AuthenticationError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = AuthenticationError(
+        "bad key", response=MagicMock(status_code=401), body=None
+    )
+
+    provider = OpenAIJobIntelligenceProvider(
+        api_key="test-key", model_name="test-model"
+    )
+
+    with pytest.raises(JobIntelligenceProviderError, match="authentication failed"):
+        provider.generate_job_semantics(
+            raw_jd_text="Job description",
+            deterministic_context={},
+        )
+
+
+@patch("apps.api.services.job_intelligence.providers.openai_provider.OpenAI")
+def test_provider_wraps_timeout_error(mock_openai):
+    from openai import APITimeoutError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APITimeoutError(request=MagicMock())
+
+    provider = OpenAIJobIntelligenceProvider(
+        api_key="test-key", model_name="test-model"
+    )
+
+    with pytest.raises(JobIntelligenceProviderError, match="timed out"):
+        provider.generate_job_semantics(
+            raw_jd_text="Job description",
+            deterministic_context={},
+        )
+
+
+@patch("apps.api.services.job_intelligence.providers.openai_provider.OpenAI")
+def test_provider_wraps_connection_error(mock_openai):
+    from openai import APIConnectionError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APIConnectionError(request=MagicMock())
+
+    provider = OpenAIJobIntelligenceProvider(
+        api_key="test-key", model_name="test-model"
+    )
+
+    with pytest.raises(JobIntelligenceProviderError, match="Could not connect"):
+        provider.generate_job_semantics(
+            raw_jd_text="Job description",
+            deterministic_context={},
+        )
+
+
+@patch("apps.api.services.job_intelligence.providers.openai_provider.OpenAI")
+def test_provider_wraps_generic_api_error(mock_openai):
+    from openai import APIError
+
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = APIError(
+        "server error", MagicMock(), body=None
+    )
+
+    provider = OpenAIJobIntelligenceProvider(
+        api_key="test-key", model_name="test-model"
+    )
+
+    with pytest.raises(JobIntelligenceProviderError, match="OpenAI API request failed"):
+        provider.generate_job_semantics(
+            raw_jd_text="Job description",
+            deterministic_context={},
+        )
+
+
+@patch("apps.api.services.job_intelligence.providers.openai_provider.OpenAI")
+def test_provider_wraps_malformed_output_as_safe_error(mock_openai):
+    """A raw schema-validation failure from the SDK must not escape as-is
+    — it is caught by the generic handler and re-raised as the safe,
+    application-level error type."""
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+    mock_client.responses.parse.side_effect = ValidationError.from_exception_data(
+        "ProviderJobSemantics", []
+    )
+
+    provider = OpenAIJobIntelligenceProvider(
+        api_key="test-key", model_name="test-model"
+    )
+
+    with pytest.raises(
+        JobIntelligenceProviderError,
+        match="Unexpected Job Intelligence provider error",
     ):
         provider.generate_job_semantics(
             raw_jd_text="Job description",
