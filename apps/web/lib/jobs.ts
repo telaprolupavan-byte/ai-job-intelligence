@@ -324,6 +324,14 @@ export type AtsRequirementResult = {
   confidence: "high" | "medium" | "low";
 };
 
+export type AtsScoreComponent = {
+  name: string;
+  weight: number;
+  score: number;
+  weighted_score: number;
+  explanation: string;
+};
+
 export type AtsAlignmentResult = {
   id: string;
   job_id: string;
@@ -337,6 +345,8 @@ export type AtsAlignmentResult = {
   must_have_matched: number;
   preferred_total: number;
   preferred_matched: number;
+  must_have_ceiling: number | null;
+  score_components: AtsScoreComponent[];
   requirement_results: AtsRequirementResult[];
   created_at: string;
 };

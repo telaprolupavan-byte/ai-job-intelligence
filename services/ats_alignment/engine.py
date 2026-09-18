@@ -52,13 +52,21 @@ from services.ats_alignment.contracts import (
 )
 from services.ats_alignment.resume_adapter import ResumeEvidenceProfile
 from services.ats_alignment.scoring import (
-    SCORING_VERSION,
     compute_overall_confidence,
     compute_overall_score,
 )
+from services.ats_alignment.weights import SCORING_VERSION
 
 
-ENGINE_VERSION = "1.0.0"
+# Bumped for AJI-020 (the placeholder-1.0 equal-weighting formula was
+# replaced by the approved weighted formula in scoring.py). Per the
+# insert-only versioning convention (docs/ARCHITECTURE.md), this
+# guarantees every AtsAlignmentResult persisted under the old placeholder
+# formula is left untouched, and any recheck of a job always computes a
+# new row under the new formula rather than reusing a placeholder-scored
+# cache hit (apps/api/services/ats_alignment_service.py's idempotency
+# lookup is keyed on this value).
+ENGINE_VERSION = "2.0.0"
 
 
 def _carry_requirement_metadata(requirement: JobRequirementItem) -> dict:
@@ -469,11 +477,13 @@ def evaluate_ats_alignment(
         for requirement in job_requirements
     ]
 
-    overall_score = compute_overall_score(requirement_results)
+    scored = compute_overall_score(requirement_results, job_requirements, resume)
     overall_confidence = compute_overall_confidence(requirement_results)
 
-    if overall_score is None or overall_confidence is None:
+    if scored is None or overall_confidence is None:
         return None
+
+    overall_score, components, must_have_ceiling = scored
 
     must_have = [r for r in requirement_results if r.category == "must_have"]
     preferred = [r for r in requirement_results if r.category == "preferred"]
@@ -486,6 +496,8 @@ def evaluate_ats_alignment(
         must_have_matched=sum(1 for r in must_have if r.status == "matched"),
         preferred_total=len(preferred),
         preferred_matched=sum(1 for r in preferred if r.status == "matched"),
+        components=components,
+        must_have_ceiling=must_have_ceiling,
         engine_version=ENGINE_VERSION,
         scoring_version=SCORING_VERSION,
         relationships=relationships or [],

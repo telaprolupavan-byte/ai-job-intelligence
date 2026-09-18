@@ -517,6 +517,8 @@ def _ats_alignment_to_response(record: AtsAlignmentResult) -> dict:
         "must_have_matched": result_data["must_have_matched"],
         "preferred_total": result_data["preferred_total"],
         "preferred_matched": result_data["preferred_matched"],
+        "must_have_ceiling": result_data.get("must_have_ceiling"),
+        "score_components": result_data.get("score_components", []),
         "requirement_results": result_data["requirement_results"],
         # AJI-020C: descriptive-only, never scored - see
         # services/ats_alignment/contracts.py's

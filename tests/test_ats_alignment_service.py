@@ -308,9 +308,16 @@ def test_calculate_ats_alignment_happy_path(db):
     assert record.user_id == user.id
     assert record.job_id == job.id
     assert record.resume_version_id == resume_version.id
-    assert record.overall_score == 100.0
+    # AJI-020: Requirement Coverage/Keyword Alignment/Evidence & Experience
+    # are all 100 (the one skill and one experience requirement both
+    # match), but this resume has no detectable section headings, contact
+    # info, or bullet points, so Structure & Parseability scores 20/100
+    # (only the "no heading inconsistency" check passes) -> weighted sum
+    # 40 + 25 + 25 + (0.1 * 20) = 92, under the must-have ceiling (100).
+    assert record.overall_score == 92.0
     assert record.confidence == "high"
     assert len(record.result["requirement_results"]) == 2
+    assert len(record.result["score_components"]) == 4
 
 
 def test_calculate_ats_alignment_generates_job_intelligence_when_missing(
@@ -378,6 +385,96 @@ def test_changed_resume_version_creates_new_analysis(db):
     assert second.resume_version_id == v2.id
 
 
+def test_rechecking_with_new_resume_version_preserves_old_analysis(db):
+    """AJI-020: rechecking a job with a new resume version must create a
+    new analysis rather than overwrite the old one — both rows must
+    remain independently readable by their own resume_version_id."""
+    user = make_user(db, label="preserve-history")
+    job = make_job(db)
+    make_job_intelligence(db, job=job, required_skills=[skill_item("python")])
+
+    v1 = make_resume_version(
+        db, user=user, content_text="Python developer.", name="v1", is_master=True
+    )
+    first = calculate_ats_alignment(db=db, current_user=user, job_id=job.id)
+    first_score = first.overall_score
+
+    make_resume_version(
+        db,
+        user=user,
+        content_text="Go and Rust engineer with no Python experience.",
+        name="v2",
+        is_master=True,
+    )
+    calculate_ats_alignment(db=db, current_user=user, job_id=job.id)
+
+    # The v1 analysis is untouched: re-reading it by its own resume
+    # version id still returns the original score and requirement
+    # results, not the v2 recomputation.
+    preserved = get_latest_ats_alignment(
+        db, user_id=user.id, job_id=job.id, resume_version_id=v1.id
+    )
+
+    assert preserved.id == first.id
+    assert preserved.overall_score == first_score
+
+
+def test_two_resume_versions_for_same_job_have_independent_history(db):
+    user = make_user(db, label="resume-isolation")
+    job = make_job(db)
+    make_job_intelligence(db, job=job, required_skills=[skill_item("python")])
+
+    v1 = make_resume_version(
+        db, user=user, content_text="Python developer.", name="v1", is_master=False
+    )
+    v2 = make_resume_version(
+        db, user=user, content_text="Go engineer.", name="v2", is_master=False
+    )
+
+    result_v1 = calculate_ats_alignment(
+        db=db, current_user=user, job_id=job.id, resume_version_id=v1.id
+    )
+    result_v2 = calculate_ats_alignment(
+        db=db, current_user=user, job_id=job.id, resume_version_id=v2.id
+    )
+
+    assert result_v1.id != result_v2.id
+    assert result_v1.overall_score != result_v2.overall_score
+
+    fetched_v1 = get_latest_ats_alignment(
+        db, user_id=user.id, job_id=job.id, resume_version_id=v1.id
+    )
+    fetched_v2 = get_latest_ats_alignment(
+        db, user_id=user.id, job_id=job.id, resume_version_id=v2.id
+    )
+
+    assert fetched_v1.id == result_v1.id
+    assert fetched_v2.id == result_v2.id
+
+
+def test_same_resume_against_two_jobs_is_isolated_per_job(db):
+    user = make_user(db, label="job-isolation")
+    job_a = make_job(db)
+    job_b = make_job(db)
+    make_job_intelligence(db, job=job_a, required_skills=[skill_item("python")])
+    make_job_intelligence(db, job=job_b, required_skills=[skill_item("go")])
+    make_resume_version(db, user=user, content_text="Python developer.")
+
+    result_a = calculate_ats_alignment(db=db, current_user=user, job_id=job_a.id)
+    result_b = calculate_ats_alignment(db=db, current_user=user, job_id=job_b.id)
+
+    assert result_a.id != result_b.id
+    assert result_a.job_id == job_a.id
+    assert result_b.job_id == job_b.id
+
+    assert get_latest_ats_alignment(db, user_id=user.id, job_id=job_a.id).id == (
+        result_a.id
+    )
+    assert get_latest_ats_alignment(db, user_id=user.id, job_id=job_b.id).id == (
+        result_b.id
+    )
+
+
 def test_changed_job_intelligence_snapshot_creates_new_analysis(db):
     """`job_intelligence_id` is retained unchanged as a lineage-only
     isolation dimension by AJI-020C (its *content* no longer drives
@@ -424,7 +521,7 @@ def test_changed_requirement_intelligence_snapshot_creates_new_analysis_and_new_
         content_fingerprint="ri-fp-1",
     )
     first = calculate_ats_alignment(db=db, current_user=user, job_id=job.id)
-    assert first.overall_score == 100.0
+    assert first.overall_score > 0.0
 
     make_requirement_intelligence(
         db,

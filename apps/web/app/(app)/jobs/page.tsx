@@ -1514,6 +1514,25 @@ function AtsAlignmentPanel({ result }: { result: AtsAlignmentResult }) {
         </div>
       </div>
 
+      {result.score_components.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {result.score_components.map((component) => (
+            <div
+              key={component.name}
+              className="rounded-md border border-app-border px-2 py-1.5"
+              title={component.explanation}
+            >
+              <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
+                {atsComponentLabel(component.name)}
+              </div>
+              <div className="mt-0.5 text-sm font-semibold text-app-text">
+                {Math.round(component.score)}%
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mt-3 grid gap-4 lg:grid-cols-2">
         <AtsRequirementGroup
           title="Must-Have Requirements"
@@ -1608,6 +1627,17 @@ function atsStatusColor(status: AtsAlignmentStatus): string {
     default:
       return "text-app-red";
   }
+}
+
+const ATS_COMPONENT_LABELS: Record<string, string> = {
+  requirement_coverage: "Coverage",
+  keyword_terminology_alignment: "Keywords",
+  resume_evidence_experience: "Evidence",
+  structure_parseability: "Structure",
+};
+
+function atsComponentLabel(name: string): string {
+  return ATS_COMPONENT_LABELS[name] ?? name;
 }
 
 function RequirementList({
