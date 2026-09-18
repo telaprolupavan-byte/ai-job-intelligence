@@ -1,6 +1,15 @@
 import { apiRequest } from "./api";
 import { getAuthToken } from "./auth";
 
+export type DashboardJobPreview = {
+  id: string;
+  title: string;
+  company: string | null;
+  location: string | null;
+  employment_type: string | null;
+  remote_type: string | null;
+};
+
 export type DashboardData = {
   user: {
     email: string;
@@ -9,22 +18,24 @@ export type DashboardData = {
     status: "ready" | "not_ready";
     name: string | null;
   };
-  ats: {
-    // The most recent ATS Alignment result across any job — there is no
-    // resume-level ATS score, only a per-(user, job, resume) one.
-    score: number | null;
-    checked_at: string | null;
+  validation: {
+    status: "pending" | "analyzed";
   };
+  ats: {
+    score: number | null;
+    status: "pass" | "needs_improvement" | "not_checked" | "not_available";
+  };
+  last_checked_at: string | null;
   jobs: {
-    // Real count of active jobs first discovered today.
+    available: boolean;
     today_count: number;
-    // Employment types actually present among today's real jobs — never a
-    // static list of every type the system supports.
-    today_employment_types: string[];
+    full_time_count: number;
+    contract_count: number;
+    recent: DashboardJobPreview[];
   };
   applications: {
-    // Application tracking has no backend model yet; always false.
     available: boolean;
+    active_count: number;
   };
 };
 

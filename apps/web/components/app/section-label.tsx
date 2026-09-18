@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 type SectionLabelProps = {
   children: React.ReactNode;
-  tone?: "red" | "blue" | "faint";
+  tone?: "red" | "blue" | "faint" | "muted";
   className?: string;
   as?: "div" | "span";
 };
@@ -11,6 +11,7 @@ const TONE_CLASS = {
   red: "text-app-red",
   blue: "text-app-blue",
   faint: "text-app-faint",
+  muted: "text-app-muted",
 };
 
 export default function SectionLabel({

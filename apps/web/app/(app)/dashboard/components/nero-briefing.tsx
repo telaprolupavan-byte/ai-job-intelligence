@@ -5,45 +5,66 @@ import type { DashboardData } from "@/lib/dashboard";
 
 type Props = {
   resume: DashboardData["resume"];
+  validation: DashboardData["validation"];
   ats: DashboardData["ats"];
 };
 
-// Deterministic, rule-based copy driven only by real dashboard state — never
-// AI-generated. Each branch is a fixed template selected by a simple
-// condition, not a model call.
-function getBriefing(resume: Props["resume"], ats: Props["ats"]) {
+type Briefing = {
+  title: string;
+  body: string;
+  ctaLabel: string;
+  ctaHref: string;
+  footnote: string;
+};
+
+function briefingFor({ resume, validation, ats }: Props): Briefing {
   if (resume.status !== "ready") {
     return {
-      title: "Your next step",
-      body: "Upload your resume so NERO can start building your career intelligence.",
-      action: "Upload Resume",
+      title: "Upload your resume",
+      body: "NERO can't analyze what it hasn't seen yet — upload a resume to get started.",
+      ctaLabel: "Upload Resume",
+      ctaHref: "/resume",
+      footnote: "NERO will explain what needs attention before you continue.",
     };
   }
 
-  if (ats.score === null) {
+  if (validation.status !== "analyzed") {
     return {
       title: "Your next step",
       body: "Before searching for jobs, make sure your resume has been analyzed and validated.",
-      action: "Analyze Resume",
+      ctaLabel: "Analyze Resume",
+      ctaHref: "/resume",
+      footnote: "NERO will explain what needs attention before you continue.",
+    };
+  }
+
+  if (ats.status === "not_checked") {
+    return {
+      title: "Check your ATS alignment",
+      body: "Your resume is analyzed — see how it aligns with a specific job's requirements next.",
+      ctaLabel: "Browse Jobs",
+      ctaHref: "/jobs",
+      footnote: "NERO will explain what needs attention before you continue.",
     };
   }
 
   return {
-    title: "You're set up",
-    body: "Your resume has been analyzed. Keep checking new jobs to run fresh alignment checks.",
-    action: "View Jobs",
+    title: "You're up to date",
+    body: "Your resume is analyzed and ready. Keep exploring new opportunities as they appear.",
+    ctaLabel: "View Jobs",
+    ctaHref: "/jobs",
+    footnote: "NERO will keep watching for what changes next.",
   };
 }
 
-export default function NeroBriefing({ resume, ats }: Props) {
-  const briefing = getBriefing(resume, ats);
-  const actionHref = briefing.action === "View Jobs" ? "/jobs" : "/resume";
+export default function NeroBriefing(props: Props) {
+  const briefing = briefingFor(props);
 
   return (
-    <Panel as="div" padding="lg" className="flex h-full flex-col">
+    <Panel padding="lg" className="flex flex-col">
       <SectionLabel tone="blue">NERO Briefing</SectionLabel>
 
-      <h2 className="mt-5 text-[22px] font-bold tracking-tight text-app-text">
+      <h2 className="mt-4 text-[22px] font-bold text-app-text">
         {briefing.title}
       </h2>
 
@@ -51,13 +72,11 @@ export default function NeroBriefing({ resume, ats }: Props) {
         {briefing.body}
       </p>
 
-      <div className="mt-6">
-        <AppButton href={actionHref}>{briefing.action}</AppButton>
+      <div className="mt-5">
+        <AppButton href={briefing.ctaHref}>{briefing.ctaLabel}</AppButton>
       </div>
 
-      <p className="mt-auto pt-6 text-xs text-app-muted">
-        NERO will explain what needs attention before you continue.
-      </p>
+      <p className="mt-5 text-xs text-app-muted">{briefing.footnote}</p>
     </Panel>
   );
 }

@@ -2,13 +2,18 @@ import { cn } from "@/lib/utils";
 
 type BadgeProps = {
   children: React.ReactNode;
-  tone?: "neutral" | "blue" | "red" | "amber" | "success" | "critical" | "danger";
-  // "solid" (default) is the filled pill from the Job Card/Type/Match tag
-  // treatment. "soft" is the tinted-background/tinted-text pill used for
-  // dashboard status indicators (verified against NERO Figma node 33:3 —
-  // e.g. "READY FOR REVIEW", "Pending", "FULL-TIME"). Tones without a
-  // dedicated soft background (success/critical/danger) fall back to solid.
-  variant?: "solid" | "soft";
+  tone?:
+    | "neutral"
+    | "blue"
+    | "red"
+    | "amber"
+    | "success"
+    | "critical"
+    | "danger"
+    | "blue-soft"
+    | "red-soft"
+    | "success-soft"
+    | "neutral-soft";
   className?: string;
 };
 
@@ -33,29 +38,25 @@ const TONE_CLASS = {
   // status) — kept as-is; no Figma reference confirms it should switch
   // to a solid fill, so only its shape is unified with the other tones.
   danger: "border border-app-danger-border bg-app-danger-bg text-app-danger-text",
-};
-
-const SOFT_TONE_CLASS: Partial<Record<NonNullable<BadgeProps["tone"]>, string>> = {
-  neutral: "border border-app-border bg-app-surface text-app-body",
-  blue: "bg-app-blue-soft text-app-blue",
-  red: "bg-app-red-soft text-app-red",
-  amber: "bg-app-amber-soft text-app-amber",
+  // "Soft" pills — desaturated background + colored text, matching the
+  // NERO Dashboard — Desktop Figma (node 33:3) status pill treatment
+  // (Resume readiness, Validation, Resume Analysis status chips).
+  "blue-soft": "bg-app-blue-soft text-app-blue",
+  "red-soft": "bg-app-red-soft text-app-red",
+  "success-soft": "bg-app-success-soft text-app-success",
+  "neutral-soft": "border border-app-border bg-app-surface text-app-muted",
 };
 
 export default function Badge({
   children,
   tone = "neutral",
-  variant = "solid",
   className,
 }: BadgeProps) {
-  const toneClass =
-    variant === "soft" ? (SOFT_TONE_CLASS[tone] ?? TONE_CLASS[tone]) : TONE_CLASS[tone];
-
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]",
-        toneClass,
+        TONE_CLASS[tone],
         className,
       )}
     >

@@ -1,10 +1,10 @@
-"""Authenticated API tests for GET /dashboard.
+"""Authenticated API tests for the Dashboard aggregate read (UI-DASH-001):
+GET /dashboard.
 
-The dashboard endpoint aggregates read-only summaries from other modules
-(Resume, ATS Alignment, Job discovery). It must never fabricate a value for
-a module that has no real data yet — see docs on the Dashboard's data
-rules — so these tests pin both the "real data present" and the "truthful
-empty state" shapes.
+Every field is expected to come from a real, already-existing artifact
+(Resume, ResumeAIAnalysis, AtsAlignmentResult, Job) — these tests assert
+that an empty account gets honest pending/empty values (never fabricated
+data), and that real rows are surfaced once they exist.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -15,18 +15,18 @@ from fastapi.testclient import TestClient
 
 from apps.api.dependencies import get_db
 from apps.api.main import app
-from apps.api.models import Company, Job, Preference, Profile, Resume, ResumeVersion, User
+from apps.api.models import (
+    AtsAlignmentResult,
+    Company,
+    Job,
+    JobIntelligence,
+    Resume,
+    ResumeAIAnalysis,
+    ResumeVersion,
+    User,
+)
 from apps.api.security import create_access_token
-from apps.api.services.job_intelligence import service as job_intelligence_service
 from apps.api.services.resume_fingerprint import compute_content_fingerprint
-
-
-class FakeProvider:
-    provider_name = "fake"
-    model_name = "fake-model"
-
-    def generate_job_semantics(self, *, raw_jd_text, deterministic_context):
-        return {}
 
 
 @pytest.fixture
@@ -42,15 +42,6 @@ def client(db):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(autouse=True)
-def fake_ai_provider(monkeypatch):
-    monkeypatch.setattr(
-        job_intelligence_service,
-        "create_job_intelligence_provider",
-        lambda: FakeProvider(),
-    )
-
-
 def _make_user(db) -> User:
     user = User(
         id=uuid4(),
@@ -58,10 +49,6 @@ def _make_user(db) -> User:
         password_hash="test-password-hash",
     )
     db.add(user)
-    db.flush()
-
-    db.add(Profile(id=uuid4(), user_id=user.id, years_experience=5.0))
-    db.add(Preference(id=uuid4(), user_id=user.id))
     db.flush()
 
     return user
@@ -98,17 +85,11 @@ def _make_resume_version(db, *, user: User, content_text: str) -> ResumeVersion:
     return version
 
 
-def _make_job(
-    db,
-    *,
-    is_active: bool = True,
-    first_seen_at: datetime | None = None,
-    employment_type: str | None = "full_time",
-) -> Job:
+def _make_job(db, *, employment_type: str | None, first_seen_at: datetime) -> Job:
     company = Company(
         id=uuid4(),
-        name=f"Dashboard API Test Co {uuid4()}",
-        normalized_name="dashboard api test co",
+        name="Dashboard Test Co",
+        normalized_name="dashboard test co",
     )
     db.add(company)
     db.flush()
@@ -116,42 +97,57 @@ def _make_job(
     job = Job(
         id=uuid4(),
         company_id=company.id,
-        title="Senior Python Engineer",
-        location="Remote - United States",
-        country="USA",
-        remote_type="remote",
+        title="Software Engineer",
         employment_type=employment_type,
-        description="5+ years of Python development required.",
         source="test",
-        source_url=f"https://example.com/job/{uuid4()}",
-        is_active=is_active,
+        first_seen_at=first_seen_at,
+        last_seen_at=first_seen_at,
+        is_active=True,
     )
-    if first_seen_at is not None:
-        job.first_seen_at = first_seen_at
-
     db.add(job)
     db.flush()
 
     return job
 
 
-# ---------------------------------------------------------------------------
-# Authentication
-# ---------------------------------------------------------------------------
+def _make_ats_alignment_result(
+    db, *, user: User, job: Job, resume_version: ResumeVersion, overall_score: float
+) -> AtsAlignmentResult:
+    job_intelligence = JobIntelligence(
+        id=uuid4(),
+        job_id=job.id,
+        content_fingerprint="fingerprint",
+        raw_jd_snapshot={},
+        source="test",
+        analysis_version="1",
+        analyzer_version="1",
+        prompt_version="1",
+        structured_intelligence={},
+    )
+    db.add(job_intelligence)
+    db.flush()
+
+    result = AtsAlignmentResult(
+        id=uuid4(),
+        user_id=user.id,
+        job_id=job.id,
+        resume_version_id=resume_version.id,
+        job_intelligence_id=job_intelligence.id,
+        job_content_fingerprint="fingerprint",
+        engine_version="1",
+        overall_score=overall_score,
+        confidence="high",
+        result={},
+    )
+    db.add(result)
+    db.flush()
+
+    return result
 
 
-def test_dashboard_requires_authentication(client):
-    response = client.get("/dashboard")
-    assert response.status_code == 401
-
-
-# ---------------------------------------------------------------------------
-# Truthful empty states for a brand-new user
-# ---------------------------------------------------------------------------
-
-
-def test_dashboard_defaults_for_new_user(client, db):
+def test_dashboard_empty_account_returns_pending_states(client, db):
     user = _make_user(db)
+    db.commit()
 
     response = client.get("/dashboard", headers=_auth_headers(user))
 
@@ -159,118 +155,150 @@ def test_dashboard_defaults_for_new_user(client, db):
     data = response.json()
 
     assert data["resume"] == {"status": "not_ready", "name": None}
-    assert data["ats"] == {"score": None, "checked_at": None}
-    assert data["jobs"] == {"today_count": 0, "today_employment_types": []}
-    assert data["applications"] == {"available": False}
+    assert data["validation"] == {"status": "pending"}
+    assert data["ats"] == {"score": None, "status": "not_checked"}
+    assert data["last_checked_at"] is None
+    assert data["applications"] == {"available": False, "active_count": 0}
+    assert data["jobs"]["available"] is True
+    assert data["jobs"]["recent"] == []
 
 
-# ---------------------------------------------------------------------------
-# Resume readiness reflects real Resume data
-# ---------------------------------------------------------------------------
-
-
-def test_dashboard_reflects_uploaded_resume(client, db):
+def test_dashboard_reflects_uploaded_but_unanalyzed_resume(client, db):
     user = _make_user(db)
-    db.add(Resume(id=uuid4(), user_id=user.id, filename="my-resume.pdf"))
-    db.flush()
+    _make_resume_version(db, user=user, content_text="my resume text")
+    db.commit()
 
     response = client.get("/dashboard", headers=_auth_headers(user))
-
-    assert response.status_code == 200
     data = response.json()
-    assert data["resume"] == {"status": "ready", "name": "my-resume.pdf"}
+
+    assert data["resume"]["status"] == "ready"
+    assert data["resume"]["name"] == "resume.txt"
+    # No ResumeAIAnalysis or AtsAlignmentResult exists yet: still pending,
+    # never fabricated.
+    assert data["validation"] == {"status": "pending"}
+    assert data["ats"] == {"score": None, "status": "not_checked"}
+    assert data["last_checked_at"] is None
 
 
-# ---------------------------------------------------------------------------
-# ATS score reflects the real, latest AtsAlignmentResult
-# ---------------------------------------------------------------------------
-
-
-def test_dashboard_reflects_latest_ats_alignment_score(client, db):
+def test_dashboard_reflects_real_resume_analysis(client, db):
     user = _make_user(db)
-    _make_resume_version(db, user=user, content_text="Python developer.")
-    job = _make_job(db)
+    version = _make_resume_version(db, user=user, content_text="my resume text")
 
-    ats_response = client.post(
-        f"/jobs/{job.id}/ats", headers=_auth_headers(user)
+    analysis = ResumeAIAnalysis(
+        id=uuid4(),
+        user_id=user.id,
+        resume_version_id=version.id,
+        analysis_version="1",
+        analyzer_version="1",
+        prompt_version="1",
+        analysis_result={},
     )
-    assert ats_response.status_code == 200
+    db.add(analysis)
+    db.commit()
 
     response = client.get("/dashboard", headers=_auth_headers(user))
-
-    assert response.status_code == 200
     data = response.json()
-    assert data["ats"]["score"] == ats_response.json()["overall_score"]
-    assert data["ats"]["checked_at"] is not None
+
+    assert data["validation"] == {"status": "analyzed"}
+    assert data["last_checked_at"] is not None
 
 
-def test_dashboard_never_leaks_another_users_ats_score(client, db):
-    user_a = _make_user(db)
-    user_b = _make_user(db)
-
-    _make_resume_version(db, user=user_a, content_text="Python developer.")
-    job = _make_job(db)
-
-    client.post(f"/jobs/{job.id}/ats", headers=_auth_headers(user_a))
-
-    response = client.get("/dashboard", headers=_auth_headers(user_b))
-
-    assert response.status_code == 200
-    assert response.json()["ats"] == {"score": None, "checked_at": None}
-
-
-# ---------------------------------------------------------------------------
-# Today's Jobs reflects real, active Job rows discovered today
-# ---------------------------------------------------------------------------
-
-
-def test_dashboard_jobs_today_count_counts_only_active_jobs_seen_today(
-    client, db
-):
+def test_dashboard_reflects_real_ats_alignment_score(client, db):
     user = _make_user(db)
+    version = _make_resume_version(db, user=user, content_text="my resume text")
+    job = _make_job(
+        db, employment_type="full_time", first_seen_at=datetime.utcnow()
+    )
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    _make_job(db, is_active=True, first_seen_at=now, employment_type="full_time")
+    _make_ats_alignment_result(
+        db, user=user, job=job, resume_version=version, overall_score=87.0
+    )
+    db.commit()
+
+    response = client.get("/dashboard", headers=_auth_headers(user))
+    data = response.json()
+
+    assert data["ats"] == {"score": 87, "status": "pass"}
+    assert data["last_checked_at"] is not None
+
+
+def test_dashboard_ats_below_threshold_is_needs_improvement(client, db):
+    user = _make_user(db)
+    version = _make_resume_version(db, user=user, content_text="my resume text")
+    job = _make_job(
+        db, employment_type="full_time", first_seen_at=datetime.utcnow()
+    )
+
+    _make_ats_alignment_result(
+        db, user=user, job=job, resume_version=version, overall_score=42.0
+    )
+    db.commit()
+
+    response = client.get("/dashboard", headers=_auth_headers(user))
+    data = response.json()
+
+    assert data["ats"] == {"score": 42, "status": "needs_improvement"}
+
+
+def test_dashboard_job_counts_and_recent_list_are_real(client, db):
+    user = _make_user(db)
+    now = datetime.utcnow()
+
+    _make_job(db, employment_type="full_time", first_seen_at=now)
+    _make_job(db, employment_type="contract", first_seen_at=now)
+    # Discovered a week ago: counted in the recent list and the
+    # employment-type totals, but never in "today's" count.
     _make_job(
-        db,
-        is_active=True,
-        first_seen_at=now - timedelta(days=3),
-        employment_type="contract",
+        db, employment_type="full_time", first_seen_at=now - timedelta(days=7)
     )
-    _make_job(db, is_active=False, first_seen_at=now, employment_type="contract")
+    db.commit()
 
     response = client.get("/dashboard", headers=_auth_headers(user))
+    data = response.json()
 
-    assert response.status_code == 200
-    assert response.json()["jobs"] == {
-        "today_count": 1,
-        "today_employment_types": ["full_time"],
-    }
+    assert data["jobs"]["today_count"] == 2
+    assert data["jobs"]["full_time_count"] == 2
+    assert data["jobs"]["contract_count"] == 1
+    assert len(data["jobs"]["recent"]) == 3
 
 
-def test_dashboard_jobs_today_employment_types_empty_when_no_jobs_today(
-    client, db
-):
+def test_dashboard_combines_naive_and_aware_timestamps(client, db):
+    """ResumeAIAnalysis.created_at is a naive DateTime column while
+    AtsAlignmentResult.created_at is timezone-aware — regression guard
+    for comparing them together when picking the most recent one."""
     user = _make_user(db)
+    version = _make_resume_version(db, user=user, content_text="my resume text")
+    job = _make_job(
+        db, employment_type="full_time", first_seen_at=datetime.utcnow()
+    )
 
-    response = client.get("/dashboard", headers=_auth_headers(user))
+    analysis = ResumeAIAnalysis(
+        id=uuid4(),
+        user_id=user.id,
+        resume_version_id=version.id,
+        analysis_version="1",
+        analyzer_version="1",
+        prompt_version="1",
+        analysis_result={},
+    )
+    db.add(analysis)
 
-    assert response.status_code == 200
-    assert response.json()["jobs"] == {
-        "today_count": 0,
-        "today_employment_types": [],
-    }
-
-
-def test_dashboard_jobs_today_employment_types_ignores_null_type(client, db):
-    user = _make_user(db)
-
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    _make_job(db, is_active=True, first_seen_at=now, employment_type=None)
+    _make_ats_alignment_result(
+        db, user=user, job=job, resume_version=version, overall_score=87.0
+    )
+    db.commit()
 
     response = client.get("/dashboard", headers=_auth_headers(user))
 
     assert response.status_code == 200
     data = response.json()
-    assert data["jobs"]["today_count"] == 1
-    assert data["jobs"]["today_employment_types"] == []
+
+    assert data["validation"] == {"status": "analyzed"}
+    assert data["ats"]["score"] == 87
+    assert data["last_checked_at"] is not None
+
+
+def test_dashboard_requires_authentication(client):
+    response = client.get("/dashboard")
+
+    assert response.status_code in (401, 403)

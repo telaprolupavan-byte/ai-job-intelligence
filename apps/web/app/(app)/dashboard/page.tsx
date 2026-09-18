@@ -3,19 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth";
 import { getDashboard, DashboardData } from "@/lib/dashboard";
 import { ApiError } from "@/lib/api";
 import Container from "@/components/app/container";
-import ErrorState from "@/components/app/error-state";
+import PageHeader from "@/components/app/page-header";
 import SectionLabel from "@/components/app/section-label";
+import ErrorState from "@/components/app/error-state";
 import { Skeleton } from "@/components/app/skeleton";
 
-import ResumeStatusBar from "./components/resume-status-bar";
+import ResumeStatus from "./components/resume-status";
 import MetricCard from "./components/metric-card";
 import NeroBriefing from "./components/nero-briefing";
 import ApplicationActivity from "./components/application-activity";
-import TodaysJobsPanel from "./components/todays-jobs-panel";
+import TodayJobs from "./components/today-jobs";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -32,20 +32,11 @@ export default function DashboardPage() {
       setLoading(true);
 
       try {
-        const user = await getCurrentUser();
-
-        if (!mounted) return;
-
         const data = await getDashboard();
 
         if (!mounted) return;
 
-        setDashboard({
-          ...data,
-          user: {
-            email: user.email,
-          },
-        });
+        setDashboard(data);
         setLoadError(null);
       } catch (err) {
         if (!mounted) return;
@@ -80,11 +71,12 @@ export default function DashboardPage() {
     return (
       <div className="bg-app-bg">
         <Container>
-          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-16 w-64" />
+          <Skeleton className="mt-8 h-24 w-full" />
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-32 w-full" />
+              <Skeleton key={index} className="h-36 w-full" />
             ))}
           </div>
 
@@ -93,7 +85,7 @@ export default function DashboardPage() {
             <Skeleton className="h-64 w-full" />
           </div>
 
-          <Skeleton className="mt-6 h-56 w-full" />
+          <Skeleton className="mt-6 h-64 w-full" />
         </Container>
       </div>
     );
@@ -115,80 +107,81 @@ export default function DashboardPage() {
     );
   }
 
-  const atsValue =
-    dashboard.ats.score !== null ? `${Math.round(dashboard.ats.score)}%` : "—";
+  const { resume, validation, ats, jobs, applications, last_checked_at } =
+    dashboard;
+
+  const resumeReady = resume.status === "ready";
+  const atsValue = ats.score !== null ? `${ats.score}` : "—";
 
   return (
     <div className="bg-app-bg text-app-text">
       <Container>
-        {/* Page header */}
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div>
-            <h1 className="font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight text-app-text">
-              Dashboard
-            </h1>
+        <PageHeader
+          title="Dashboard"
+          description="Your job intelligence, in one place."
+          action={<SectionLabel tone="faint">Today</SectionLabel>}
+        />
 
-            <p className="mt-1 text-[15px] text-app-muted">
-              Your job intelligence, in one place.
-            </p>
-          </div>
+        <ResumeStatus
+          resume={resume}
+          validation={validation}
+          ats={ats}
+          lastCheckedAt={last_checked_at}
+        />
 
-          <SectionLabel tone="faint" className="pt-2">
-            Today
-          </SectionLabel>
-        </div>
-
-        {/* Resume / ATS status strip */}
-        <div className="mt-6">
-          <ResumeStatusBar resume={dashboard.resume} ats={dashboard.ats} />
-        </div>
-
-        {/* Metric cards */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Today's Jobs"
-            value={String(dashboard.jobs.today_count)}
-            caption="New opportunities"
+            value={jobs.today_count}
+            meta="New opportunities"
             accent="blue"
+            href="/jobs"
           />
 
           <MetricCard
             label="Applications"
-            value="0"
-            caption="Active applications"
+            value={applications.active_count}
+            meta="Active applications"
             accent="red"
+            href={applications.available ? "/applications" : undefined}
           />
 
           <MetricCard
             label="ATS Score"
             value={atsValue}
-            caption="Resume readiness"
+            meta="Resume readiness"
             accent="amber"
+            href="/ats"
           />
 
           <MetricCard
             label="Resume Validation"
-            value="Pending"
-            caption="Complete your first analysis"
+            value={validation.status === "analyzed" ? "Analyzed" : "Pending"}
+            meta={
+              validation.status === "analyzed"
+                ? "Latest analysis on file"
+                : "Complete your first analysis"
+            }
             accent="success"
+            href="/resume"
           />
         </div>
 
-        {/* Briefing + Application activity */}
         <div className="mt-6 grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <NeroBriefing resume={dashboard.resume} ats={dashboard.ats} />
-          <ApplicationActivity />
+          <NeroBriefing resume={resume} validation={validation} ats={ats} />
+          <ApplicationActivity applications={applications} />
         </div>
 
-        {/* Today's jobs */}
         <div className="mt-6">
-          <TodaysJobsPanel resume={dashboard.resume} jobs={dashboard.jobs} />
+          <TodayJobs jobs={jobs} resumeReady={resumeReady} />
         </div>
 
-        {/* Footer */}
-        <footer className="mt-10 flex flex-col gap-2 border-t border-app-border pt-6 pb-8 text-[10px] font-bold uppercase tracking-[0.2em] text-app-soft sm:flex-row sm:items-center sm:justify-between">
-          <div>NERO • AI Job Intelligence</div>
-          <div className="font-medium normal-case tracking-normal">
+        <footer className="mt-10 flex flex-col gap-3 border-t border-app-border pt-6 pb-8 text-[10px] md:flex-row md:items-center md:justify-between">
+          <div className="font-mono uppercase tracking-[0.2em] text-app-faint">
+            NERO • AI JOB INTELLIGENCE
+          </div>
+
+          <div className="font-mono uppercase tracking-wider text-app-faint">
             Dashboard / V1
           </div>
         </footer>
