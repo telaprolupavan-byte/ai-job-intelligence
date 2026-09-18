@@ -10,7 +10,7 @@ import ErrorState from "@/components/app/error-state";
 import EmptyState from "@/components/app/empty-state";
 import Badge from "@/components/app/badge";
 import { PanelSkeleton } from "@/components/app/skeleton";
-import { FileText, UploadCloud, CheckCircle2 } from "lucide-react";
+import { FileText, UploadCloud } from "lucide-react";
 
 type Resume = {
   id: string;
@@ -156,6 +156,18 @@ async function authenticatedRequest<T>(
 
 function isPdf(filename: string) {
   return filename.toLowerCase().endsWith(".pdf");
+}
+
+function formatSectionList(sections: string[]): string {
+  const labels = sections.map(
+    (section) => section.charAt(0).toUpperCase() + section.slice(1),
+  );
+
+  if (labels.length === 1) {
+    return labels[0];
+  }
+
+  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
 }
 
 async function fetchResumeVersionFile(
@@ -598,128 +610,223 @@ export default function Page() {
         </header>
 
         <section className="mt-8 rounded-xl border border-app-border bg-app-panel p-6">
-          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
             <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
-            Upload Resume
+            Resume Workspace
           </div>
 
-          <p className="mt-2 text-sm text-app-muted">
-            {resumes.length === 0
-              ? "No resume uploaded. Upload a PDF or DOCX to get started."
-              : "Upload a new PDF or DOCX as a separate resume, or add it as a new version of an existing resume below."}
-          </p>
+          <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_320px]">
+            <form
+              onSubmit={handleUpload}
+              className="rounded-2xl border border-app-border bg-app-bg p-6 sm:p-8"
+            >
+              <h2 className="text-xl font-bold text-app-text sm:text-2xl">
+                {resumes.length === 0
+                  ? "Drop your resume here"
+                  : "Add a new resume or version"}
+              </h2>
 
-          <form
-            onSubmit={handleUpload}
-            className="mt-5 flex flex-col gap-4"
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <label className="flex-1">
-                <span className="sr-only">Choose resume file</span>
-                <input
-                  type="file"
-                  accept=".pdf,.docx"
-                  onChange={handleFileSelected}
-                  disabled={uploading}
-                  className="w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none file:mr-4 file:border-0 file:bg-app-border file:px-3 file:py-1.5 file:text-xs file:font-bold file:uppercase file:tracking-wider file:text-app-text focus:border-app-blue disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </label>
+              <p className="mt-2 text-sm text-app-muted">
+                PDF or DOCX • Your file stays under your control
+              </p>
 
-              <AppButton
-                type="submit"
-                disabled={!selectedFile || uploading}
-                loading={uploading}
-              >
-                {uploading ? "Uploading..." : "Upload"}
-              </AppButton>
-            </div>
-
-            {resumes.length > 0 && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="upload-target"
-                    className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted"
-                  >
-                    Add as
-                  </label>
-                  <select
-                    id="upload-target"
-                    value={uploadTargetResumeId}
-                    onChange={(event) =>
-                      setUploadTargetResumeId(event.target.value)
-                    }
+              <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+                <label className="flex-1">
+                  <span className="sr-only">Choose resume file</span>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx"
+                    onChange={handleFileSelected}
                     disabled={uploading}
-                    className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
-                  >
-                    <option value="">New Resume</option>
-                    {resumes.map((resume) => (
-                      <option key={resume.id} value={resume.id}>
-                        New version of &quot;{resume.filename}&quot;
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    className="w-full rounded-lg border border-app-border-strong bg-app-panel px-4 py-3 text-sm text-app-text outline-none file:mr-4 file:cursor-pointer file:rounded-[10px] file:border-0 file:bg-crimson-fill file:px-4 file:py-2 file:text-xs file:font-bold file:text-white hover:file:bg-crimson-fill-hover focus:border-app-blue disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </label>
 
-                {uploadTargetResumeId && (
+                <AppButton
+                  type="submit"
+                  disabled={!selectedFile || uploading}
+                  loading={uploading}
+                >
+                  {uploading ? "Uploading..." : "Upload"}
+                </AppButton>
+              </div>
+
+              {resumes.length > 0 && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
                     <label
-                      htmlFor="upload-version-name"
+                      htmlFor="upload-target"
                       className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted"
                     >
-                      Version Label (optional)
+                      Add as
                     </label>
-                    <input
-                      id="upload-version-name"
-                      type="text"
-                      value={uploadVersionName}
+                    <select
+                      id="upload-target"
+                      value={uploadTargetResumeId}
                       onChange={(event) =>
-                        setUploadVersionName(event.target.value)
+                        setUploadTargetResumeId(event.target.value)
                       }
                       disabled={uploading}
-                      placeholder="e.g. Updated, Tailored"
-                      maxLength={255}
-                      className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-bg px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
-                    />
+                      className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-panel px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                    >
+                      <option value="">New Resume</option>
+                      {resumes.map((resume) => (
+                        <option key={resume.id} value={resume.id}>
+                          New version of &quot;{resume.filename}&quot;
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )}
+
+                  {uploadTargetResumeId && (
+                    <div>
+                      <label
+                        htmlFor="upload-version-name"
+                        className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted"
+                      >
+                        Version Label (optional)
+                      </label>
+                      <input
+                        id="upload-version-name"
+                        type="text"
+                        value={uploadVersionName}
+                        onChange={(event) =>
+                          setUploadVersionName(event.target.value)
+                        }
+                        disabled={uploading}
+                        placeholder="e.g. Updated, Tailored"
+                        maxLength={255}
+                        className="mt-2 w-full rounded-lg border border-app-border-strong bg-app-panel px-4 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedFile && !uploading && (
+                <div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-app-faint">
+                  SELECTED FILE: {selectedFile.name}
+                </div>
+              )}
+
+              {uploadError && (
+                <div className="mt-5">
+                  <ErrorState title="Upload Error" message={uploadError} />
+                </div>
+              )}
+
+              <p className="mt-6 text-xs leading-5 text-app-muted">
+                NERO analyzes the document to help you understand and
+                improve it. No changes are applied without approval.
+              </p>
+            </form>
+
+            <div className="flex flex-col gap-4">
+              <div className="relative overflow-hidden rounded-xl border border-app-border bg-app-bg p-5 pl-6">
+                <span
+                  className="absolute left-0 top-0 h-full w-1 bg-app-amber"
+                  aria-hidden="true"
+                />
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-faint">
+                  Current status
+                </div>
+                <p className="mt-2 text-sm leading-6 text-app-body">
+                  {resumes.length === 0
+                    ? "No resume analyzed yet. Upload a file to start."
+                    : `${resumes.length} resume${resumes.length === 1 ? "" : "s"} on file.`}
+                </p>
               </div>
-            )}
-          </form>
 
-          {selectedFile && !uploading && (
-            <div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-app-faint">
-              SELECTED FILE: {selectedFile.name}
+              <div className="relative overflow-hidden rounded-xl border border-app-border bg-app-bg p-5 pl-6">
+                <span
+                  className="absolute left-0 top-0 h-full w-1 bg-app-blue"
+                  aria-hidden="true"
+                />
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-faint">
+                  What happens next
+                </div>
+                <p className="mt-2 text-sm font-bold text-app-text">
+                  1 Validate
+                </p>
+                <p className="mt-1 text-sm leading-6 text-app-body">
+                  Structure and parsing checks → ATS alignment → review
+                  improvements.
+                </p>
+              </div>
             </div>
-          )}
-
-          {uploadError && (
-            <div className="mt-5">
-              <ErrorState title="Upload Error" message={uploadError} />
-            </div>
-          )}
+          </div>
 
           {uploadSuccess && (
-            <div className="mt-5 flex items-start gap-3 border border-app-blue/40 bg-app-blue/5 p-4">
-              <CheckCircle2
-                className="mt-0.5 h-4 w-4 shrink-0 text-app-blue"
-                aria-hidden="true"
-              />
-              <div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
-                {uploadSuccess.duplicate
-                  ? "Resume Already Exists"
-                  : "Resume Stored Successfully"}
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="relative overflow-hidden rounded-xl border border-app-border bg-app-bg p-5 pl-6">
+                <span
+                  className="absolute left-0 top-0 h-full w-1 bg-app-success"
+                  aria-hidden="true"
+                />
+                <div className="text-base font-bold text-app-text">
+                  {uploadSuccess.duplicate
+                    ? "Resume already on file"
+                    : "Document parsed successfully"}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-app-body">
+                  {uploadSuccess.duplicate
+                    ? `This exact resume content already exists as "${uploadSuccess.version_name}" (${uploadSuccess.word_count} words). No duplicate was created.`
+                    : `${uploadSuccess.filename} was stored as "${uploadSuccess.version_name}" — ${uploadSuccess.word_count} words, ${uploadSuccess.character_count} characters.`}
+                </p>
               </div>
 
-              <p className="mt-2 text-sm text-app-text">
-                {uploadSuccess.duplicate
-                  ? `This exact resume content already exists as "${uploadSuccess.version_name}" (${uploadSuccess.word_count} words). No duplicate was created.`
-                  : `${uploadSuccess.filename} was stored as "${uploadSuccess.version_name}" (${uploadSuccess.word_count} words).`}
-              </p>
+              <div className="relative overflow-hidden rounded-xl border border-app-border bg-app-bg p-5 pl-6">
+                <span
+                  className={`absolute left-0 top-0 h-full w-1 ${
+                    uploadSuccess.section_matches.length > 0
+                      ? "bg-app-success"
+                      : "bg-app-amber"
+                  }`}
+                  aria-hidden="true"
+                />
+                <div className="text-base font-bold text-app-text">
+                  Sections detected
+                </div>
+                <p className="mt-2 text-sm leading-6 text-app-body">
+                  {uploadSuccess.section_matches.length > 0
+                    ? `${formatSectionList(uploadSuccess.section_matches)} detected.`
+                    : "No standard resume sections were detected. Review formatting before relying on analysis."}
+                </p>
               </div>
             </div>
           )}
+
+          {uploadSuccess && !uploadSuccess.duplicate && (
+            <div className="mt-6 flex flex-col items-start justify-between gap-4 border-t border-app-border pt-6 sm:flex-row sm:items-center">
+              <div className="text-sm font-bold text-app-text">
+                Continue to ATS alignment
+              </div>
+              <AppButton href="/jobs" className="normal-case tracking-normal">
+                Continue analysis
+              </AppButton>
+            </div>
+          )}
+
+          <div className="mt-8 border-t border-app-border pt-5">
+            <div className="flex flex-wrap items-center gap-x-10 gap-y-2 font-mono text-[11px] uppercase tracking-wider">
+              <span
+                className={
+                  resumes.length > 0 ? "text-app-text" : "text-app-faint"
+                }
+              >
+                1 Upload
+              </span>
+              <span
+                className={
+                  uploadSuccess ? "text-app-text" : "text-app-faint"
+                }
+              >
+                2 Validate
+              </span>
+              <span className="text-app-faint">3 Analyze</span>
+              <span className="text-app-faint">4 Approve</span>
+            </div>
+          </div>
         </section>
 
         <section className="mt-8 rounded-xl border border-app-border bg-app-panel p-6">
