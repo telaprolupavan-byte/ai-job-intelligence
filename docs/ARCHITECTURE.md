@@ -1169,3 +1169,87 @@ a terminal `rejected`/`withdrawn` outcome is no longer active. This mirrors
 the "honest empty/pending state, never fabricated" rule the rest of the
 Dashboard already follows (see the Dashboard docstring in
 `apps/api/routers/dashboard.py`).
+
+## Provider Scorecard Workflow (AJI-018)
+
+Job Discovery (above) has exactly one production source adapter
+(Greenhouse). Before building a second one, the approved workflow is:
+
+```
+Provider -> Same NERO search scenarios -> Raw results -> Normalize ->
+Deduplicate -> Measure -> Provider Scorecard -> Product Owner decision ->
+Implementation
+```
+
+`services/provider_scorecard/` (see its own README for the full writeup)
+implements everything left of "Product Owner decision" - a pure, DB-free
+evaluation harness that runs an identical, shared list of
+`SearchScenario`s against one or more candidate providers and produces a
+`ProviderScorecard` of objective, descriptive metrics per provider. It
+answers "how does this candidate's raw data compare once it goes through
+the same normalize/deduplicate steps real discovery would apply?", not
+"which provider should we build." No field on `ProviderScorecard` ranks
+or recommends a provider - that judgment call, and everything right of it
+in the diagram (approving a provider, then building its
+`JobSourceAdapter`), stays a human/future-ticket step, the same way
+AJI-013 declined to invent an unapproved Must-Have/Preferred weighting
+formula (see "Scoring: an explicit placeholder formula" above) rather
+than silently encoding a product decision nobody had made yet.
+
+**Reuse, not a parallel pipeline:** normalization
+(`services/provider_scorecard/normalize.py`) applies
+`services.job_discovery.normalizer`'s existing field rules verbatim;
+deduplication reuses `services.job_discovery.deduplicator.build_job_fingerprint`
+unchanged; and the validation pass rate reuses
+`services.job_discovery.validator.validate_discovered_job`. This is the
+same "no source-specific/eval-specific logic belongs outside the shared
+primitives" rule the Job Discovery README already states for a second
+`JobSourceAdapter` - a provider's raw data is expected to look like Job
+Discovery source-adapter output *before* normalization (an adapter here
+implements `ProviderSearchAdapter.search(scenario) -> list[DiscoveredJob]`,
+mirroring `JobSourceAdapter.fetch_jobs()`), so evaluating it exercises the
+exact rules production discovery would apply, not a second set invented
+for this workflow. Unlike the real discovery pipeline, an invalid job is
+never dropped here (there is nothing to persist) - it is counted, since
+the point of this stage is measuring a provider's data quality, not
+filtering a result set.
+
+**The scenario list is a product decision, left unset by default** - the
+same posture Job Discovery already takes with which Greenhouse board to
+ingest (see "Why unconfigured by default" above). `services/provider_scorecard/scenarios.py::EXAMPLE_SCENARIOS`
+exists only so the pipeline is runnable/testable before a
+Product-Owner-approved scenario list exists; it is explicitly documented
+as illustrative, not canonical. Whatever list is actually used, every
+candidate provider must be run against the identical list -
+`compare_providers()` takes one shared `scenarios` argument for exactly
+this reason, since "Same NERO search scenarios" is what makes the
+resulting scorecards comparable at all.
+
+**No DB persistence, no HTTP endpoint (a documented scope decision,
+contrasted with Job Discovery's own operationalization above):** this is
+an occasional decision-support tool run by whoever is evaluating a new
+candidate provider, not a production data path a user or a schedule ever
+touches - Job Discovery needed a persisted, schedulable, authenticated
+endpoint because it ingests jobs a user will actually see; a provider
+comparison has no such consumer. Adding a table/endpoint/auth here would
+be infrastructure this workflow does not need yet - revisit only if a
+concrete future need emerges to track scorecards over time or expose them
+outside engineering, and treat that as its own ticket rather than folding
+it into this one.
+
+### Testing
+
+`tests/test_provider_scorecard_contracts.py` covers `ProviderScorecard`'s
+weighted-average aggregation (weighted by `fetched_count`, and that a
+failed scenario is excluded from the average rather than counted as a
+zero). `tests/test_provider_scorecard_metrics.py` covers field-completeness
+counting (blank strings and `None` both count as missing) and the shared
+rate helper. `tests/test_provider_scorecard_pipeline.py` covers the full
+raw-results -> normalize -> deduplicate -> measure flow with a fake
+in-memory adapter: duplicate counting by fingerprint, that normalization
+actually runs before validation/completeness are measured (un-normalized
+input like `"Fully Remote"`/`"full time"` still passes), that an invalid
+job is counted rather than dropped, that an adapter exception degrades to
+a failed measurement instead of raising and aborting the whole provider
+comparison, and that `compare_providers()` runs the identical scenario
+list against every adapter.
