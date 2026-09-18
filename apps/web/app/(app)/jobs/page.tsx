@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useTransition } from "react";
+import { Suspense, useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import {
@@ -17,6 +17,7 @@ import {
   type JobIntelligenceData,
   type JobMatchResult,
 } from "@/lib/jobs";
+import { getResumes, getResumeVersions } from "@/lib/resumes";
 import {
   getApplications,
   removeSavedJob,
@@ -32,6 +33,9 @@ import AppButton from "@/components/app/app-button";
 import EmptyState from "@/components/app/empty-state";
 import ErrorState from "@/components/app/error-state";
 import { Skeleton } from "@/components/app/skeleton";
+import ResumeVersionSelector, {
+  type ResumeVersionOption,
+} from "@/components/app/resume-version-selector";
 
 type JobFilters = {
   search: string;
@@ -124,6 +128,102 @@ function JobsPageInner() {
     {},
   );
   const [atsErrors, setAtsErrors] = useState<Record<string, string>>({});
+
+  // AJI-019: the ONE page-level source of truth for which ResumeVersion
+  // Job Match, ATS Alignment, and Gap Analysis all use. null means the
+  // user hasn't made an explicit choice yet - resume_version_id stays
+  // omitted from every request and the backend's existing default
+  // (most recent Resume, preferring its master ResumeVersion) applies
+  // exactly as it did before this feature existed.
+  const [selectedResumeVersionId, setSelectedResumeVersionId] = useState<
+    string | null
+  >(null);
+  const [resumeVersionState, setResumeVersionState] = useState<{
+    status: "loading" | "error" | "empty" | "ready";
+    options: ResumeVersionOption[];
+    defaultOptionId: string | null;
+    error?: string;
+  }>({ status: "loading", options: [], defaultOptionId: null });
+
+  const loadResumeVersions = useCallback(() => {
+    let cancelled = false;
+
+    setResumeVersionState((current) => ({ ...current, status: "loading" }));
+
+    (async () => {
+      try {
+        const resumes = await getResumes();
+
+        if (cancelled) return;
+
+        if (resumes.length === 0) {
+          setResumeVersionState({
+            status: "empty",
+            options: [],
+            defaultOptionId: null,
+          });
+          return;
+        }
+
+        const versionsByResume = await Promise.all(
+          resumes.map((resume) => getResumeVersions(resume.id)),
+        );
+
+        if (cancelled) return;
+
+        const options: ResumeVersionOption[] = [];
+
+        resumes.forEach((resume, index) => {
+          for (const version of versionsByResume[index] ?? []) {
+            options.push({
+              id: version.id,
+              resumeName: resume.filename,
+              versionName: version.name,
+              isMaster: version.is_master,
+              createdAt: version.created_at,
+            });
+          }
+        });
+
+        // resumes[0] is the most recently created Resume (the API
+        // already returns them sorted that way) - mirrors the same
+        // default resolution Job Match/ATS/Gap Analysis apply
+        // server-side when resume_version_id is omitted, purely for
+        // display before the user picks anything explicitly.
+        const defaultResumeVersions = versionsByResume[0] ?? [];
+        const defaultVersion =
+          defaultResumeVersions.find((version) => version.is_master) ??
+          defaultResumeVersions[0] ??
+          null;
+
+        setResumeVersionState({
+          status: options.length === 0 ? "empty" : "ready",
+          options,
+          defaultOptionId: defaultVersion ? defaultVersion.id : null,
+        });
+      } catch (err) {
+        if (cancelled) return;
+
+        setResumeVersionState({
+          status: "error",
+          options: [],
+          defaultOptionId: null,
+          error:
+            err instanceof Error
+              ? err.message
+              : "Unable to load your resume versions.",
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return loadResumeVersions();
+  }, [loadResumeVersions]);
 
   // This user's existing saved/applied tracking record for each job,
   // keyed by job id (not by application id) - looked up once so the
@@ -261,7 +361,10 @@ function JobsPageInner() {
     });
 
     try {
-      const match = await calculateJobMatch(jobId);
+      const match = await calculateJobMatch(
+        jobId,
+        selectedResumeVersionId ?? undefined,
+      );
 
       setMatches((current) => ({
         ...current,
@@ -295,7 +398,10 @@ function JobsPageInner() {
     });
 
     try {
-      const result = await calculateAtsAlignment(jobId);
+      const result = await calculateAtsAlignment(
+        jobId,
+        selectedResumeVersionId ?? undefined,
+      );
 
       setAtsResults((current) => ({
         ...current,
@@ -530,8 +636,8 @@ function JobsPageInner() {
           </div>
         )}
 
-        {/* RESULTS HEADER */}
-        <div className="mb-5 flex items-end justify-between">
+        {/* RESULTS TOOLBAR (selector placement per AJI-019 — Jobs Placement Reference) */}
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
               Discovery Results
@@ -540,13 +646,23 @@ function JobsPageInner() {
             <h2 className="mt-1 text-xl font-semibold">
               Available Opportunities
             </h2>
+
+            {!isPending && (
+              <p className="mt-1 text-xs text-app-faint">
+                {results.totalJobs} results · Resume choice applies to the
+                next intelligence calculation.
+              </p>
+            )}
           </div>
 
-          {!isPending && (
-            <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-              {results.totalJobs} Results
-            </div>
-          )}
+          <ResumeVersionSelector
+            status={resumeVersionState.status}
+            options={resumeVersionState.options}
+            defaultOptionId={resumeVersionState.defaultOptionId}
+            selectedId={selectedResumeVersionId}
+            onSelect={setSelectedResumeVersionId}
+            onRetry={loadResumeVersions}
+          />
         </div>
 
         {/* LOADING */}
