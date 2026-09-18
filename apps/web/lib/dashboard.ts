@@ -10,13 +10,20 @@ export type DashboardData = {
     name: string | null;
   };
   ats: {
+    // The most recent ATS Alignment result across any job — there is no
+    // resume-level ATS score, only a per-(user, job, resume) one.
     score: number | null;
-    status: "pass" | "needs_improvement" | "not_checked" | "not_available";
+    checked_at: string | null;
   };
   jobs: {
-    available: boolean;
+    // Real count of active jobs first discovered today.
+    today_count: number;
+    // Employment types actually present among today's real jobs — never a
+    // static list of every type the system supports.
+    today_employment_types: string[];
   };
   applications: {
+    // Application tracking has no backend model yet; always false.
     available: boolean;
   };
 };

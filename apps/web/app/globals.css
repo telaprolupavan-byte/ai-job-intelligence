@@ -133,6 +133,7 @@
    * which is reserved for brand/primary actions.
    */
   --color-app-success: #22a06b;
+  --color-app-success-soft: #0e2a21;
   --color-app-critical: #d64545;
 
   --color-app-danger-bg: #22100f;

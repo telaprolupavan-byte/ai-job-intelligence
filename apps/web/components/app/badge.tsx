@@ -3,6 +3,12 @@ import { cn } from "@/lib/utils";
 type BadgeProps = {
   children: React.ReactNode;
   tone?: "neutral" | "blue" | "red" | "amber" | "success" | "critical" | "danger";
+  // "solid" (default) is the filled pill from the Job Card/Type/Match tag
+  // treatment. "soft" is the tinted-background/tinted-text pill used for
+  // dashboard status indicators (verified against NERO Figma node 33:3 —
+  // e.g. "READY FOR REVIEW", "Pending", "FULL-TIME"). Tones without a
+  // dedicated soft background (success/critical/danger) fall back to solid.
+  variant?: "solid" | "soft";
   className?: string;
 };
 
@@ -29,16 +35,27 @@ const TONE_CLASS = {
   danger: "border border-app-danger-border bg-app-danger-bg text-app-danger-text",
 };
 
+const SOFT_TONE_CLASS: Partial<Record<NonNullable<BadgeProps["tone"]>, string>> = {
+  neutral: "border border-app-border bg-app-surface text-app-body",
+  blue: "bg-app-blue-soft text-app-blue",
+  red: "bg-app-red-soft text-app-red",
+  amber: "bg-app-amber-soft text-app-amber",
+};
+
 export default function Badge({
   children,
   tone = "neutral",
+  variant = "solid",
   className,
 }: BadgeProps) {
+  const toneClass =
+    variant === "soft" ? (SOFT_TONE_CLASS[tone] ?? TONE_CLASS[tone]) : TONE_CLASS[tone];
+
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]",
-        TONE_CLASS[tone],
+        toneClass,
         className,
       )}
     >
