@@ -1,6 +1,10 @@
 """Unit tests for the pure, DB-free ATS Alignment engine (AJI-013)."""
 
-from services.ats_alignment.contracts import JobRequirementItem
+from services.ats_alignment.contracts import (
+    JobRequirementItem,
+    RequirementRelationshipGroup,
+    ScreeningConstraintInfo,
+)
 from services.ats_alignment.engine import evaluate_ats_alignment
 from services.ats_alignment.resume_adapter import ResumeEvidenceProfile
 from services.ats_alignment.scoring import (
@@ -458,3 +462,124 @@ def test_engine_version_and_scoring_version_are_recorded():
 
     assert result.engine_version
     assert result.scoring_version
+
+
+# ---------------------------------------------------------------------------
+# AJI-020C: hard_requirement/ambiguous passthrough, relationships,
+# screening constraints — all metadata-only, never scored.
+# ---------------------------------------------------------------------------
+
+def test_hard_requirement_is_carried_through_to_the_alignment_result():
+    requirement = JobRequirementItem(
+        requirement_id="req-1",
+        requirement_type="skill",
+        category="must_have",
+        requirement_text="python",
+        jd_evidence="Must have Python.",
+        canonical_skill="python",
+        hard_requirement=True,
+    )
+    resume = make_resume()
+
+    result = evaluate_ats_alignment([requirement], resume)
+
+    assert result.requirement_results[0].hard_requirement is True
+
+
+def test_hard_requirement_defaults_false_and_never_affects_score():
+    soft = JobRequirementItem(
+        requirement_id="req-soft",
+        requirement_type="skill",
+        category="must_have",
+        requirement_text="python",
+        jd_evidence="Python required.",
+        canonical_skill="python",
+    )
+    hard = JobRequirementItem(
+        requirement_id="req-hard",
+        requirement_type="skill",
+        category="must_have",
+        requirement_text="java",
+        jd_evidence="Must have Java.",
+        canonical_skill="java",
+        hard_requirement=True,
+    )
+    resume = make_resume()  # no evidence for either
+
+    result = evaluate_ats_alignment([soft, hard], resume)
+
+    by_id = {r.requirement_id: r for r in result.requirement_results}
+    assert by_id["req-soft"].status == by_id["req-hard"].status == "missing"
+    assert result.overall_score == 0.0
+
+
+def test_ambiguous_and_ambiguity_reason_are_carried_through():
+    requirement = JobRequirementItem(
+        requirement_id="req-1",
+        requirement_type="skill",
+        category="preferred",
+        requirement_text="go",
+        jd_evidence="At least 2 of: Python, Go, Java.",
+        canonical_skill="go",
+        ambiguous=True,
+        ambiguity_reason="Part of an at-least-2-of set.",
+    )
+    resume = make_resume()
+
+    result = evaluate_ats_alignment([requirement], resume)
+
+    aligned = result.requirement_results[0]
+    assert aligned.ambiguous is True
+    assert aligned.ambiguity_reason == "Part of an at-least-2-of set."
+
+
+def test_relationships_and_screening_constraints_are_passthrough_only():
+    requirement = skill_requirement("python")
+    resume = make_resume(
+        skill_evidence={
+            "python": {"demonstrated_mentions": 1, "skills_section_mentions": 0}
+        }
+    )
+    relationship = RequirementRelationshipGroup(
+        group_id="grp-1",
+        relationship="OR",
+        member_requirement_ids=["req-1", "req-2"],
+        minimum_count=None,
+        description="Either satisfies this clause.",
+    )
+    constraint = ScreeningConstraintInfo(
+        constraint_id="scr-1",
+        constraint_type="background_check",
+        status="required",
+        statement="A background check is required.",
+        raw_text="Background check required.",
+    )
+
+    result = evaluate_ats_alignment(
+        [requirement],
+        resume,
+        relationships=[relationship],
+        screening_constraints=[constraint],
+    )
+
+    assert result.relationships == [relationship]
+    assert result.screening_constraints == [constraint]
+    # Overall score/must_have counts are computed purely from
+    # requirement_results - relationships/screening_constraints never
+    # participate.
+    assert result.overall_score == 100.0
+    assert result.must_have_total == 1
+
+
+def test_relationships_and_screening_constraints_default_to_empty():
+    requirement = skill_requirement("python")
+    resume = make_resume(
+        skill_evidence={
+            "python": {"demonstrated_mentions": 1, "skills_section_mentions": 0}
+        }
+    )
+
+    result = evaluate_ats_alignment([requirement], resume)
+
+    assert result.relationships == []
+    assert result.screening_constraints == []

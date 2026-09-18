@@ -1132,23 +1132,38 @@ class JobMatchResult(Base):
 class AtsAlignmentResult(Base):
     """A single ATS Alignment analysis (AJI-013): how well one exact
     `ResumeVersion` demonstrates the requirements of one exact
-    `JobIntelligence` snapshot, for one user.
+    `RequirementIntelligence` snapshot, for one user.
 
     Insert-only, like `JobMatchResult`/`JobIntelligence`/
     `ResumeAIAnalysis` (see docs/ARCHITECTURE.md's "Analysis/scoring
     versioning convention"): a new row is created whenever the resume
-    version, the Job Intelligence snapshot, or the ATS engine version
-    changes, so a past analysis never silently mutates. ATS Alignment is
-    a purely deterministic artifact (no AI call of its own — see
-    services/ats_alignment/engine.py), so it follows the single
-    `engine_version` convention rather than the
-    analysis/analyzer/prompt/model split used by AI-derived artifacts.
+    version, the Requirement Intelligence snapshot, the Job Intelligence
+    snapshot, or the ATS engine version changes, so a past analysis
+    never silently mutates. ATS Alignment is a purely deterministic
+    artifact (no AI call of its own — see services/ats_alignment/
+    engine.py), so it follows the single `engine_version` convention
+    rather than the analysis/analyzer/prompt/model split used by
+    AI-derived artifacts.
 
     Unlike `JobIntelligence` (shared, job-scoped, no `user_id`), this
     table is personalized: the same job can be analyzed against
     different resumes/users, and a user must never be able to read
     another user's row (see docs/ARCHITECTURE.md's "Shared vs.
     personalized" section and AJI-013 section 14).
+
+    AJI-020C (`requirement_intelligence_id`/
+    `requirement_intelligence_fingerprint`, both nullable): ATS
+    Alignment's requirement source is `RequirementIntelligence`
+    (AJI-020A/B), not `JobIntelligence` — see
+    apps/api/services/ats_alignment_service.py's
+    `_build_job_requirements_from_requirement_intelligence`.
+    `job_intelligence_id`/`job_content_fingerprint` are retained
+    unchanged (still populated on every new row) purely for backward-
+    compatible lineage/audit; they are no longer what drives the scored
+    `result["requirement_results"]`. The two new columns are nullable
+    because they were added via migration to an existing table — every
+    row created going forward always populates both (see
+    docs/ARCHITECTURE.md's AJI-020C section).
     """
 
     __tablename__ = "ats_alignment_results"
@@ -1194,6 +1209,24 @@ class AtsAlignmentResult(Base):
         String(64),
         nullable=False,
         index=True,
+    )
+
+    # AJI-020C: the actual requirement source (see the class docstring).
+    # Nullable only because this was added via migration to an existing
+    # table with existing rows — every row created by AJI-020C's
+    # `calculate_ats_alignment` populates both.
+    requirement_intelligence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("requirement_intelligence.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
+    # Copied from RequirementIntelligence.content_fingerprint at analysis
+    # time, mirroring `job_content_fingerprint`'s same rationale.
+    requirement_intelligence_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
     )
 
     engine_version: Mapped[str] = mapped_column(

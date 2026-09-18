@@ -504,6 +504,11 @@ def _ats_alignment_to_response(record: AtsAlignmentResult) -> dict:
         "job_id": str(record.job_id),
         "resume_version_id": str(record.resume_version_id),
         "job_intelligence_id": str(record.job_intelligence_id),
+        "requirement_intelligence_id": (
+            str(record.requirement_intelligence_id)
+            if record.requirement_intelligence_id
+            else None
+        ),
         "engine_version": record.engine_version,
         "overall_score": record.overall_score,
         "confidence": record.confidence,
@@ -513,6 +518,13 @@ def _ats_alignment_to_response(record: AtsAlignmentResult) -> dict:
         "preferred_total": result_data["preferred_total"],
         "preferred_matched": result_data["preferred_matched"],
         "requirement_results": result_data["requirement_results"],
+        # AJI-020C: descriptive-only, never scored - see
+        # services/ats_alignment/contracts.py's
+        # RequirementRelationshipGroup/ScreeningConstraintInfo docstrings.
+        # `.get(..., [])` keeps a historical row persisted before this
+        # migration (whose `result` JSON predates these keys) readable.
+        "relationships": result_data.get("relationships", []),
+        "screening_constraints": result_data.get("screening_constraints", []),
         "created_at": record.created_at.isoformat(),
     }
 

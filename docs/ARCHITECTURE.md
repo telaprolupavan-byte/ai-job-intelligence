@@ -1865,3 +1865,266 @@ database persistence described above, and AI provider-selection logic
 (this layer only reads `settings.ai_provider`/`settings.ai_model`; it
 never chooses or overrides a provider). Introducing any of these is a
 new ticket's scope, not a fix or extension of AJI-020B.
+
+## ATS Alignment / Requirement Intelligence Integration (AJI-020C)
+
+AJI-020C makes ATS Alignment (AJI-013) consume the normalized,
+persisted AJI-020A/B `RequirementIntelligence` contract instead of
+independently re-deriving requirements from AJI-012 `JobIntelligence`.
+AJI-020A's and AJI-020B's own semantics are unmodified — every file
+under `apps/api/services/requirement_intelligence/` is untouched by
+this ticket; AJI-020C only adds an adapter around them.
+
+**A reported discrepancy, addressed head-on rather than guessed at:**
+the AJI-020C ticket's own architecture diagram and scoring instructions
+refer to an "AJI-020 real ATS scoring engine" with five named weighted
+components (Requirement Coverage, Keyword & Terminology Alignment,
+Resume Evidence & Experience, Structure & Parseability, a must-have
+ceiling). No such engine exists anywhere in this repository — a
+repository-wide search for those component names returns nothing, and
+`services/ats_alignment/scoring.py`'s own module docstring states
+explicitly that "the AJI-013 spec explicitly states that no Must-Have/
+Preferred/Nice-to-Have scoring-weight formula has been approved by the
+Project Owner, and instructs the Builder not to invent one." AJI-020C
+therefore integrates Requirement Intelligence up to and including the
+existing (placeholder, equal-weight) `services.ats_alignment.scoring`
+engine, entirely unchanged, rather than inventing the five-component
+engine the ticket describes. This is reported per the ticket's own
+"if a scoring change appears necessary, STOP and report it instead of
+changing the product policy" instruction, not silently decided.
+
+### Integration boundary and data flow
+
+```
+Job (title/description/requirements/responsibilities)
+        |
+        v
+RequirementIntelligence (AJI-020A extraction, AJI-020B persistence)
+        |
+        v
+_build_job_requirements_from_requirement_intelligence  (AJI-020C adapter)
+        |
+        v
+services.ats_alignment.engine.evaluate_ats_alignment  (unmodified matching logic)
+        |
+        v
+AtsAlignmentResult  (persisted, unmodified scoring formula)
+```
+
+`apps/api/services/ats_alignment_service.py`'s
+`_build_job_requirements_from_requirement_intelligence` is the sole new
+adapter: it reads a `RequirementIntelligenceResult` and produces the
+same `JobRequirementItem` list `services.ats_alignment.engine` already
+consumed pre-AJI-020C. The engine's four per-type evaluators
+(`_evaluate_skill`/`_evaluate_experience`/`_evaluate_education`/
+`_evaluate_certification`) and `services.ats_alignment.scoring`'s
+score/confidence aggregation are unmodified — AJI-020C only threads
+three new metadata fields through them (see "Importance /
+hard_requirement" below) and adds two new, purely descriptive result
+sections (see "Relationship handling" and "Screening constraint
+separation" below).
+
+`JobIntelligence` (AJI-012) generation/fetch is retained unchanged in
+`calculate_ats_alignment` — every new row still populates
+`job_intelligence_id`/`job_content_fingerprint` — purely for
+backward-compatible lineage. Its *content* (required_skills, etc.) is no
+longer read to build the scored requirement list; `RequirementIntelligence`
+is. This was a deliberate choice to minimize blast radius (no schema
+change to an existing NOT NULL column, no ripple into whatever else
+might reference it) rather than a claim that `JobIntelligence` remains
+architecturally necessary for ATS Alignment going forward — a future
+ticket may reconsider whether this column should be deprecated once
+nothing else depends on it.
+
+### Requirement mapping
+
+Every AJI-020A `RequirementItem` with `importance in {"required",
+"preferred"}` maps 1:1 onto a `JobRequirementItem`
+(`must_have`/`preferred`, exactly AJI-012's old two-tier taxonomy —
+`RequirementCategory` still has only two values). `contextual`/
+`informational` items, and every `requirement_type == "responsibility"`
+item, are excluded before reaching the engine at all — AJI-020A's own
+locked contract already forbids a responsibility from ever being
+`required`/`preferred`, and a `contextual`/`informational` item is, by
+AJI-020A's own locked definition, not something the candidate must
+demonstrate — so there is nothing to invent a scored category for. This
+is the same "exclude, don't force a category" treatment AJI-012's
+`responsibilities` field already received.
+
+Preserved fields: `requirement_id` (now the originating AJI-020A
+`RequirementItem.id` verbatim, replacing the old synthetic
+`f"skill:{...}"`-style key — every scored requirement is traceable back
+to the exact Requirement Intelligence item it came from),
+`requirement_type`, `requirement_text` (reconstructed per type, same
+format as the old AJI-012-based mapping), `jd_evidence` (the item's
+`raw_text` clause — the provenance a consumer already gets; the
+character-offset `source_span` itself is not additionally threaded
+through, judged not essential on top of the verbatim clause text),
+`canonical_skill`/`minimum_years`/`area`/`degree_level`/
+`field_of_study`/`certification_name` (same per-type fields as before,
+now read from AJI-020A's typed `experience`/`education`/`certification`
+sub-objects). Two new fields added to `JobRequirementItem`/
+`RequirementAlignment` because the existing contract had no place for
+them: `hard_requirement: bool` and `ambiguous: bool` +
+`ambiguity_reason: str | None` (AJI-020A metadata, carried through
+unchanged — see "Importance / hard_requirement" below).
+
+### Relationship handling — reported architecture gap, not invented
+
+AJI-020A's `RequirementGroup`s (AND/OR/MIN_COUNT/EQUIVALENT) have no
+representation in the pre-existing `AtsAlignmentResult` contract — there
+is no concept anywhere in `services.ats_alignment.scoring` of "this
+OR-group counts as one satisfied requirement," and AJI-020C does not
+invent one (per the ticket's explicit "if the current ATS result
+contract has no appropriate representation for group-level fulfillment,
+STOP and report the architecture gap instead of inventing one"
+instruction). Computing a derived group-level verdict — e.g. deciding
+an OR-group is "satisfied" once any one member matches, or an
+AND-group only once every member does, and feeding *that* into
+`overall_score`/`must_have_total` — is left to a future ticket.
+
+What AJI-020C does instead: every member of a relationship group is
+still scored fully independently, exactly like any other requirement
+(never collapsed, never promoted/demoted based on its groupmates' verdicts
+— "Python OR Java" never becomes "Python AND Java", and "3 of 5
+technologies" never becomes 5 mandatory requirements, because neither is
+converted into anything at all). The group itself is surfaced
+separately and descriptively: `services.ats_alignment.contracts.
+RequirementRelationshipGroup` (`group_id`, `relationship`,
+`member_requirement_ids`, `minimum_count`, `description`) is a
+verbatim, unevaluated pass-through of AJI-020A's own `RequirementGroup`,
+returned on `AtsAlignmentResult.relationships` and persisted in
+`AtsAlignmentResult.result["relationships"]`/exposed on the API
+response — visible to a consumer, never read by
+`compute_overall_score`/`compute_overall_confidence`. A relationship
+group may reference a member id that does not appear in
+`requirement_results` when that member was itself `contextual`/
+`informational` (and therefore excluded from scoring, per "Requirement
+mapping" above) — this is passed through as-is from AJI-020A rather
+than filtered, since inventing filtering logic here would itself be an
+unrequested decision.
+
+### Screening constraint separation
+
+AJI-020A's `ScreeningConstraint`s (work authorization, sponsorship,
+citizenship, clearance, background/drug screening, age, license) are
+never scored as technical requirements and never appear in
+`requirement_results`/`must_have_total`/`preferred_total`. Mirroring the
+relationship treatment above, `services.ats_alignment.contracts.
+ScreeningConstraintInfo` is a verbatim, descriptive-only pass-through,
+surfaced on `AtsAlignmentResult.screening_constraints` /
+`result["screening_constraints"]` / the API response, never read by any
+scoring function. The existing ATS contract had no mechanism for
+screening constraints at all pre-AJI-020C (same "no representation,
+report rather than invent scoring behavior" situation as relationships)
+— this section exists precisely so they are preserved as separate
+intelligence rather than silently dropped or, worse, folded into the
+scored skill/experience/education/certification list.
+
+### Importance / hard_requirement
+
+`importance` (required/preferred/contextual/informational) and
+`hard_requirement` remain the distinct, orthogonal concepts AJI-020A
+locked: `category` (must_have/preferred) is derived from `importance`
+alone; `hard_requirement` is carried onto every `JobRequirementItem`/
+`RequirementAlignment` as metadata and is never read by
+`services.ats_alignment.scoring` or any evaluator's status/confidence
+decision. No product rule for how `hard_requirement` should affect
+scoring (a penalty, a gate, a ceiling) has been approved anywhere in
+this codebase, and AJI-020C does not invent one — per the ticket's
+explicit "do not invent a weighting or penalty" instruction, this is
+reported here as an open product decision for a future ticket, not
+resolved. Two requirements that are otherwise identical except for
+`hard_requirement` score identically today (see
+`test_hard_requirement_true_is_preserved_but_never_changes_scoring`).
+
+### Fallback behavior
+
+There is no approved fallback to raw-JD parsing if Requirement
+Intelligence is unavailable — and this was not invented for AJI-020C.
+The pre-existing, already-approved pattern for exactly this situation
+already exists one line above it: if `JobIntelligence` generation fails,
+`calculate_ats_alignment` has always propagated an
+`ATSAlignmentServiceError` carrying the underlying status code rather
+than falling back to anything. Requirement Intelligence generation
+failure is handled by the identical pattern — reused, not reinvented —
+so a Requirement Intelligence outage surfaces as a clean error response
+(503 in practice, from `RequirementIntelligencePersistenceError`) rather
+than either a silent raw-JD reinterpretation or an unhandled exception.
+
+### Versioning / historical preservation
+
+The ATS Alignment idempotency key grows from
+`(user_id, job_id, resume_version_id, job_intelligence_id,
+engine_version)` to
+`(user_id, job_id, resume_version_id, job_intelligence_id,
+requirement_intelligence_id, engine_version)` — AJI-020C adds
+`requirement_intelligence_id`, it does not remove or loosen any existing
+dimension (per the ticket's "inspect the existing persistence identity
+before changing it" instruction). A new migration
+(`apps/api/alembic/versions/
+c3f6a1d47e21_add_requirement_intelligence_to_ats.py`, `down_revision =
+'8a040c819900'`) adds two nullable columns to the existing
+`ats_alignment_results` table — `requirement_intelligence_id` (FK to
+`requirement_intelligence.id`, `ondelete="CASCADE"`, indexed) and
+`requirement_intelligence_fingerprint` (mirroring `job_content_fingerprint`'s
+role) — nullable only because they were added to a table that may
+already hold rows from before this ticket; every row AJI-020C's code
+creates populates both. `AtsAlignmentResult` rows remain insert-only and
+immutable, exactly as before: a new Requirement Intelligence snapshot
+(edited JD, or a bumped AJI-020A analyzer/prompt/model configuration —
+see AJI-020B's locked idempotency key above) produces a new, additional
+ATS row rather than mutating history; resume-version isolation and
+job/user isolation are both unchanged and still enforced by the same
+query filters as before (see
+`test_changed_requirement_intelligence_snapshot_creates_new_analysis_and_new_score`,
+which additionally proves the score itself now genuinely changes,
+unlike the old JobIntelligence-only dimension which changed the row's
+identity without changing its content).
+
+### AI vs. deterministic responsibility
+
+AJI-020C introduces no new AI call. AJI-020A owns AI interpretation,
+ambiguity handling, evidence validation, and relationship extraction
+(all upstream, already complete by the time `RequirementIntelligence` is
+persisted). AJI-020C's own code
+(`_build_job_requirements_from_requirement_intelligence`,
+`services.ats_alignment.engine`) is 100% deterministic: it reads an
+already-validated `RequirementIntelligenceResult`, maps it, and runs the
+existing deterministic evidence-matching engine against the resume —
+the same division of responsibility ATS Alignment already had with
+`JobIntelligence` before this ticket, just with a different upstream
+source.
+
+### API
+
+No new endpoint. `GET`/`POST /jobs/{job_id}/ats` are unchanged in shape
+and behavior; the JSON response gains `requirement_intelligence_id`,
+`relationships`, and `screening_constraints` (additive — a historical
+row's `result` JSON predating this migration reads back as `[]` for the
+latter two via `.get(..., [])` in `_ats_alignment_to_response`), and
+each `requirement_results` entry gains `hard_requirement`/`ambiguous`/
+`ambiguity_reason`. No frontend changes.
+
+### Known limitations
+
+- The five-component "AJI-020 real ATS scoring engine" the ticket
+  describes does not exist in this codebase (see the top of this
+  section) — flagged, not built, per the ticket's own instruction.
+- `hard_requirement` has no approved scoring effect yet (see
+  "Importance / hard_requirement" above) — open product decision.
+- A relationship group can reference a member id absent from
+  `requirement_results` when that member was `contextual`/
+  `informational` (see "Relationship handling" above) — intentional,
+  not filtered.
+- AJI-020A's `ExperienceConstraint.operator` can be `at_most`/`exact`/
+  `range`, but the unmodified engine's `_evaluate_experience` only ever
+  compares `years >= minimum_years` (an implicit "at least" semantic) —
+  this pre-dates AJI-020C (AJI-012's own experience shape never modeled
+  operators either) and is not fixed here, since changing
+  `_evaluate_experience`'s matching logic is a scoring-engine change
+  outside AJI-020C's scope.
+- `job_intelligence_id` is retained on every new `AtsAlignmentResult`
+  row purely for lineage even though its content no longer drives
+  scoring (see "Integration boundary" above) — a deliberate, disclosed
+  minimal-blast-radius choice, not an oversight.

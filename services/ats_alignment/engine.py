@@ -47,6 +47,8 @@ from services.ats_alignment.contracts import (
     Confidence,
     JobRequirementItem,
     RequirementAlignment,
+    RequirementRelationshipGroup,
+    ScreeningConstraintInfo,
 )
 from services.ats_alignment.resume_adapter import ResumeEvidenceProfile
 from services.ats_alignment.scoring import (
@@ -57,6 +59,17 @@ from services.ats_alignment.scoring import (
 
 
 ENGINE_VERSION = "1.0.0"
+
+
+def _carry_requirement_metadata(requirement: JobRequirementItem) -> dict:
+    """AJI-020A metadata (AJI-020C) carried onto every `RequirementAlignment`
+    unchanged — never read by any evaluator's status/confidence logic
+    below, and never read by `services.ats_alignment.scoring`."""
+    return {
+        "hard_requirement": requirement.hard_requirement,
+        "ambiguous": requirement.ambiguous,
+        "ambiguity_reason": requirement.ambiguity_reason,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +124,7 @@ def _evaluate_skill(
         resume_evidence=resume_evidence,
         explanation=explanation,
         confidence=confidence,
+        **_carry_requirement_metadata(requirement),
     )
 
 
@@ -166,6 +180,7 @@ def _evaluate_experience(
         resume_evidence=resume_evidence,
         explanation=explanation,
         confidence=confidence,
+        **_carry_requirement_metadata(requirement),
     )
 
 
@@ -256,6 +271,7 @@ def _evaluate_education(
                 "to verify against the resume."
             ),
             confidence="low",
+            **_carry_requirement_metadata(requirement),
         )
 
     found = _highest_degree_found(raw_text_lower)
@@ -309,6 +325,7 @@ def _evaluate_education(
         resume_evidence=resume_evidence,
         explanation=explanation,
         confidence=confidence,
+        **_carry_requirement_metadata(requirement),
     )
 
 
@@ -370,6 +387,7 @@ def _evaluate_certification(
                 "certification name to verify against the resume."
             ),
             confidence="low",
+            **_carry_requirement_metadata(requirement),
         )
 
     matched_terms = [
@@ -412,6 +430,7 @@ def _evaluate_certification(
         resume_evidence=resume_evidence,
         explanation=explanation,
         confidence=confidence,
+        **_carry_requirement_metadata(requirement),
     )
 
 
@@ -426,12 +445,21 @@ _EVALUATORS = {
 def evaluate_ats_alignment(
     job_requirements: list[JobRequirementItem],
     resume: ResumeEvidenceProfile,
+    *,
+    relationships: list[RequirementRelationshipGroup] | None = None,
+    screening_constraints: list[ScreeningConstraintInfo] | None = None,
 ) -> AtsAlignmentResult | None:
     """
     Evaluate every requirement independently and aggregate an overall
     score/confidence. Returns None when there are no requirements to
     evaluate at all (AJI-013 section 19: no score for invalid inputs) —
     the caller must not persist a fabricated result in that case.
+
+    `relationships`/`screening_constraints` (AJI-020C) are pure
+    passthrough onto the returned `AtsAlignmentResult` — see their
+    dataclass docstrings in contracts.py for why neither ever
+    participates in `overall_score`/`must_have_total`/`preferred_total`
+    or any per-requirement `status` decided above.
     """
     if not job_requirements:
         return None
@@ -460,4 +488,6 @@ def evaluate_ats_alignment(
         preferred_matched=sum(1 for r in preferred if r.status == "matched"),
         engine_version=ENGINE_VERSION,
         scoring_version=SCORING_VERSION,
+        relationships=relationships or [],
+        screening_constraints=screening_constraints or [],
     )

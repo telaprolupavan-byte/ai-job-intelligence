@@ -215,6 +215,15 @@ def test_post_ats_generates_and_returns_shape(client, db, test_job):
         assert item["status"] in {"matched", "partial", "missing"}
         assert item["category"] in {"must_have", "preferred"}
         assert item["confidence"] in {"high", "medium", "low"}
+        assert isinstance(item["hard_requirement"], bool)
+        assert isinstance(item["ambiguous"], bool)
+
+    # AJI-020C: ATS Alignment now sources from, and is traceable back to,
+    # a Requirement Intelligence snapshot; relationships/screening
+    # constraints are exposed (descriptive-only) on the same response.
+    assert data["requirement_intelligence_id"]
+    assert "relationships" in data
+    assert "screening_constraints" in data
 
 
 def test_get_ats_after_post_returns_same_record(client, db, test_job):

@@ -1,18 +1,28 @@
-"""ATS Alignment orchestration service (AJI-013).
+"""ATS Alignment orchestration service (AJI-013, integrated with
+Requirement Intelligence by AJI-020C).
 
 The database-touching layer between the /jobs router and the pure,
 DB-free services.ats_alignment engine — the same DB/pure-core split
 apps.api.services.job_match_service uses for Job Match and
 apps.api.services.job_intelligence.service uses for Job Intelligence.
 
-Source data (AJI-013 section 5, reused rather than recreated):
+Source data (AJI-020C core integration rule):
 
-- Job-side requirements come from AJI-012's persisted `JobIntelligence`
-  snapshot (via apps.api.services.job_intelligence.service), never
-  re-parsed from raw JD text here. If no snapshot exists yet for the
-  job, one is generated on demand (idempotent/cached — the same
-  function the /jobs/{job_id}/intelligence endpoint calls), since ATS
-  Alignment cannot answer its question without it.
+- Job-side requirements come from AJI-020A/B's persisted
+  `RequirementIntelligence` snapshot (via apps.api.services.
+  requirement_intelligence.persistence_service), never re-parsed from
+  raw JD text, and never re-derived from `JobIntelligence` either — see
+  `_build_job_requirements_from_requirement_intelligence` below. If no
+  snapshot exists yet for this (user, job), one is generated on demand
+  (idempotent/cached — the same function
+  `/jobs/{job_id}/requirement-intelligence` uses), since ATS Alignment
+  cannot answer its question without it.
+- `JobIntelligence` (AJI-012) is still generated/fetched here too, but
+  purely to keep populating the existing `job_intelligence_id`/
+  `job_content_fingerprint` lineage columns unchanged for backward
+  compatibility — its *content* is no longer read to build the scored
+  requirement list. See docs/ARCHITECTURE.md's AJI-020C section for why
+  this column is retained rather than removed.
 - Resume-side evidence comes from the existing deterministic resume
   analyzer (apps.api.services.resume_ai.deterministic), the same
   function Job Match already reuses, plus the user's declared
@@ -20,18 +30,32 @@ Source data (AJI-013 section 5, reused rather than recreated):
 
 Versioning/idempotency: an ATS Alignment result is keyed by
 (user_id, job_id, resume_version_id, job_intelligence_id,
-engine_version). Resume content is immutable per `ResumeVersion`, and a
-`JobIntelligence` row is itself an immutable, insert-only snapshot, so a
-cached result for this exact combination is valid indefinitely — reused
-exactly like `ResumeAIAnalysis`/`JobIntelligence` caching. A changed
-resume version, a new Job Intelligence snapshot (edited JD or bumped
-AJI-012 pipeline version), or a bumped ATS `engine_version` always
-produces a new, additional row; existing rows are never overwritten
-(AJI-013 section 12).
+requirement_intelligence_id, engine_version) — AJI-020C adds
+`requirement_intelligence_id` to the existing four-part key rather than
+replacing any part of it (AJI-020C section 11: "inspect the existing
+persistence identity before changing it"). Resume content is immutable
+per `ResumeVersion`, and both `JobIntelligence` and `RequirementIntelligence`
+rows are themselves immutable, insert-only snapshots, so a cached result
+for this exact combination is valid indefinitely. A changed resume
+version, a new Requirement Intelligence snapshot (edited JD or bumped
+AJI-020A pipeline/model version), a new Job Intelligence snapshot, or a
+bumped ATS `engine_version` always produces a new, additional row;
+existing rows are never overwritten (AJI-013 section 12).
 
-User isolation (AJI-013 section 14): every read/write here is always
-scoped to the requesting user's own `user_id` — never derived from
-`job_id`/`resume_version_id` alone.
+Fallback policy (AJI-020C section 10): there is no approved fallback to
+raw-JD parsing if Requirement Intelligence is unavailable. The existing,
+already-approved pattern for this exact situation is "hard fail, never
+silently reinterpret the JD" — `JobIntelligence` generation failure
+already propagates as an `ATSAlignmentServiceError` with the underlying
+status code rather than falling back to anything; Requirement
+Intelligence generation failure is handled identically, reusing that
+same pattern rather than inventing a new one.
+
+User isolation (AJI-013 section 14, unchanged by AJI-020C): every
+read/write here is always scoped to the requesting user's own `user_id`
+— never derived from `job_id`/`resume_version_id` alone. This includes
+the Requirement Intelligence lookup, since AJI-020B made that table
+per-user too.
 """
 
 from __future__ import annotations
@@ -43,21 +67,31 @@ from sqlalchemy.orm import Session
 from apps.api.models import (
     AtsAlignmentResult,
     Job,
-    JobIntelligence,
     Resume,
     ResumeVersion,
     User,
 )
-from apps.api.services.job_intelligence.contracts import JobIntelligenceResult
 from apps.api.services.job_intelligence.service import (
     JobIntelligenceServiceError,
     generate_job_intelligence,
     get_latest_job_intelligence,
 )
+from apps.api.services.requirement_intelligence.contracts import (
+    RequirementIntelligenceResult,
+)
+from apps.api.services.requirement_intelligence.persistence_service import (
+    RequirementIntelligencePersistenceError,
+    generate_requirement_intelligence,
+    get_latest_requirement_intelligence,
+)
 from apps.api.services.resume_ai.deterministic import (
     analyze_resume_deterministically,
 )
-from services.ats_alignment.contracts import JobRequirementItem
+from services.ats_alignment.contracts import (
+    JobRequirementItem,
+    RequirementRelationshipGroup,
+    ScreeningConstraintInfo,
+)
 from services.ats_alignment.engine import ENGINE_VERSION, evaluate_ats_alignment
 from services.ats_alignment.resume_adapter import build_resume_evidence_profile
 
@@ -148,96 +182,126 @@ def _resolve_resume_version(
 
 
 # ---------------------------------------------------------------------------
-# Job Intelligence -> ATS requirement mapping
+# Requirement Intelligence -> ATS requirement mapping (AJI-020C)
 # ---------------------------------------------------------------------------
 
-_LEVEL_TO_CATEGORY = {
+_IMPORTANCE_TO_CATEGORY: dict[str, str] = {
     "required": "must_have",
     "preferred": "preferred",
 }
 
 
-def _build_job_requirements(
-    intelligence: JobIntelligenceResult,
-) -> list[JobRequirementItem]:
+def _build_job_requirements_from_requirement_intelligence(
+    intelligence: RequirementIntelligenceResult,
+) -> tuple[
+    list[JobRequirementItem],
+    list[RequirementRelationshipGroup],
+    list[ScreeningConstraintInfo],
+]:
     """
-    Map an AJI-012 JobIntelligenceResult into the flat, independently-
-    evaluable requirement list the ATS engine consumes.
+    Map AJI-020A/B's `RequirementIntelligenceResult` into the ATS
+    engine's existing evidence-evaluation model (AJI-020C section 5).
 
-    Category taxonomy: AJI-012's `Level` ("required"/"preferred") maps
-    1:1 onto ATS Alignment's `RequirementCategory`
-    ("must_have"/"preferred") — see
-    services/ats_alignment/contracts.py's module docstring for why a
-    third "nice_to_have" tier is not introduced here.
+    Category taxonomy: only `importance in {"required", "preferred"}`
+    items are ever mapped into a scored `JobRequirementItem` — mapped
+    1:1 onto ATS Alignment's existing `RequirementCategory`
+    ("must_have"/"preferred"), exactly like AJI-012's own two-tier
+    mapping before it (see services/ats_alignment/contracts.py's module
+    docstring). `contextual`/`informational` items, and every
+    `requirement_type == "responsibility"` item (which AJI-020A's own
+    locked contract validator forbids from ever being `required`/
+    `preferred` in the first place), are excluded — they are not
+    requirements to score a candidate against by AJI-020A's own locked
+    definition, so there is nothing to invent a category for.
+
+    Relationships (AND/OR/MIN_COUNT/EQUIVALENT) and screening
+    constraints are mapped separately and returned unevaluated — see
+    `RequirementRelationshipGroup`/`ScreeningConstraintInfo` in
+    contracts.py for why this function never folds them into a scored
+    `JobRequirementItem` or any derived group-level verdict.
     """
     items: list[JobRequirementItem] = []
 
-    for skill in [*intelligence.required_skills, *intelligence.preferred_skills]:
-        items.append(
-            JobRequirementItem(
-                requirement_id=f"skill:{skill.canonical_skill}",
-                requirement_type="skill",
-                category=_LEVEL_TO_CATEGORY[skill.level],
-                requirement_text=skill.canonical_skill,
-                jd_evidence=skill.evidence_text,
-                canonical_skill=skill.canonical_skill,
-            )
-        )
+    for req in intelligence.requirements:
+        category = _IMPORTANCE_TO_CATEGORY.get(req.importance)
 
-    for index, experience in enumerate(
-        [*intelligence.required_experience, *intelligence.preferred_experience]
-    ):
-        if experience.minimum_years is None:
-            # Nothing objectively comparable without a minimum-years
-            # figure; skip rather than manufacture an unverifiable result.
+        if category is None:
             continue
 
-        label = f"{experience.minimum_years:g}+ years"
-        if experience.area:
-            label += f" of {experience.area}"
+        canonical_skill = req.canonical_terms[0] if req.canonical_terms else None
+        minimum_years: float | None = None
+        area: str | None = None
+        degree_level: str | None = None
+        field_of_study: str | None = None
+        certification_name: str | None = None
+
+        if req.requirement_type == "skill":
+            requirement_text = canonical_skill or req.statement
+        elif req.requirement_type == "experience":
+            minimum_years = req.experience.minimum_years if req.experience else None
+            area = req.experience.area if req.experience else None
+            requirement_text = (
+                f"{minimum_years:g}+ years" if minimum_years is not None else "Experience"
+            ) + (f" of {area}" if area else "")
+        elif req.requirement_type == "education":
+            degree_level = req.education.degree_level if req.education else None
+            field_of_study = req.education.field_of_study if req.education else None
+            requirement_text = (degree_level or "Degree") + (
+                f" in {field_of_study}" if field_of_study else ""
+            )
+        elif req.requirement_type == "certification":
+            certification_name = (
+                req.certification.name if req.certification else req.statement
+            )
+            requirement_text = certification_name
+        else:
+            # "responsibility" - unreachable in practice (never
+            # required/preferred - see the docstring above) but guarded
+            # defensively rather than assumed.
+            continue
 
         items.append(
             JobRequirementItem(
-                requirement_id=f"experience:{index}:{experience.area or 'general'}",
-                requirement_type="experience",
-                category=_LEVEL_TO_CATEGORY[experience.level],
-                requirement_text=label,
-                jd_evidence=experience.evidence_text,
-                minimum_years=experience.minimum_years,
-                area=experience.area,
+                requirement_id=req.id,
+                requirement_type=req.requirement_type,
+                category=category,
+                requirement_text=requirement_text,
+                jd_evidence=req.raw_text,
+                canonical_skill=canonical_skill,
+                minimum_years=minimum_years,
+                area=area,
+                degree_level=degree_level,
+                field_of_study=field_of_study,
+                certification_name=certification_name,
+                hard_requirement=req.hard_requirement,
+                ambiguous=req.ambiguous,
+                ambiguity_reason=req.ambiguity_reason,
             )
         )
 
-    for index, education in enumerate(intelligence.education):
-        label = education.degree_level or "Degree"
-        if education.field_of_study:
-            label += f" in {education.field_of_study}"
-
-        items.append(
-            JobRequirementItem(
-                requirement_id=f"education:{index}",
-                requirement_type="education",
-                category=_LEVEL_TO_CATEGORY[education.level],
-                requirement_text=label,
-                jd_evidence=education.evidence_text,
-                degree_level=education.degree_level,
-                field_of_study=education.field_of_study,
-            )
+    relationships = [
+        RequirementRelationshipGroup(
+            group_id=group.id,
+            relationship=group.relationship,
+            member_requirement_ids=list(group.member_ids),
+            minimum_count=group.minimum_count,
+            description=group.description,
         )
+        for group in intelligence.relationships
+    ]
 
-    for index, certification in enumerate(intelligence.certifications):
-        items.append(
-            JobRequirementItem(
-                requirement_id=f"certification:{index}",
-                requirement_type="certification",
-                category=_LEVEL_TO_CATEGORY[certification.level],
-                requirement_text=certification.name,
-                jd_evidence=certification.evidence_text,
-                certification_name=certification.name,
-            )
+    screening_constraints = [
+        ScreeningConstraintInfo(
+            constraint_id=constraint.id,
+            constraint_type=constraint.constraint_type,
+            status=constraint.status,
+            statement=constraint.statement,
+            raw_text=constraint.raw_text,
         )
+        for constraint in intelligence.screening_constraints
+    ]
 
-    return items
+    return items, relationships, screening_constraints
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +318,7 @@ def get_latest_ats_alignment(
     """
     Read-only lookup of the newest ATS Alignment result for this user and
     job (optionally pinned to one exact resume version). Never recomputes
-    or calls generate_job_intelligence.
+    or calls generate_job_intelligence/generate_requirement_intelligence.
     """
     query = db.query(AtsAlignmentResult).filter(
         AtsAlignmentResult.user_id == user_id,
@@ -291,6 +355,9 @@ def calculate_ats_alignment(
         resume_version_id=resume_version_id,
     )
 
+    # Retained unchanged for lineage only - see the module docstring and
+    # apps/api/models.py's `AtsAlignmentResult` docstring. Not read for
+    # requirement content.
     job_intelligence_row = get_latest_job_intelligence(db, job_id=job_id)
 
     if job_intelligence_row is None:
@@ -302,6 +369,25 @@ def calculate_ats_alignment(
                 status_code=exc.status_code,
             ) from exc
 
+    # The actual requirement source (AJI-020C core integration rule). No
+    # approved fallback exists if this is unavailable - see the module
+    # docstring's "Fallback policy" note; a generation failure is
+    # propagated exactly like the Job Intelligence failure above.
+    requirement_intelligence_row = get_latest_requirement_intelligence(
+        db, user_id=current_user.id, job_id=job_id
+    )
+
+    if requirement_intelligence_row is None:
+        try:
+            requirement_intelligence_row = generate_requirement_intelligence(
+                db, user_id=current_user.id, job_id=job_id
+            )
+        except RequirementIntelligencePersistenceError as exc:
+            raise ATSAlignmentServiceError(
+                "Unable to obtain Requirement Intelligence for this job.",
+                status_code=exc.status_code,
+            ) from exc
+
     cached = (
         db.query(AtsAlignmentResult)
         .filter(
@@ -309,6 +395,8 @@ def calculate_ats_alignment(
             AtsAlignmentResult.job_id == job_id,
             AtsAlignmentResult.resume_version_id == resume_version.id,
             AtsAlignmentResult.job_intelligence_id == job_intelligence_row.id,
+            AtsAlignmentResult.requirement_intelligence_id
+            == requirement_intelligence_row.id,
             AtsAlignmentResult.engine_version == ENGINE_VERSION,
         )
         .order_by(AtsAlignmentResult.created_at.desc())
@@ -318,10 +406,12 @@ def calculate_ats_alignment(
     if cached is not None:
         return cached
 
-    intelligence = JobIntelligenceResult.model_validate(
-        job_intelligence_row.structured_intelligence
+    intelligence = RequirementIntelligenceResult.model_validate(
+        requirement_intelligence_row.structured_intelligence
     )
-    job_requirements = _build_job_requirements(intelligence)
+    job_requirements, relationships, screening_constraints = (
+        _build_job_requirements_from_requirement_intelligence(intelligence)
+    )
 
     resume_text = resume_version.content_text.strip()
 
@@ -341,11 +431,16 @@ def calculate_ats_alignment(
         years_experience=profile.years_experience if profile else None,
     )
 
-    result = evaluate_ats_alignment(job_requirements, resume_profile)
+    result = evaluate_ats_alignment(
+        job_requirements,
+        resume_profile,
+        relationships=relationships,
+        screening_constraints=screening_constraints,
+    )
 
     if result is None:
         raise ATSAlignmentServiceError(
-            "Job Intelligence for this job contains no analyzable "
+            "Requirement Intelligence for this job contains no analyzable "
             "requirements.",
             status_code=422,
         )
@@ -367,8 +462,31 @@ def calculate_ats_alignment(
                 "resume_evidence": item.resume_evidence,
                 "explanation": item.explanation,
                 "confidence": item.confidence,
+                "hard_requirement": item.hard_requirement,
+                "ambiguous": item.ambiguous,
+                "ambiguity_reason": item.ambiguity_reason,
             }
             for item in result.requirement_results
+        ],
+        "relationships": [
+            {
+                "group_id": group.group_id,
+                "relationship": group.relationship,
+                "member_requirement_ids": group.member_requirement_ids,
+                "minimum_count": group.minimum_count,
+                "description": group.description,
+            }
+            for group in result.relationships
+        ],
+        "screening_constraints": [
+            {
+                "constraint_id": constraint.constraint_id,
+                "constraint_type": constraint.constraint_type,
+                "status": constraint.status,
+                "statement": constraint.statement,
+                "raw_text": constraint.raw_text,
+            }
+            for constraint in result.screening_constraints
         ],
     }
 
@@ -378,6 +496,10 @@ def calculate_ats_alignment(
         resume_version_id=resume_version.id,
         job_intelligence_id=job_intelligence_row.id,
         job_content_fingerprint=job_intelligence_row.content_fingerprint,
+        requirement_intelligence_id=requirement_intelligence_row.id,
+        requirement_intelligence_fingerprint=(
+            requirement_intelligence_row.content_fingerprint
+        ),
         engine_version=result.engine_version,
         overall_score=result.overall_score,
         confidence=result.confidence,
