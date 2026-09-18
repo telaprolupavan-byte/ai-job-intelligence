@@ -1332,3 +1332,182 @@ response bundle (including that Greenhouse's entry requires
 own API response carries no company name), that an absent provider is
 left out of the report list rather than shown as zeroes, and the CLI
 entry point end to end via a temp file.
+
+## Requirement Intelligence Model (AJI-020A)
+
+Requirement Intelligence is a finer-grained **model of a JD's
+requirement language** — not a replacement for, and not merged with,
+AJI-012 `JobIntelligence`. AJI-012 already answers "what does this
+specific job require?" for AJI-013 (ATS Alignment), AJI-014 (Job Match
+Reconciliation), and AJI-015 (Gap Analysis); this ticket does not change
+any of that pipeline, and AJI-013 still deliberately reuses AJI-012's
+two-tier (required/preferred) taxonomy rather than forking a third (see
+the AJI-013 section above). Requirement Intelligence exists to model
+what that two-tier shape does not attempt: a four-tier importance
+taxonomy (required/preferred/contextual/informational), explicit
+hard-requirement/gating semantics, AND/OR/MIN_COUNT/EQUIVALENT
+relationships between requirements, character-offset provenance,
+per-item ambiguity, and JD-level quality/security diagnostics
+(duplicate detection, contradiction detection, prompt-injection
+signals). Per the ticket's explicit scope boundary, it does not score,
+arbitrate evidence, match against a resume, compute gaps, or generate
+suggestions — those remain out of scope here.
+
+### Package layout and why it has no database table (yet)
+
+`apps/api/services/requirement_intelligence/` mirrors `job_intelligence`'s
+colocated deterministic + AI pipeline module layout (`contracts.py`,
+`deterministic.py`, `prompts.py`/`providers/`/`interpreter.py`,
+`validator.py`), with one deliberate difference: **it has no ORM model,
+no Alembic migration, and no API router.** AJI-020A's scope is the
+requirement model and its extraction pipeline, not a new persisted/
+queryable entity — `service.py`'s `build_requirement_intelligence()` is a
+pure function (`RawRequirementSource` in, a validated
+`RequirementIntelligenceResult` out) with no DB session dependency.
+Every result still carries `analysis_version`/`analyzer_version`/
+`prompt_version`/`model_provider`/`model_name` (see "The contract"
+below), so a future persistence/API layer (AJI-020B, if/when a real
+consumer needs one) has everything it needs to key and version snapshots
+exactly the way `JobIntelligence` does, without this ticket guessing at
+a schema for a consumer that does not exist yet.
+
+### The contract
+
+`RequirementIntelligenceResult` (`contracts.py`) is a single closed
+Pydantic schema (`extra="forbid"` on every nested model), so a malformed
+deterministic/AI merge is a validation error, never a silently-accepted
+extra field:
+
+- **`requirements`** — a flat, typed list of `RequirementItem`s
+  (`requirement_type`: skill/experience/education/certification/
+  responsibility). Each carries `importance` (the four-tier taxonomy),
+  `hard_requirement` (a model-validated invariant: only ever true when
+  `importance == "required"`), `canonical_terms`, a `source_span`
+  (verbatim provenance into the exact raw text the pipeline was given,
+  itself validated to actually bound its own `text`), `confidence`, and
+  `ambiguous`/`ambiguity_reason`. A responsibility is permanently
+  forbidden (by a model validator, not just convention) from ever being
+  `required`/`preferred` — the same "responsibilities are never a scored
+  requirement" rule AJI-012 established, generalized to the wider tier
+  set.
+- **`relationships`** — `RequirementGroup`s expressing AND/OR/MIN_COUNT/
+  EQUIVALENT logic between `requirements` entries by id. Referential
+  integrity (every `member_ids` entry must name a real requirement,
+  `minimum_count` may not exceed the member count, member ids may not
+  repeat) is enforced by model validators on both `RequirementGroup` and
+  the top-level result, not by convention. An EQUIVALENT relationship
+  whose JD-stated alternative could not be resolved to a second
+  canonical requirement (e.g. "AWS or equivalent cloud platform
+  experience") is never fabricated as a second structured requirement —
+  the alternative's text is kept verbatim on the item's
+  `equivalent_alternatives` instead (see "do not fabricate taxonomy
+  equivalences" below).
+- **`screening_constraints`** — pass/fail gating conditions (work
+  authorization, sponsorship, citizenship, clearance, background/drug
+  screening, minimum age, driver's license) kept in their own list,
+  never mixed into `requirements` — mirrors AJI-012's
+  `AuthorizationSignals` being separate from skills/experience,
+  generalized to the wider set of screening gates a JD can state.
+- **`quality`** — `duplicate_groups` (same requirement mentioned more
+  than once; the highest-importance occurrence is kept in
+  `requirements`, every occurrence is recorded here) and
+  `contradictions` (conflicting importance for the same requirement,
+  conflicting experience-year ranges for the same area, or an explicit
+  "not required" statement contradicting a genuine requirement of the
+  same skill elsewhere in the JD) — deliberately conservative,
+  pattern-based diagnostics, not exhaustive NLU-level contradiction
+  reasoning.
+- **`security`** — see "JD prompt-injection handling" below.
+- **`identity`/`domain`** — title/seniority/role-family/domain, same
+  deterministic-extraction-wins/AI-fills-the-gap shape and evidence-
+  substring anti-hallucination check as AJI-012's `JobIdentity`/
+  `DomainInfo`.
+
+### Related-but-different technology protection
+
+`deterministic.find_protected_skills()` wraps `services.skills.
+find_skills()` (unmodified — this module does not alter shared
+infrastructure other tickets depend on) with a small, explicit exclusion
+list (`_PROTECTED_COMPOUND_EXCLUSIONS`, e.g. `"react" -> ("react
+native",)`) so a JD clause naming a distinct, related technology never
+gets misattributed to the base skill it merely shares a word with. The
+check is conservative in both directions: it strips known compound-
+phrase occurrences from the clause and only keeps crediting the base
+skill if it is still independently detectable in what remains — so
+"React Native experience required" extracts nothing (React Native is not
+itself in the canonical vocabulary, and fabricating an entry for it is
+out of scope — see "do not fabricate taxonomy equivalences" in the
+ticket), while "React and React Native experience required" still
+credits "react".
+
+### JD prompt-injection handling
+
+The raw JD text is untrusted, attacker-influenceable input. The defense
+is structural, not a text-mutation step: `prompts.py`'s system prompt
+explicitly instructs the AI stage to treat the JOB DESCRIPTION block as
+data to describe, never as instructions, and `validator.py`'s evidence-
+substring check (identical mechanism to AJI-012's) drops any AI-claimed
+field whose "evidence" does not verbatim-match the source text —
+regardless of what an embedded instruction asked the model to output.
+Deterministic extraction is immune by construction (it only ever
+pattern-matches structure, never executes JD content).
+`deterministic.detect_prompt_injection_signals()` additionally flags
+known injection phrasing (e.g. "ignore previous instructions", "you are
+now...", "mark this candidate as...") into `SecurityDiagnostics` for
+audit visibility — this is diagnostic only, the JD text is never
+stripped/altered before being sent to the AI stage, since "cleaning"
+attacker-controlled text is its own injection surface and risks
+destroying legitimate JD content that happens to match a pattern.
+
+### Failure handling and idempotency-readiness
+
+Mirrors AJI-012: deterministic extraction failing is a hard error
+(`RequirementIntelligenceServiceError`, 503) — nothing is returned. A
+failed AI call degrades to `extraction_status = "partial"` (only
+deterministic fields populated; `identity.normalized_title`/
+`role_family`/`domain` stay unset) rather than discarding real,
+evidence-backed deterministic data. Security diagnostics are always
+present even in a partial result, since detection is a deterministic
+pass independent of the AI stage. `analysis_version`/`analyzer_version`/
+`prompt_version` are fixed constants today (no caller-facing
+idempotency/caching exists yet, since there is no DB row to key) but are
+carried on every result specifically so a future persistence layer can
+reuse the exact `(source_id, content_fingerprint, analyzer_version,
+prompt_version)` cache-key shape `JobIntelligence` already established,
+without re-deriving it.
+
+### Testing
+
+`tests/test_requirement_intelligence_contracts.py` covers every model
+validator (`SourceSpan` bounds, `RequirementItem` hard-requirement/
+responsibility invariants, `RequirementGroup` relationship-arity rules,
+top-level referential integrity). `tests/test_requirement_intelligence_
+deterministic.py` covers provenance-span accuracy, all four importance
+tiers, hard-requirement detection, AND/OR/MIN_COUNT/EQUIVALENT
+extraction (including that a MIN_COUNT clause is never double-counted as
+a plain requirement, and that a MIN_COUNT group is never fabricated
+below its evidenced member count), experience constraints (at-least/at-
+most/range operators), education/certification extraction,
+responsibilities-vs-requirements separation, seniority-from-title,
+screening constraints staying separate from scored requirements,
+duplicate detection/merging, all three contradiction types, ambiguity
+flags, and related-but-different technology protection (React vs. React
+Native, Node.js vs. Node-RED, Java vs. JavaScript staying distinct).
+`tests/test_requirement_intelligence_validator.py` covers the evidence-
+substring anti-hallucination check and deterministic-wins-over-AI
+precedence. `tests/test_requirement_intelligence_provider.py` mirrors
+`test_job_intelligence_provider.py`'s OpenAI-strict-schema regression
+guard. `tests/test_requirement_intelligence_service.py` covers the full
+pipeline (success, AI-failure-degrades-to-partial, deterministic-failure-
+raises), including that a malicious AI response fabricated in response
+to injected JD text is still dropped by the evidence check.
+`tests/test_requirement_intelligence_security.py` covers prompt-
+injection signal detection directly and confirms legitimate extraction
+is unaffected by injection-like text elsewhere in the JD.
+
+### Deferred to AJI-020B
+
+Persistence (an ORM model/Alembic migration), an API router, idempotent
+caching keyed off a real `content_fingerprint`, and wiring this model
+into any consumer (ATS Alignment or otherwise) are all explicitly left
+for a follow-up ticket — see the package-layout note above for why.
