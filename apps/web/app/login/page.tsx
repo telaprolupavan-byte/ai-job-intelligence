@@ -16,6 +16,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const registered = searchParams.get("registered") === "true";
+  const resetSuccess = searchParams.get("reset") === "true";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,6 +108,15 @@ function LoginForm() {
                   className="w-full rounded-[9px] border border-app-border bg-app-panel px-4 py-3 text-sm outline-none transition focus:border-app-blue"
                   placeholder="Enter your password"
                 />
+
+                <div className="mt-2 text-right">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-app-muted underline underline-offset-4 hover:text-app-red"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               {registered && (
@@ -115,6 +125,15 @@ function LoginForm() {
                   className="rounded-lg border border-app-border bg-app-surface px-4 py-3 text-sm"
                 >
                   Account created. Sign in to continue.
+                </div>
+              )}
+
+              {resetSuccess && (
+                <div
+                  role="status"
+                  className="rounded-lg border border-app-border bg-app-surface px-4 py-3 text-sm"
+                >
+                  Password reset. Sign in with your new password.
                 </div>
               )}
 
