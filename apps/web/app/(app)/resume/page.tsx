@@ -142,17 +142,30 @@ type ResumeAnalysis = {
 async function authenticatedRequest<T>(
   path: string,
   options: RequestInit = {},
+  timeoutMs?: number,
 ): Promise<T> {
   const token = getAuthToken();
 
-  return apiRequest<T>(path, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers ?? {}),
+  return apiRequest<T>(
+    path,
+    {
+      ...options,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers ?? {}),
+      },
     },
-  });
+    timeoutMs,
+  );
 }
+
+// The backend bounds its own OpenAI call to a 60s timeout with one retry
+// (see apps/api/services/resume_ai/providers/openai_provider.py), so a
+// legitimate in-progress analysis can take up to ~120s before the backend
+// itself responds. This client-side ceiling sits comfortably above that
+// worst case - it exists to guarantee the "Analyzing Resume..." state
+// always clears, not to race the backend's own timeout.
+const ANALYZE_RESUME_TIMEOUT_MS = 150_000;
 
 function isPdf(filename: string) {
   return filename.toLowerCase().endsWith(".pdf");
@@ -437,6 +450,7 @@ export default function Page() {
         {
           method: "POST",
         },
+        ANALYZE_RESUME_TIMEOUT_MS,
       );
 
       setAnalysis(result);
