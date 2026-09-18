@@ -1,4 +1,14 @@
-"""DB-backed tests for the ATS Alignment orchestration service (AJI-013)."""
+"""DB-backed tests for the ATS Alignment orchestration service (AJI-013,
+integrated with Requirement Intelligence by AJI-020C).
+
+Requirement content is seeded directly as a `RequirementIntelligence`
+row (via `make_requirement_intelligence`/`ri_skill_item`/
+`ri_experience_item` below) rather than via `JobIntelligence` — since
+AJI-020C, `RequirementIntelligence` is the actual source ATS Alignment
+scores against (see apps/api/services/ats_alignment_service.py's module
+docstring). `make_job_intelligence` is kept only for the one test that
+exercises the still-populated `job_intelligence_id` lineage column.
+"""
 
 from uuid import uuid4
 
@@ -10,6 +20,7 @@ from apps.api.models import (
     JobIntelligence,
     Preference,
     Profile,
+    RequirementIntelligence,
     Resume,
     ResumeVersion,
     User,
@@ -19,6 +30,9 @@ from apps.api.services.ats_alignment_service import (
     ATSAlignmentServiceError,
     calculate_ats_alignment,
     get_latest_ats_alignment,
+)
+from apps.api.services.requirement_intelligence.contracts import (
+    RequirementIntelligenceResult,
 )
 from apps.api.services.resume_fingerprint import compute_content_fingerprint
 
@@ -176,6 +190,100 @@ def experience_item(minimum_years: float, *, level: str = "required") -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Requirement Intelligence (AJI-020A/B/C) fixture helpers
+# ---------------------------------------------------------------------------
+
+def ri_skill_item(
+    canonical_skill: str, *, importance: str = "required", item_id: str | None = None
+) -> dict:
+    return {
+        "id": item_id or f"req-skill-{canonical_skill}",
+        "requirement_type": "skill",
+        "importance": importance,
+        "statement": f"{canonical_skill} ({importance})",
+        "canonical_terms": [canonical_skill],
+        "raw_text": f"{canonical_skill} {importance}.",
+        "confidence": "high",
+    }
+
+
+def ri_experience_item(
+    minimum_years: float,
+    *,
+    area: str | None = None,
+    importance: str = "required",
+    item_id: str | None = None,
+) -> dict:
+    return {
+        "id": item_id or f"req-experience-{area or 'general'}",
+        "requirement_type": "experience",
+        "importance": importance,
+        "statement": f"{minimum_years}+ years" + (f" of {area}" if area else ""),
+        "canonical_terms": [area] if area else [],
+        "raw_text": f"{minimum_years}+ years of experience required.",
+        "confidence": "high",
+        "experience": {
+            "operator": "at_least",
+            "minimum_years": minimum_years,
+            "area": area,
+        },
+    }
+
+
+def make_requirement_intelligence(
+    db,
+    *,
+    job: Job,
+    user: User,
+    requirements: list[dict] | None = None,
+    relationships: list[dict] | None = None,
+    screening_constraints: list[dict] | None = None,
+    content_fingerprint: str | None = None,
+) -> RequirementIntelligence:
+    """
+    Directly persists a `RequirementIntelligence` row with hand-crafted
+    `structured_intelligence`, mirroring `make_job_intelligence`'s role
+    for the old JobIntelligence-based tests. Validated through the real
+    `RequirementIntelligenceResult` contract so a fixture can never drift
+    from the actual AJI-020A schema.
+    """
+    payload = {
+        "analysis_version": "1.0",
+        "analyzer_version": "1.0",
+        "prompt_version": "1.0",
+        "model_provider": None,
+        "model_name": None,
+        "extraction_status": "complete",
+        "source_id": str(job.id),
+        "identity": {"original_title": job.title},
+        "domain": {},
+        "requirements": requirements or [],
+        "relationships": relationships or [],
+        "screening_constraints": screening_constraints or [],
+        "quality": {},
+        "security": {},
+    }
+    validated = RequirementIntelligenceResult.model_validate(payload)
+
+    record = RequirementIntelligence(
+        id=uuid4(),
+        user_id=user.id,
+        job_id=job.id,
+        content_fingerprint=content_fingerprint or f"fingerprint-{uuid4()}",
+        raw_jd_snapshot={"title": job.title},
+        analysis_version="1.0",
+        analyzer_version="1.0",
+        prompt_version="1.0",
+        extraction_status="complete",
+        structured_intelligence=validated.model_dump(mode="json"),
+    )
+    db.add(record)
+    db.flush()
+
+    return record
+
+
+# ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
 
@@ -185,11 +293,14 @@ def test_calculate_ats_alignment_happy_path(db):
     resume_version = make_resume_version(
         db, user=user, content_text="Experienced Python developer. Skills: Python."
     )
-    make_job_intelligence(
+    make_requirement_intelligence(
         db,
         job=job,
-        required_skills=[skill_item("python")],
-        required_experience=[experience_item(5)],
+        user=user,
+        requirements=[
+            ri_skill_item("python"),
+            ri_experience_item(5, area="python"),
+        ],
     )
 
     record = calculate_ats_alignment(db=db, current_user=user, job_id=job.id)
@@ -365,6 +476,12 @@ def test_same_resume_against_two_jobs_is_isolated_per_job(db):
 
 
 def test_changed_job_intelligence_snapshot_creates_new_analysis(db):
+    """`job_intelligence_id` is retained unchanged as a lineage-only
+    isolation dimension by AJI-020C (its *content* no longer drives
+    scoring — see `test_changed_requirement_intelligence_snapshot_
+    creates_new_analysis_and_new_score` below for the dimension that
+    now does) — this proves that isolation dimension itself still
+    functions exactly as before."""
     user = make_user(db, label="ji-change")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Python developer.")
@@ -383,6 +500,42 @@ def test_changed_job_intelligence_snapshot_creates_new_analysis(db):
 
     assert second.id != first.id
     assert second.job_intelligence_id != first.job_intelligence_id
+
+
+def test_changed_requirement_intelligence_snapshot_creates_new_analysis_and_new_score(
+    db,
+):
+    """The AJI-020C dimension that actually drives scoring: a new
+    Requirement Intelligence snapshot for the same job produces a new
+    ATS row, and (unlike the JobIntelligence-only case above) the
+    scored content genuinely changes."""
+    user = make_user(db, label="ri-change")
+    job = make_job(db)
+    make_resume_version(db, user=user, content_text="Python developer. Skills: Python.")
+
+    make_requirement_intelligence(
+        db,
+        job=job,
+        user=user,
+        requirements=[ri_skill_item("python")],
+        content_fingerprint="ri-fp-1",
+    )
+    first = calculate_ats_alignment(db=db, current_user=user, job_id=job.id)
+    assert first.overall_score > 0.0
+
+    make_requirement_intelligence(
+        db,
+        job=job,
+        user=user,
+        requirements=[ri_skill_item("python"), ri_skill_item("kubernetes")],
+        content_fingerprint="ri-fp-2",
+    )
+    second = calculate_ats_alignment(db=db, current_user=user, job_id=job.id)
+
+    assert second.id != first.id
+    assert second.requirement_intelligence_id != first.requirement_intelligence_id
+    # kubernetes is missing from the resume, so the score genuinely drops.
+    assert second.overall_score < first.overall_score
 
 
 def test_bumped_engine_version_creates_new_analysis(db, monkeypatch):
@@ -492,7 +645,7 @@ def test_no_analyzable_requirements_raises_422(db):
     user = make_user(db, label="no-requirements")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Python developer.")
-    make_job_intelligence(db, job=job)  # no skills/experience/education/certs
+    make_requirement_intelligence(db, job=job, user=user, requirements=[])
 
     with pytest.raises(ATSAlignmentServiceError) as exc_info:
         calculate_ats_alignment(db=db, current_user=user, job_id=job.id)

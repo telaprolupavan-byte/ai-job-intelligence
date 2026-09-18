@@ -1500,3 +1500,814 @@ workflow was introduced.
   a specific numbered list. If an authoritative 24-scenario document
   exists outside this repository, it should be reconciled against this
   test suite in a follow-up.
+
+## Requirement Intelligence Model (AJI-020A)
+
+Requirement Intelligence is a finer-grained **model of a JD's
+requirement language** — not a replacement for, and not merged with,
+AJI-012 `JobIntelligence`. AJI-012 already answers "what does this
+specific job require?" for AJI-013 (ATS Alignment), AJI-014 (Job Match
+Reconciliation), and AJI-015 (Gap Analysis); this ticket does not change
+any of that pipeline, and AJI-013 still deliberately reuses AJI-012's
+two-tier (required/preferred) taxonomy rather than forking a third (see
+the AJI-013 section above). Requirement Intelligence exists to model
+what that two-tier shape does not attempt: a four-tier importance
+taxonomy (required/preferred/contextual/informational), explicit
+hard-requirement/gating semantics, AND/OR/MIN_COUNT/EQUIVALENT
+relationships between requirements, character-offset provenance,
+per-item ambiguity, and JD-level quality/security diagnostics
+(duplicate detection, contradiction detection, prompt-injection
+signals). Per the ticket's explicit scope boundary, it does not score,
+arbitrate evidence, match against a resume, compute gaps, or generate
+suggestions — those remain out of scope here.
+
+### Package layout and why it has no database table (yet)
+
+`apps/api/services/requirement_intelligence/` mirrors `job_intelligence`'s
+colocated deterministic + AI pipeline module layout (`contracts.py`,
+`deterministic.py`, `prompts.py`/`providers/`/`interpreter.py`,
+`validator.py`), with one deliberate difference: **it has no ORM model,
+no Alembic migration, and no API router.** AJI-020A's scope is the
+requirement model and its extraction pipeline, not a new persisted/
+queryable entity — `service.py`'s `build_requirement_intelligence()` is a
+pure function (`RawRequirementSource` in, a validated
+`RequirementIntelligenceResult` out) with no DB session dependency.
+Every result still carries `analysis_version`/`analyzer_version`/
+`prompt_version`/`model_provider`/`model_name` (see "The contract"
+below), so a future persistence/API layer (AJI-020B, if/when a real
+consumer needs one) has everything it needs to key and version snapshots
+exactly the way `JobIntelligence` does, without this ticket guessing at
+a schema for a consumer that does not exist yet.
+
+### The contract
+
+`RequirementIntelligenceResult` (`contracts.py`) is a single closed
+Pydantic schema (`extra="forbid"` on every nested model), so a malformed
+deterministic/AI merge is a validation error, never a silently-accepted
+extra field:
+
+- **`requirements`** — a flat, typed list of `RequirementItem`s
+  (`requirement_type`: skill/experience/education/certification/
+  responsibility). Each carries `importance` (the four-tier taxonomy),
+  `hard_requirement` (a model-validated invariant: only ever true when
+  `importance == "required"`), `canonical_terms`, a `source_span`
+  (verbatim provenance into the exact raw text the pipeline was given,
+  itself validated to actually bound its own `text`), `confidence`, and
+  `ambiguous`/`ambiguity_reason`. A responsibility is permanently
+  forbidden (by a model validator, not just convention) from ever being
+  `required`/`preferred` — the same "responsibilities are never a scored
+  requirement" rule AJI-012 established, generalized to the wider tier
+  set.
+- **`relationships`** — `RequirementGroup`s expressing AND/OR/MIN_COUNT/
+  EQUIVALENT logic between `requirements` entries by id. Referential
+  integrity (every `member_ids` entry must name a real requirement,
+  `minimum_count` may not exceed the member count, member ids may not
+  repeat) is enforced by model validators on both `RequirementGroup` and
+  the top-level result, not by convention. An EQUIVALENT relationship
+  whose JD-stated alternative could not be resolved to a second
+  canonical requirement (e.g. "AWS or equivalent cloud platform
+  experience") is never fabricated as a second structured requirement —
+  the alternative's text is kept verbatim on the item's
+  `equivalent_alternatives` instead (see "do not fabricate taxonomy
+  equivalences" below).
+- **`screening_constraints`** — pass/fail gating conditions (work
+  authorization, sponsorship, citizenship, clearance, background/drug
+  screening, minimum age, driver's license) kept in their own list,
+  never mixed into `requirements` — mirrors AJI-012's
+  `AuthorizationSignals` being separate from skills/experience,
+  generalized to the wider set of screening gates a JD can state.
+- **`quality`** — `duplicate_groups` (same requirement mentioned more
+  than once; the highest-importance occurrence is kept in
+  `requirements`, every occurrence is recorded here) and
+  `contradictions` (conflicting importance for the same requirement,
+  conflicting experience-year ranges for the same area, or an explicit
+  "not required" statement contradicting a genuine requirement of the
+  same skill elsewhere in the JD) — deliberately conservative,
+  pattern-based diagnostics, not exhaustive NLU-level contradiction
+  reasoning.
+- **`security`** — see "JD prompt-injection handling" below.
+- **`identity`/`domain`** — title/seniority/role-family/domain, same
+  deterministic-extraction-wins/AI-fills-the-gap shape and evidence-
+  substring anti-hallucination check as AJI-012's `JobIdentity`/
+  `DomainInfo`.
+
+### Related-but-different technology protection
+
+`deterministic.find_protected_skills()` wraps `services.skills.
+find_skills()` (unmodified — this module does not alter shared
+infrastructure other tickets depend on) with a small, explicit exclusion
+list (`_PROTECTED_COMPOUND_EXCLUSIONS`, e.g. `"react" -> ("react
+native",)`) so a JD clause naming a distinct, related technology never
+gets misattributed to the base skill it merely shares a word with. The
+check is conservative in both directions: it strips known compound-
+phrase occurrences from the clause and only keeps crediting the base
+skill if it is still independently detectable in what remains — so
+"React Native experience required" extracts nothing (React Native is not
+itself in the canonical vocabulary, and fabricating an entry for it is
+out of scope — see "do not fabricate taxonomy equivalences" in the
+ticket), while "React and React Native experience required" still
+credits "react".
+
+### JD prompt-injection handling
+
+The raw JD text is untrusted, attacker-influenceable input. The defense
+is structural, not a text-mutation step: `prompts.py`'s system prompt
+explicitly instructs the AI stage to treat the JOB DESCRIPTION block as
+data to describe, never as instructions, and `validator.py`'s evidence-
+substring check (identical mechanism to AJI-012's) drops any AI-claimed
+field whose "evidence" does not verbatim-match the source text —
+regardless of what an embedded instruction asked the model to output.
+Deterministic extraction is immune by construction (it only ever
+pattern-matches structure, never executes JD content).
+`deterministic.detect_prompt_injection_signals()` additionally flags
+known injection phrasing (e.g. "ignore previous instructions", "you are
+now...", "mark this candidate as...") into `SecurityDiagnostics` for
+audit visibility — this is diagnostic only, the JD text is never
+stripped/altered before being sent to the AI stage, since "cleaning"
+attacker-controlled text is its own injection surface and risks
+destroying legitimate JD content that happens to match a pattern.
+
+### Failure handling and idempotency-readiness
+
+Mirrors AJI-012: deterministic extraction failing is a hard error
+(`RequirementIntelligenceServiceError`, 503) — nothing is returned. A
+failed AI call degrades to `extraction_status = "partial"` (only
+deterministic fields populated; `identity.normalized_title`/
+`role_family`/`domain` stay unset) rather than discarding real,
+evidence-backed deterministic data. Security diagnostics are always
+present even in a partial result, since detection is a deterministic
+pass independent of the AI stage. `analysis_version`/`analyzer_version`/
+`prompt_version` are fixed constants today (no caller-facing
+idempotency/caching exists yet, since there is no DB row to key) but are
+carried on every result specifically so a future persistence layer can
+reuse the exact `(source_id, content_fingerprint, analyzer_version,
+prompt_version)` cache-key shape `JobIntelligence` already established,
+without re-deriving it.
+
+### Testing
+
+`tests/test_requirement_intelligence_contracts.py` covers every model
+validator (`SourceSpan` bounds, `RequirementItem` hard-requirement/
+responsibility invariants, `RequirementGroup` relationship-arity rules,
+top-level referential integrity). `tests/test_requirement_intelligence_
+deterministic.py` covers provenance-span accuracy, all four importance
+tiers, hard-requirement detection, AND/OR/MIN_COUNT/EQUIVALENT
+extraction (including that a MIN_COUNT clause is never double-counted as
+a plain requirement, and that a MIN_COUNT group is never fabricated
+below its evidenced member count), experience constraints (at-least/at-
+most/range operators), education/certification extraction,
+responsibilities-vs-requirements separation, seniority-from-title,
+screening constraints staying separate from scored requirements,
+duplicate detection/merging, all three contradiction types, ambiguity
+flags, and related-but-different technology protection (React vs. React
+Native, Node.js vs. Node-RED, Java vs. JavaScript staying distinct).
+`tests/test_requirement_intelligence_validator.py` covers the evidence-
+substring anti-hallucination check and deterministic-wins-over-AI
+precedence. `tests/test_requirement_intelligence_provider.py` mirrors
+`test_job_intelligence_provider.py`'s OpenAI-strict-schema regression
+guard. `tests/test_requirement_intelligence_service.py` covers the full
+pipeline (success, AI-failure-degrades-to-partial, deterministic-failure-
+raises), including that a malicious AI response fabricated in response
+to injected JD text is still dropped by the evidence check.
+`tests/test_requirement_intelligence_security.py` covers prompt-
+injection signal detection directly and confirms legitimate extraction
+is unaffected by injection-like text elsewhere in the JD.
+
+### Deferred to AJI-020B
+
+Persistence (an ORM model/Alembic migration), an API router, idempotent
+caching keyed off a real `content_fingerprint`, and wiring this model
+into any consumer (ATS Alignment or otherwise) are all explicitly left
+for a follow-up ticket — see the package-layout note above for why.
+
+### Contract semantics clarification (supervisor review pass)
+
+A follow-up review pass asked for the contract's semantics to be made
+explicit so downstream NERO systems cannot interpret requirements
+inconsistently. No behavior changed in this pass — it is documentation
+only (`contracts.py` docstrings are the authoritative, in-code version
+of everything below; this section summarizes them). The full detail
+lives on `ImportanceTier`, `RequirementItem`, `RequirementGroup`, and
+`ScreeningConstraint` in `contracts.py`.
+
+**Importance tiers** (`required`/`preferred`/`contextual`/
+`informational`) answer "how did the JD weight this?" and are metadata
+only — AJI-020A never scores or screens with them itself (see
+"Downstream contract" below). `required`: the JD states this is needed.
+`preferred`: wanted, not mandatory. `contextual`: the JD mentions it to
+describe the job/team/stack, not as something the candidate must
+demonstrate. `informational`: purely descriptive JD content (this is the
+tier every `responsibility` item is confined to, alongside
+`contextual`, by a model validator — a responsibility can never be
+`required`/`preferred`). `hard_requirement` is a **separate, orthogonal**
+field: it is `True` only when the JD used explicit strict/gating
+language (`deterministic.HARD_REQUIREMENT_MARKERS`) for that specific
+item, never merely because `importance == "required"`. The one enforced
+relationship between the two: `hard_requirement=True` requires
+`importance == "required"` (the reverse does not hold — most `required`
+items are not `hard_requirement`). Neither field affects screening;
+screening is modeled exclusively by `screening_constraints` (see below).
+
+**`hard_requirement`** qualifies when a `RequirementItem`
+(skill/experience/education/certification — never a responsibility, and
+never a screening constraint, which has no such field) used unusually
+strict JD language. It is classification metadata for a future
+consumer's own scoring/gating decision, not an instruction this module
+carries out itself. Not every hard requirement is a screening
+constraint, and screening constraints are never represented as
+requirements (see the `RequirementItem`/`ScreeningConstraint` boundary
+below) — the two model types are disjoint by construction.
+
+**`RequirementItem` vs. `screening_constraints`**: screening constraints
+(work authorization, sponsorship, citizenship, security clearance,
+background check, drug screening, minimum age, driver's license, or
+`other`) are pass/fail gates extracted by their own, separate
+deterministic pass (`extract_screening_constraints`) and are never
+converted into, or mixed into, `requirements`. A clause can legitimately
+produce both a `RequirementItem` and a `ScreeningConstraint` when it
+genuinely names both kinds of thing (e.g. "must have AWS certification
+and pass a background check"), but a screening-only clause never
+produces a skill/experience/education/certification item for the same
+gate. `RequirementGroup.member_ids` can never reference a
+`ScreeningConstraint.id`. The `ScreeningConstraintType` enum above is
+the complete supported taxonomy today — there is no `location` type
+(location/eligibility comparison is AJI-011 Hard Eligibility's
+user-side concern, not JD requirement language); this pass documents
+that boundary rather than expanding it.
+
+**Relationships** (`AND`/`OR`/`MIN_COUNT`/`EQUIVALENT`) are flat,
+order-independent sets of `RequirementItem` ids — order in `member_ids`
+never carries meaning, and nesting (a group referencing another group)
+is not supported. `AND`: every member required. `OR`: any one member
+suffices. `MIN_COUNT`: an explicit `minimum_count` (schema-enforced
+`1 <= minimum_count <= len(member_ids)`) of the listed members suffices;
+the deterministic extractor never fabricates a group, or pads
+`member_ids`, below the JD's own evidenced member count. `EQUIVALENT`:
+created *only* by the deterministic extractor matching an explicit JD
+phrase ("... or equivalent ...") — never by an AI judgment call or a
+similarity heuristic (the AI stage's output schema has no field capable
+of expressing a relationship at all, so it cannot produce or influence
+one). It represents an equivalence the JD itself explicitly stated, and
+must not be read as "similar technology", "related technology", or "the
+AI thinks these are close" — that boundary is distinct from, and does
+not weaken, the related-but-different technology protection described
+above (React vs. React Native, etc.). Every `member_ids` entry is
+validated against the result's own `requirements` list; a dangling or
+out-of-scope reference (including one aimed at a screening constraint)
+fails validation rather than being silently kept.
+
+**Downstream contract**: AJI-020A produces normalized requirement
+intelligence — a structured, versioned reading of the JD — and nothing
+more. Future consumers (ATS Alignment, Job Match, Gap Analysis, a future
+Priority Ranking ticket) are expected to consume this contract rather
+than independently re-parsing or re-interpreting raw JD language
+themselves, mirroring the "one canonical reading, many consumers"
+principle AJI-012 `JobIntelligenceResult` already established. Wiring
+any such consumer to this contract remains explicitly out of scope here
+(AJI-020B or later).
+
+`tests/test_requirement_intelligence_contracts.py` carries the
+executable proof of the above: that `importance` and `hard_requirement`
+remain independently representable (a `required` item may or may not be
+`hard_requirement`; a non-`required` item can never be
+`hard_requirement`), that a `RequirementGroup` can never reference a
+`ScreeningConstraint.id`, that `MIN_COUNT` enforces its explicit
+minimum/member bounds, that the AI decoding stage's schema cannot carry
+a relationship (so `EQUIVALENT` cannot silently become general
+AI-judged similarity), and that every relationship reference is
+validated.
+
+## Requirement Intelligence Persistence & API (AJI-020B)
+
+AJI-020B adds persistence and an authenticated API around AJI-020A's
+pure, DB-free pipeline — it does not touch AJI-020A's contract,
+extraction, or validation logic at all (every file under
+`apps/api/services/requirement_intelligence/` from AJI-020A is
+unmodified; this ticket only adds new files alongside them). It also
+does not wire Requirement Intelligence into ATS Alignment, Job Match, or
+Gap Analysis — those remain future work.
+
+### Persistence architecture
+
+`apps/api/models.py`'s `RequirementIntelligence` is a single table
+(mirroring `JobIntelligence`'s balance of typed top-level columns for
+what needs indexing/filtering plus one JSONB column for the full
+contract) rather than decomposed into per-requirement/per-relationship/
+per-screening-constraint tables: the AJI-020A result is already a single
+structured, closed-schema (`extra="forbid"`) contract, and every other
+AI-derived artifact in this system (`JobIntelligence`, `AtsAlignmentResult`,
+`GapAnalysis`) persists its full result the same way. `structured_intelligence`
+holds `RequirementIntelligenceResult.model_dump(mode="json")` verbatim —
+nothing is re-derived, summarized, or dropped in persistence, and a
+persisted row can be re-validated straight back through
+`RequirementIntelligenceResult.model_validate(...)` to prove nothing was
+lost (see `test_full_ajI_020a_result_survives_persistence_without_loss`).
+
+**Personalized, unlike `JobIntelligence`**: this ticket's spec
+explicitly requires the row to be associated with a `user_id` (not just
+`job_id`), and requires that "a user must never be able to read another
+user's snapshot." `RequirementIntelligence` is therefore built on the
+same personalized shape as `AtsAlignmentResult`/`GapAnalysis`
+(`user_id` + `job_id`, both `ForeignKey(..., ondelete="CASCADE")`,
+indexed), not `JobIntelligence`'s shared/job-scoped shape — even though
+AJI-020A's own extraction never reads resume/user data and so would
+produce byte-identical output for every user who analyzes the same job.
+This is a product decision handed down by the ticket, not a claim that
+the requirement *content* itself varies by user — see the model's
+docstring in `apps/api/models.py`.
+
+### Snapshot identity / content fingerprint
+
+`persistence_service.compute_requirement_content_fingerprint(job)`
+hashes exactly the four `Job` fields AJI-020A's pipeline reads
+(`title`/`description`/`requirements`/`responsibilities`), normalized
+(whitespace-collapsed, lowercased, newline-joined) and SHA-256'd — the
+same canonicalization convention `job_intelligence.service.
+compute_job_content_fingerprint` already established, but **deliberately
+scoped narrower**: `JobIntelligence`'s fingerprint additionally covers
+location/salary/employment-type/contract fields AJI-020A never reads, so
+reusing it here would create a spurious "new snapshot" on a `Job` edit
+that cannot possibly change this pipeline's output. No timestamp, random
+value, or model-generated text ever feeds it (see
+`test_irrelevant_job_edit_does_not_create_a_new_snapshot` and
+`test_fingerprint_scoped_to_pipeline_relevant_fields_only`).
+
+### Idempotency and uniqueness
+
+A snapshot is looked up (and reused, skipping AJI-020A's pipeline and
+any AI call entirely) by
+`(user_id, job_id, content_fingerprint, analyzer_version, prompt_version,
+model_provider, model_name)` — wider than `JobIntelligence`'s four-part
+key, per this ticket's explicit instruction that a changed "model/
+provider configuration" must also be able to produce a new snapshot.
+`model_provider`/`model_name` for the lookup are read directly off
+`apps.api.config.settings` (no network call, no provider-specific
+import — see `persistence_service._prospective_model_identity`), so a
+cache hit is decided before AJI-020A's pipeline (and any AI call) ever
+runs.
+
+A `UniqueConstraint` on that same seven-column tuple
+(`uq_requirement_intelligence_identity`) backstops the application-level
+lookup against a concurrent double-insert. Existing insert-only tables in
+this codebase (`JobIntelligence`, `AtsAlignmentResult`, `GapAnalysis`)
+rely on the lookup-before-insert alone with no DB constraint; this ticket
+adds one where the AJI-020B spec explicitly asked for it ("use an
+explicit uniqueness constraint where appropriate") — a legitimate
+divergence, not new precedent forced onto AJI-020A's own tables, which
+this ticket does not touch.
+
+### Versioning and immutability
+
+`analysis_version`/`analyzer_version`/`prompt_version`/`model_provider`/
+`model_name` are copied verbatim from the AJI-020A result onto the row —
+never recomputed or replaced by a persistence-layer constant — so a
+historical row keeps whatever version actually produced it even after
+AJI-020A's own constants are bumped later. Rows are insert-only, exactly
+like every other AI-derived artifact in this system: a changed JD
+(different fingerprint), a bumped analyzer/prompt version, or a changed
+AI provider/model configuration always produces a new, additional row;
+existing rows are never updated, overwritten, or exposed through any
+edit endpoint (there isn't one — see "API boundary" below).
+
+One implementation note worth recording: `persistence_service.py`
+imports `apps.api.services.requirement_intelligence.service` as a
+*module* (`requirement_intelligence_service.ANALYZER_VERSION`/
+`.PROMPT_VERSION`), not via `from ... import ANALYZER_VERSION`. AJI-020A's
+`build_requirement_intelligence()` reads those two names as its own
+module globals at call time; a `from...import` copy taken once at import
+time would silently drift out of sync with whatever that function
+actually stamps onto a result if the source module's attribute changes
+after import (this was caught by
+`test_analyzer_version_bump_creates_new_snapshot`/
+`test_prompt_version_bump_creates_new_snapshot` during development,
+which raised a real `UniqueViolation` under the naive `from...import`
+form). Referencing the module keeps the lookup key and the stamped
+result permanently reading the same single source of truth.
+
+### Known limitation: partial-result self-healing vs. row growth
+
+Because `model_provider`/`model_name` are part of the idempotency key, a
+"partial" row (AI stage failed/unavailable) always has both `NULL` — and
+Postgres never treats `NULL` as equal to `NULL`, so this key can never
+match an existing partial row. Effect: every subsequent request
+*retries* AJI-020A's AI stage rather than permanently serving a stale
+partial result once cached (an improvement over `JobIntelligence`'s
+narrower key, which can get stuck serving a partial snapshot forever).
+The cost: repeated requests for the same job while the AI provider stays
+down each create one additional partial row rather than reusing a single
+one. This is a direct, disclosed consequence of the ticket's own
+instruction to key on model/provider configuration, not an oversight;
+smoothing it further (e.g. a short-lived "don't retry more than once a
+minute" rule) is out of this ticket's scope (no rate limiting, no Redis,
+no background worker — see the ticket's own scope-protection list) and
+is flagged here rather than silently invented.
+
+### Service layer
+
+`apps/api/services/requirement_intelligence/persistence_service.py` is
+the sole DB-touching orchestration layer, mirroring
+`apps.api.services.job_intelligence.service`'s and `apps.api.services.
+ats_alignment_service`'s DB/pure-core split: `get_latest_requirement_
+intelligence` (read-only, never recomputes) and `generate_requirement_
+intelligence` (idempotent create-or-reuse). All business logic
+(extraction, AI decoding, validation) stays in AJI-020A's own
+`service.build_requirement_intelligence()`; this layer only resolves the
+`Job`, computes the fingerprint/idempotency key, and persists the
+result. No AI provider is imported or hardcoded here — `settings.
+ai_provider`/`settings.ai_model` are the only provider-related values
+this module ever reads directly (see "AI provider boundary" below).
+
+### API
+
+Two authenticated endpoints on the existing `/jobs` router (same file,
+same `get_current_user` dependency, same 404/error-shape conventions as
+every other per-job endpoint):
+
+- `GET /jobs/{job_id}/requirement-intelligence` — returns the
+  authenticated user's newest snapshot; 404s if none exists yet. Never
+  recomputes or calls the AI provider on a read (mirrors `GET .../
+  intelligence` and `GET .../ats`).
+- `POST /jobs/{job_id}/requirement-intelligence` — computes-or-reuses
+  (idempotent, per above).
+
+No PUT/PATCH/DELETE — snapshots are immutable and insert-only, so there
+is nothing to edit and nothing a generic CRUD surface would add (per the
+ticket's explicit "not a generic database-management API" instruction).
+
+### Authorization
+
+Every request requires authentication (`Depends(get_current_user)`);
+`user_id` is always the resolved authenticated user's own id, never
+taken from a request parameter or body. A job lookup miss and a
+not-yet-generated snapshot both 404 identically for any authenticated
+user, and `get_latest_requirement_intelligence`/`generate_requirement_
+intelligence` always filter by the caller's own `user_id` — there is no
+code path that can return another user's row (`test_requirement_
+intelligence_is_not_visible_to_other_users`,
+`test_different_users_get_independent_requirement_intelligence_records`).
+The public `/jobs` listing never includes Requirement Intelligence data
+(`test_public_jobs_listing_never_includes_requirement_intelligence`).
+`Job.id`/`User.id` are always server-resolved database values; the
+original JD text remains untrusted input exactly as AJI-020A already
+handles it (evidence-substring anti-hallucination check, prompt-
+injection diagnostics) — this ticket adds no new trust boundary.
+
+### AI provider boundary
+
+No new AI provider is introduced. `persistence_service.py` never imports
+`OpenAIRequirementIntelligenceProvider` or any OpenAI-specific symbol —
+it only reads the generic `settings.ai_provider`/`settings.ai_model`
+values (the same ones AJI-020A's own
+`providers.factory.create_requirement_intelligence_provider` reads) to
+compute the prospective idempotency key before invoking AJI-020A's
+pipeline. A provider failure is handled exactly as AJI-020A already
+handles it — degrade to `extraction_status = "partial"`, never lose the
+deterministic result, never raise — so this ticket introduces no new
+fallback behavior.
+
+### Migration
+
+`apps/api/alembic/versions/8a040c819900_add_requirement_intelligence.py`
+(`down_revision = '6fdd95443549'`, the prior head) creates the
+`requirement_intelligence` table with FKs to `jobs`/`users`
+(`ondelete="CASCADE"`), indexes on `user_id`/`job_id`/
+`content_fingerprint`, and the `uq_requirement_intelligence_identity`
+unique constraint described above. Verified against a real local
+Postgres 16 instance: fresh-database `alembic upgrade head` (the full
+chain from `a6f4cbc0a2a0` through this migration), `downgrade -1`
+(cleanly drops the table/indexes), and re-`upgrade head` all succeed; no
+other table is touched.
+
+### Deferred consumers
+
+Wiring Requirement Intelligence into ATS Alignment, Job Match, Gap
+Analysis, or a future Priority Ranking ticket is explicitly out of scope
+for both AJI-020A and AJI-020B — this ticket only makes the contract
+persistable and retrievable. Any such consumer is future work.
+
+### Testing
+
+`tests/test_requirement_intelligence_persistence_service.py` (FakeDB,
+mirrors `test_job_intelligence_service.py`) covers wiring: persist a new
+snapshot, reuse a cached one without invoking AJI-020A's pipeline, a
+missing job, a propagated `RequirementIntelligenceServiceError`, and
+fingerprint determinism/scoping. `tests/test_requirement_intelligence_
+persistence_versioning.py` (real DB, mirrors `test_job_intelligence_
+versioning.py`) covers the actual SQL filtering: same-content reuse,
+changed-JD versioning without touching history, that an irrelevant `Job`
+edit does *not* bust the cache, analyzer/prompt/model-configuration
+version bumps each producing a new row, `get_latest` returning the
+newest row, raw JD snapshot immutability across versions, and a full
+AJI-020A-result-survives-persistence-losslessly round trip (including
+provenance spans re-verified against the job's own text, and the
+persisted JSON re-validated through `RequirementIntelligenceResult`
+itself). `tests/test_jobs_requirement_intelligence_api.py` (real DB +
+`TestClient`, mirrors `test_jobs_ats_api.py`) covers authentication,
+404s, response shape, idempotency, user isolation, the public listing
+exclusion, and both AJI-020A failure modes (provider failure degrading
+to a 200 "partial" response, deterministic failure surfacing as 503)
+through the actual HTTP layer.
+
+### Architecture lock (AJI-020B final review)
+
+The following is a final, reviewed architecture decision for AJI-020B
+and must not be changed without a new ticket:
+
+A `RequirementIntelligence` snapshot is immutable and uniquely
+identified by the 7-dimension tuple `user_id`, `job_id`,
+`content_fingerprint`, `analyzer_version`, `prompt_version`,
+`model_provider`, `model_name` (see "Idempotency and uniqueness" above
+for the lookup/`UniqueConstraint` mechanics). A change to any one of
+these dimensions may produce a new, additional snapshot; existing
+snapshots are never overwritten, edited, or deleted by any code path in
+this system (see "Versioning and immutability" above). The
+partial-row-growth behavior under a sustained provider/model-configuration
+change (see "Known limitation" above) is an accepted trade-off for this
+ticket, not a defect to fix here.
+
+Explicitly not introduced, and out of scope for AJI-020B: cleanup jobs
+for old/partial rows, overwrite-in-place behavior, provider fallback
+logic beyond AJI-020A's own existing degrade-to-partial handling, Redis
+or any other external cache, new caching infrastructure beyond the
+database persistence described above, and AI provider-selection logic
+(this layer only reads `settings.ai_provider`/`settings.ai_model`; it
+never chooses or overrides a provider). Introducing any of these is a
+new ticket's scope, not a fix or extension of AJI-020B.
+
+## ATS Alignment / Requirement Intelligence Integration (AJI-020C)
+
+AJI-020C makes ATS Alignment (AJI-013) consume the normalized,
+persisted AJI-020A/B `RequirementIntelligence` contract instead of
+independently re-deriving requirements from AJI-012 `JobIntelligence`.
+AJI-020A's and AJI-020B's own semantics are unmodified — every file
+under `apps/api/services/requirement_intelligence/` is untouched by
+this ticket; AJI-020C only adds an adapter around them.
+
+**A reported discrepancy, addressed head-on rather than guessed at, and
+since resolved by a parallel ticket:** at the time AJI-020C was built,
+the ticket's own architecture diagram and scoring instructions referred
+to an "AJI-020 real ATS scoring engine" with four named weighted
+components that did not exist anywhere in this repository — a
+repository-wide search for those component names returned nothing, and
+`services/ats_alignment/scoring.py`'s own module docstring stated
+explicitly that no Must-Have/Preferred weighting formula had been
+approved and instructed the Builder not to invent one. AJI-020C was
+therefore built to integrate Requirement Intelligence up to and
+including the existing placeholder, equal-weight `services.
+ats_alignment.scoring` engine, entirely unchanged, rather than inventing
+that engine — reported per the ticket's own "if a scoring change appears
+necessary, STOP and report it instead of changing the product policy"
+instruction, not silently decided. **AJI-020 ("ATS Real Scoring Engine",
+see the section immediately above this one) was delivered separately
+and merged into this branch afterward**, implementing exactly that
+approved four-component formula. AJI-020C's own code never modified
+`scoring.py`/`weights.py`/`resume_adapter.py` and needed no changes to
+absorb AJI-020's engine: `_build_job_requirements_from_requirement_
+intelligence` produces the same `JobRequirementItem` shape either engine
+consumes, so AJI-020's weighted scoring runs against Requirement-
+Intelligence-sourced requirements automatically. The `hard_requirement`/
+`ambiguous`/`ambiguity_reason`/`relationships`/`screening_constraints`
+additions described below remain exactly as AJI-020C defined them: still
+never read by any scoring computation, AJI-020's four components
+included.
+
+### Integration boundary and data flow
+
+```
+Job (title/description/requirements/responsibilities)
+        |
+        v
+RequirementIntelligence (AJI-020A extraction, AJI-020B persistence)
+        |
+        v
+_build_job_requirements_from_requirement_intelligence  (AJI-020C adapter)
+        |
+        v
+services.ats_alignment.engine.evaluate_ats_alignment  (matching logic - unmodified by AJI-020C)
+        |
+        v
+AtsAlignmentResult  (persisted; scored by whichever engine/scoring.py version is current - see AJI-020 above)
+```
+
+`apps/api/services/ats_alignment_service.py`'s
+`_build_job_requirements_from_requirement_intelligence` is the sole new
+adapter: it reads a `RequirementIntelligenceResult` and produces the
+same `JobRequirementItem` list `services.ats_alignment.engine` already
+consumed pre-AJI-020C. AJI-020C itself never modifies the engine's
+per-type evaluators or `services.ats_alignment.scoring`'s aggregation —
+it only threads three new metadata fields through them (see "Importance
+/ hard_requirement" below) and adds two new, purely descriptive result
+sections (see "Relationship handling" and "Screening constraint
+separation" below). Whichever scoring formula is current in `scoring.py`
+(the AJI-013 placeholder, or AJI-020's four-component weighted formula —
+see above) runs unchanged against Requirement-Intelligence-sourced
+requirements, since both engines consume the identical
+`JobRequirementItem`/`RequirementAlignment` shape.
+
+`JobIntelligence` (AJI-012) generation/fetch is retained unchanged in
+`calculate_ats_alignment` — every new row still populates
+`job_intelligence_id`/`job_content_fingerprint` — purely for
+backward-compatible lineage. Its *content* (required_skills, etc.) is no
+longer read to build the scored requirement list; `RequirementIntelligence`
+is. This was a deliberate choice to minimize blast radius (no schema
+change to an existing NOT NULL column, no ripple into whatever else
+might reference it) rather than a claim that `JobIntelligence` remains
+architecturally necessary for ATS Alignment going forward — a future
+ticket may reconsider whether this column should be deprecated once
+nothing else depends on it.
+
+### Requirement mapping
+
+Every AJI-020A `RequirementItem` with `importance in {"required",
+"preferred"}` maps 1:1 onto a `JobRequirementItem`
+(`must_have`/`preferred`, exactly AJI-012's old two-tier taxonomy —
+`RequirementCategory` still has only two values). `contextual`/
+`informational` items, and every `requirement_type == "responsibility"`
+item, are excluded before reaching the engine at all — AJI-020A's own
+locked contract already forbids a responsibility from ever being
+`required`/`preferred`, and a `contextual`/`informational` item is, by
+AJI-020A's own locked definition, not something the candidate must
+demonstrate — so there is nothing to invent a scored category for. This
+is the same "exclude, don't force a category" treatment AJI-012's
+`responsibilities` field already received.
+
+Preserved fields: `requirement_id` (now the originating AJI-020A
+`RequirementItem.id` verbatim, replacing the old synthetic
+`f"skill:{...}"`-style key — every scored requirement is traceable back
+to the exact Requirement Intelligence item it came from),
+`requirement_type`, `requirement_text` (reconstructed per type, same
+format as the old AJI-012-based mapping), `jd_evidence` (the item's
+`raw_text` clause — the provenance a consumer already gets; the
+character-offset `source_span` itself is not additionally threaded
+through, judged not essential on top of the verbatim clause text),
+`canonical_skill`/`minimum_years`/`area`/`degree_level`/
+`field_of_study`/`certification_name` (same per-type fields as before,
+now read from AJI-020A's typed `experience`/`education`/`certification`
+sub-objects). Two new fields added to `JobRequirementItem`/
+`RequirementAlignment` because the existing contract had no place for
+them: `hard_requirement: bool` and `ambiguous: bool` +
+`ambiguity_reason: str | None` (AJI-020A metadata, carried through
+unchanged — see "Importance / hard_requirement" below).
+
+### Relationship handling — reported architecture gap, not invented
+
+AJI-020A's `RequirementGroup`s (AND/OR/MIN_COUNT/EQUIVALENT) have no
+representation in the pre-existing `AtsAlignmentResult` contract — there
+is no concept anywhere in `services.ats_alignment.scoring` of "this
+OR-group counts as one satisfied requirement," and AJI-020C does not
+invent one (per the ticket's explicit "if the current ATS result
+contract has no appropriate representation for group-level fulfillment,
+STOP and report the architecture gap instead of inventing one"
+instruction). Computing a derived group-level verdict — e.g. deciding
+an OR-group is "satisfied" once any one member matches, or an
+AND-group only once every member does, and feeding *that* into
+`overall_score`/`must_have_total` — is left to a future ticket.
+
+What AJI-020C does instead: every member of a relationship group is
+still scored fully independently, exactly like any other requirement
+(never collapsed, never promoted/demoted based on its groupmates' verdicts
+— "Python OR Java" never becomes "Python AND Java", and "3 of 5
+technologies" never becomes 5 mandatory requirements, because neither is
+converted into anything at all). The group itself is surfaced
+separately and descriptively: `services.ats_alignment.contracts.
+RequirementRelationshipGroup` (`group_id`, `relationship`,
+`member_requirement_ids`, `minimum_count`, `description`) is a
+verbatim, unevaluated pass-through of AJI-020A's own `RequirementGroup`,
+returned on `AtsAlignmentResult.relationships` and persisted in
+`AtsAlignmentResult.result["relationships"]`/exposed on the API
+response — visible to a consumer, never read by
+`compute_overall_score`/`compute_overall_confidence`. A relationship
+group may reference a member id that does not appear in
+`requirement_results` when that member was itself `contextual`/
+`informational` (and therefore excluded from scoring, per "Requirement
+mapping" above) — this is passed through as-is from AJI-020A rather
+than filtered, since inventing filtering logic here would itself be an
+unrequested decision.
+
+### Screening constraint separation
+
+AJI-020A's `ScreeningConstraint`s (work authorization, sponsorship,
+citizenship, clearance, background/drug screening, age, license) are
+never scored as technical requirements and never appear in
+`requirement_results`/`must_have_total`/`preferred_total`. Mirroring the
+relationship treatment above, `services.ats_alignment.contracts.
+ScreeningConstraintInfo` is a verbatim, descriptive-only pass-through,
+surfaced on `AtsAlignmentResult.screening_constraints` /
+`result["screening_constraints"]` / the API response, never read by any
+scoring function. The existing ATS contract had no mechanism for
+screening constraints at all pre-AJI-020C (same "no representation,
+report rather than invent scoring behavior" situation as relationships)
+— this section exists precisely so they are preserved as separate
+intelligence rather than silently dropped or, worse, folded into the
+scored skill/experience/education/certification list.
+
+### Importance / hard_requirement
+
+`importance` (required/preferred/contextual/informational) and
+`hard_requirement` remain the distinct, orthogonal concepts AJI-020A
+locked: `category` (must_have/preferred) is derived from `importance`
+alone; `hard_requirement` is carried onto every `JobRequirementItem`/
+`RequirementAlignment` as metadata and is never read by
+`services.ats_alignment.scoring` or any evaluator's status/confidence
+decision. No product rule for how `hard_requirement` should affect
+scoring (a penalty, a gate, a ceiling) has been approved anywhere in
+this codebase, and AJI-020C does not invent one — per the ticket's
+explicit "do not invent a weighting or penalty" instruction, this is
+reported here as an open product decision for a future ticket, not
+resolved. Two requirements that are otherwise identical except for
+`hard_requirement` score identically today (see
+`test_hard_requirement_true_is_preserved_but_never_changes_scoring`).
+
+### Fallback behavior
+
+There is no approved fallback to raw-JD parsing if Requirement
+Intelligence is unavailable — and this was not invented for AJI-020C.
+The pre-existing, already-approved pattern for exactly this situation
+already exists one line above it: if `JobIntelligence` generation fails,
+`calculate_ats_alignment` has always propagated an
+`ATSAlignmentServiceError` carrying the underlying status code rather
+than falling back to anything. Requirement Intelligence generation
+failure is handled by the identical pattern — reused, not reinvented —
+so a Requirement Intelligence outage surfaces as a clean error response
+(503 in practice, from `RequirementIntelligencePersistenceError`) rather
+than either a silent raw-JD reinterpretation or an unhandled exception.
+
+### Versioning / historical preservation
+
+The ATS Alignment idempotency key grows from
+`(user_id, job_id, resume_version_id, job_intelligence_id,
+engine_version)` to
+`(user_id, job_id, resume_version_id, job_intelligence_id,
+requirement_intelligence_id, engine_version)` — AJI-020C adds
+`requirement_intelligence_id`, it does not remove or loosen any existing
+dimension (per the ticket's "inspect the existing persistence identity
+before changing it" instruction). A new migration
+(`apps/api/alembic/versions/
+c3f6a1d47e21_add_requirement_intelligence_to_ats.py`, `down_revision =
+'8a040c819900'`) adds two nullable columns to the existing
+`ats_alignment_results` table — `requirement_intelligence_id` (FK to
+`requirement_intelligence.id`, `ondelete="CASCADE"`, indexed) and
+`requirement_intelligence_fingerprint` (mirroring `job_content_fingerprint`'s
+role) — nullable only because they were added to a table that may
+already hold rows from before this ticket; every row AJI-020C's code
+creates populates both. `AtsAlignmentResult` rows remain insert-only and
+immutable, exactly as before: a new Requirement Intelligence snapshot
+(edited JD, or a bumped AJI-020A analyzer/prompt/model configuration —
+see AJI-020B's locked idempotency key above) produces a new, additional
+ATS row rather than mutating history; resume-version isolation and
+job/user isolation are both unchanged and still enforced by the same
+query filters as before (see
+`test_changed_requirement_intelligence_snapshot_creates_new_analysis_and_new_score`,
+which additionally proves the score itself now genuinely changes,
+unlike the old JobIntelligence-only dimension which changed the row's
+identity without changing its content).
+
+### AI vs. deterministic responsibility
+
+AJI-020C introduces no new AI call. AJI-020A owns AI interpretation,
+ambiguity handling, evidence validation, and relationship extraction
+(all upstream, already complete by the time `RequirementIntelligence` is
+persisted). AJI-020C's own code
+(`_build_job_requirements_from_requirement_intelligence`,
+`services.ats_alignment.engine`) is 100% deterministic: it reads an
+already-validated `RequirementIntelligenceResult`, maps it, and runs the
+existing deterministic evidence-matching engine against the resume —
+the same division of responsibility ATS Alignment already had with
+`JobIntelligence` before this ticket, just with a different upstream
+source.
+
+### API
+
+No new endpoint. `GET`/`POST /jobs/{job_id}/ats` are unchanged in shape
+and behavior; the JSON response gains `requirement_intelligence_id`,
+`relationships`, and `screening_constraints` (additive — a historical
+row's `result` JSON predating this migration reads back as `[]` for the
+latter two via `.get(..., [])` in `_ats_alignment_to_response`), and
+each `requirement_results` entry gains `hard_requirement`/`ambiguous`/
+`ambiguity_reason`. No frontend changes.
+
+### Known limitations
+
+- At the time AJI-020C was built, the weighted "AJI-020 real ATS scoring
+  engine" the ticket describes did not exist in this codebase (see the
+  top of this section) and was flagged rather than built, per the
+  ticket's own instruction; it has since been delivered separately as
+  AJI-020 (see that section above) and merged in — this note is kept for
+  the historical record of AJI-020C's own scope boundary.
+- `hard_requirement` has no approved scoring effect yet (see
+  "Importance / hard_requirement" above) — open product decision.
+- A relationship group can reference a member id absent from
+  `requirement_results` when that member was `contextual`/
+  `informational` (see "Relationship handling" above) — intentional,
+  not filtered.
+- AJI-020A's `ExperienceConstraint.operator` can be `at_most`/`exact`/
+  `range`, but the unmodified engine's `_evaluate_experience` only ever
+  compares `years >= minimum_years` (an implicit "at least" semantic) —
+  this pre-dates AJI-020C (AJI-012's own experience shape never modeled
+  operators either) and is not fixed here, since changing
+  `_evaluate_experience`'s matching logic is a scoring-engine change
+  outside AJI-020C's scope.
+- `job_intelligence_id` is retained on every new `AtsAlignmentResult`
+  row purely for lineage even though its content no longer drives
+  scoring (see "Integration boundary" above) — a deliberate, disclosed
+  minimal-blast-radius choice, not an oversight.

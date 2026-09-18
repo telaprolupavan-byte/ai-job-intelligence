@@ -11,6 +11,7 @@ from apps.api.models import (
     JobIntelligence,
     Preference,
     Profile,
+    RequirementIntelligence,
     Resume,
     ResumeVersion,
     User,
@@ -20,6 +21,9 @@ from apps.api.services.gap_analysis.service import (
     GapAnalysisServiceError,
     generate_gap_analysis,
     get_latest_gap_analysis,
+)
+from apps.api.services.requirement_intelligence.contracts import (
+    RequirementIntelligenceResult,
 )
 from apps.api.services.resume_fingerprint import compute_content_fingerprint
 
@@ -177,6 +181,74 @@ def skill_item(canonical_skill: str, *, level: str = "required") -> dict:
     }
 
 
+def ri_skill_item(
+    canonical_skill: str, *, importance: str = "required", item_id: str | None = None
+) -> dict:
+    return {
+        "id": item_id or f"req-skill-{canonical_skill}",
+        "requirement_type": "skill",
+        "importance": importance,
+        "statement": f"{canonical_skill} ({importance})",
+        "canonical_terms": [canonical_skill],
+        "raw_text": f"{canonical_skill} {importance}.",
+        "confidence": "high",
+    }
+
+
+def make_requirement_intelligence(
+    db,
+    *,
+    job: Job,
+    user: User,
+    requirements: list[dict] | None = None,
+    content_fingerprint: str | None = None,
+) -> "RequirementIntelligence":
+    """
+    Directly persists a `RequirementIntelligence` row (AJI-020A/B), the
+    actual source ATS Alignment (and therefore Gap Analysis, which reuses
+    ATS Alignment's own result unchanged) scores against since AJI-020C —
+    mirrors `make_job_intelligence` above. Validated through the real
+    `RequirementIntelligenceResult` contract so a fixture can never drift
+    from the actual AJI-020A schema. Controlled content (no incidental
+    extraction noise from `job.description`/`job.requirements`) keeps gap
+    assertions exact.
+    """
+    payload = {
+        "analysis_version": "1.0",
+        "analyzer_version": "1.0",
+        "prompt_version": "1.0",
+        "model_provider": None,
+        "model_name": None,
+        "extraction_status": "complete",
+        "source_id": str(job.id),
+        "identity": {"original_title": job.title},
+        "domain": {},
+        "requirements": requirements or [],
+        "relationships": [],
+        "screening_constraints": [],
+        "quality": {},
+        "security": {},
+    }
+    validated = RequirementIntelligenceResult.model_validate(payload)
+
+    record = RequirementIntelligence(
+        id=uuid4(),
+        user_id=user.id,
+        job_id=job.id,
+        content_fingerprint=content_fingerprint or f"fingerprint-{uuid4()}",
+        raw_jd_snapshot={"title": job.title},
+        analysis_version="1.0",
+        analyzer_version="1.0",
+        prompt_version="1.0",
+        extraction_status="complete",
+        structured_intelligence=validated.model_dump(mode="json"),
+    )
+    db.add(record)
+    db.flush()
+
+    return record
+
+
 @pytest.fixture(autouse=True)
 def fake_job_intelligence_provider(monkeypatch):
     class FakeJobIntelligenceProvider:
@@ -213,11 +285,14 @@ def test_gap_analysis_reuses_ats_alignment_gaps(db, fake_gap_provider):
     make_resume_version(
         db, user=user, content_text="Experienced engineer. Skills: SQL."
     )
-    make_job_intelligence(
+    make_requirement_intelligence(
         db,
         job=job,
-        required_skills=[skill_item("rust")],
-        preferred_skills=[skill_item("sql", level="preferred")],
+        user=user,
+        requirements=[
+            ri_skill_item("rust"),
+            ri_skill_item("sql", importance="preferred"),
+        ],
     )
 
     record = generate_gap_analysis(db=db, current_user=user, job_id=job.id)
@@ -230,10 +305,10 @@ def test_gap_analysis_reuses_ats_alignment_gaps(db, fake_gap_provider):
     # Rust: no resume evidence -> missing gap. SQL: skills-section-only
     # mention -> partial gap. Neither status was recomputed here; both
     # came straight from the ATS Alignment engine.
-    assert "skill:rust" in gap_requirement_ids
+    assert "req-skill-rust" in gap_requirement_ids
 
     for gap in record.result["gaps"]:
-        if gap["requirement_id"] == "skill:rust":
+        if gap["requirement_id"] == "req-skill-rust":
             assert gap["status"] == "missing"
             assert gap["suggestion_type"] == "ADD_IF_TRUE"
             assert gap["resume_evidence"] is None
@@ -245,7 +320,7 @@ def test_no_gaps_when_ats_alignment_fully_matches(db, fake_gap_provider):
     make_resume_version(
         db, user=user, content_text="Rust engineer. Skills: Rust. Used Rust daily."
     )
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     record = generate_gap_analysis(db=db, current_user=user, job_id=job.id)
 
@@ -258,13 +333,13 @@ def test_gap_analysis_persists_ai_derived_explanations_when_valid(db, monkeypatc
     user = make_user(db, label="ai-valid")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Engineer.")
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     provider = FakeGapAnalysisProvider(
         response={
             "gaps": [
                 {
-                    "requirement_id": "skill:rust",
+                    "requirement_id": "req-skill-rust",
                     "explanation": "Rust has no resume support.",
                     "explanation_evidence": "rust required.",
                     "suggestion_text": (
@@ -299,7 +374,7 @@ def test_gap_analysis_degrades_to_partial_when_ai_call_fails(db, monkeypatch):
     user = make_user(db, label="ai-fails")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Engineer.")
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     monkeypatch.setattr(
         gap_analysis_service, "create_gap_analysis_provider", lambda: FailingProvider()
@@ -322,7 +397,7 @@ def test_same_inputs_reuse_existing_gap_analysis(db, fake_gap_provider):
     user = make_user(db, label="idempotent")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Engineer.")
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     first = generate_gap_analysis(db=db, current_user=user, job_id=job.id)
     second = generate_gap_analysis(db=db, current_user=user, job_id=job.id)
@@ -342,7 +417,7 @@ def test_gap_analysis_calls_ai_provider_exactly_once_per_new_analysis(
     user = make_user(db, label="single-ai-call")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Engineer.")
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     generate_gap_analysis(db=db, current_user=user, job_id=job.id)
     generate_gap_analysis(db=db, current_user=user, job_id=job.id)
@@ -353,7 +428,7 @@ def test_gap_analysis_calls_ai_provider_exactly_once_per_new_analysis(
 def test_changed_resume_version_creates_new_gap_analysis(db, fake_gap_provider):
     user = make_user(db, label="resume-change")
     job = make_job(db)
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     make_resume_version(
         db, user=user, content_text="Engineer.", name="v1", is_master=True
@@ -398,7 +473,7 @@ def test_bumped_analyzer_version_creates_new_gap_analysis(db, monkeypatch, fake_
     user = make_user(db, label="analyzer-version")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Engineer.")
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     first = generate_gap_analysis(db=db, current_user=user, job_id=job.id)
 
@@ -414,7 +489,7 @@ def test_gap_analysis_is_immutable_across_regeneration(db, fake_gap_provider):
     user = make_user(db, label="immutable")
     job = make_job(db)
     make_resume_version(db, user=user, content_text="Engineer.", name="v1")
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     first = generate_gap_analysis(db=db, current_user=user, job_id=job.id)
     first_result_snapshot = dict(first.result)
@@ -442,7 +517,7 @@ def test_job_not_found_raises_404(db, fake_gap_provider):
 def test_no_resume_raises_404(db, fake_gap_provider):
     user = make_user(db, label="no-resume")
     job = make_job(db)
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(db, job=job, user=user, requirements=[ri_skill_item("rust")])
 
     with pytest.raises(GapAnalysisServiceError) as exc_info:
         generate_gap_analysis(db=db, current_user=user, job_id=job.id)
@@ -454,7 +529,6 @@ def test_other_users_resume_version_id_raises_404(db, fake_gap_provider):
     owner = make_user(db, label="owner")
     intruder = make_user(db, label="intruder")
     job = make_job(db)
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
 
     owners_version = make_resume_version(db, user=owner, content_text="Engineer.")
 
@@ -477,7 +551,9 @@ def test_get_latest_gap_analysis_is_scoped_to_user(db, fake_gap_provider):
     user_a = make_user(db, label="a")
     user_b = make_user(db, label="b")
     job = make_job(db)
-    make_job_intelligence(db, job=job, required_skills=[skill_item("rust")])
+    make_requirement_intelligence(
+        db, job=job, user=user_a, requirements=[ri_skill_item("rust")]
+    )
 
     make_resume_version(db, user=user_a, content_text="Engineer.")
     generate_gap_analysis(db=db, current_user=user_a, job_id=job.id)
