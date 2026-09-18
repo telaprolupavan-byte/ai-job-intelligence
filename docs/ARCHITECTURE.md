@@ -1067,3 +1067,105 @@ listing never includes Gap Analysis data, and that `GET /jobs/{job_id}/ats`
 continues to work unchanged alongside Gap Analysis. All pre-existing ATS
 Alignment, Job Intelligence, and Job Match tests pass unchanged, since
 none of their engines, schemas, or scoring were touched.
+
+## Job Discovery operationalization
+
+Job Discovery (`services/job_discovery`, AJI-006) existed and was fully
+unit-tested from its original ticket, but nothing in the running
+application ever invoked `run_discovery_pipeline` - the only documented
+path was a manual Python snippet in `services/job_discovery/README.md`.
+This section records what closed that gap and why, without changing the
+pipeline itself (source adapter -> normalize -> validate -> deduplicate ->
+persist is unchanged).
+
+**What was added:** `apps/api/services/job_discovery_service.py` (the
+DB-touching orchestration layer, mirroring every other `*_service.py` in
+this codebase) and `POST /internal/job-discovery/run`
+(`apps/api/routers/job_discovery.py`). See
+`services/job_discovery/README.md`'s "Operationalizing discovery" section
+for the full configuration and trigger-mechanism writeup.
+
+**Why an HTTP trigger, not a background worker/task queue:** the current
+deployment has no existing worker/queue infrastructure, and discovery for
+one board is a single, fast, synchronous HTTP call. Introducing
+Celery/RQ/Redis/Kafka now would add real operational surface (a broker,
+worker processes, retry/dead-letter handling) for a job that does not yet
+need any of that - there is exactly one source adapter and no requirement
+for concurrent multi-board fetches, retries-with-backoff, or horizontal
+worker scaling. An authenticated endpoint plus an external scheduler
+(cron, the hosting platform's scheduled-task feature) gets "runs on a
+schedule without a developer manually invoking Python" with zero new
+infrastructure. Revisit this decision when there is more than one board
+to ingest, or when a fetch failure needs automatic retry-with-backoff
+rather than waiting for the next scheduled run.
+
+**Why unconfigured by default:** which real company's Greenhouse board to
+ingest is a product/legal decision (whose public postings AJI has
+permission to aggregate) - not the Builder's to make by picking a company
+and hardcoding it into shared config. `JOB_DISCOVERY_GREENHOUSE_BOARD_TOKEN`
+/ `JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME` are unset by default; the
+endpoint hard-503s until an operator sets them (and the trigger token).
+
+**Why a shared-secret header, not a user JWT:** this is a system-to-system
+action (a scheduler calling the API), not a per-user one, and `User` has
+no admin/role concept to gate it with. Do not add an `is_admin` flag to
+`User` just to protect this one endpoint - if a real admin-role need
+emerges later across multiple features, that is its own ticket.
+
+## Application Tracking (the final workflow stage)
+
+Application Tracking was the last stage of the approved core workflow
+with no implementation - only the unused, reserved `SavedJob` model (see
+"Legacy models removed" above: it was kept specifically for this) and a
+"coming soon" frontend stub. Building it required a product decision this
+document could not answer on its own (there was no existing spec, ticket,
+or Figma review for it): the Product Owner chose the **full pipeline**
+option - `saved -> applied -> interviewing -> offer -> rejected ->
+withdrawn`, with a persisted status history and an Application Detail
+view - over a minimal saved/applied binary or deferring the feature
+entirely.
+
+**Model:** `SavedJob` (`apps/api/models.py`) is the single row that
+carries one (user, job) pair through the pipeline - `status`,
+`applied_at` (set the first time status becomes `"applied"`, never
+overwritten by a later status change), `created_at`/`updated_at`. A new
+unique constraint on `(user_id, job_id)` is the hard guarantee behind
+"saving a job is idempotent, never a duplicate row" -
+`create_application()` returns the existing row unchanged on a repeat
+save rather than erroring. `ApplicationStatusEvent` is a new, separate
+append-only table (one row per status transition, including the initial
+`"saved"` one) so the Application Detail view has a real timeline instead
+of only ever showing the current status; it is never updated or deleted,
+matching every other insert-only history table in this codebase.
+
+**Why extend `SavedJob` rather than add a separate `Application` table:**
+the model's own field (`status`, defaulting to `"saved"`) already
+signaled this was the intended design - a job is "saved" and then
+progresses through the same row's status, not two parallel concepts. A
+second table would have duplicated the (user, job) identity and ownership
+checks for no benefit.
+
+**API** (`apps/api/routers/applications.py`, all authenticated,
+ownership-scoped exactly like every other per-user resource in this
+codebase - a 404, never another user's data, for anything not owned):
+`POST /applications` (idempotent save), `GET /applications` (the current
+user's list), `GET /applications/{id}` (detail + status history),
+`PATCH /applications/{id}` (status update, Pydantic-`Literal`-validated
+against the six statuses). No `DELETE` - not asked for by the approved
+scope, and removing tracking history was never part of the spec decision.
+
+**NERO never auto-applies:** every status transition is a user action
+recording something that happened outside NERO (they applied elsewhere,
+heard back, etc.) - there is no code path that submits an application on
+a user's behalf, and the Application Detail UI says so explicitly next to
+the status control.
+
+**Dashboard integration:** `GET /dashboard`'s `applications` field is now
+real (`apps/api/services/application_service.py::count_active_applications`)
+instead of the previous fixed `{"available": false, "active_count": 0}`.
+"Active" is deliberately `applied`/`interviewing`/`offer` only - a
+merely-saved-but-not-yet-applied job is not yet a pursued application, and
+a terminal `rejected`/`withdrawn` outcome is no longer active. This mirrors
+the "honest empty/pending state, never fabricated" rule the rest of the
+Dashboard already follows (see the Dashboard docstring in
+`apps/api/routers/dashboard.py`).

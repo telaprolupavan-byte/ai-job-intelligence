@@ -158,7 +158,7 @@ def test_dashboard_empty_account_returns_pending_states(client, db):
     assert data["validation"] == {"status": "pending"}
     assert data["ats"] == {"score": None, "status": "not_checked"}
     assert data["last_checked_at"] is None
-    assert data["applications"] == {"available": False, "active_count": 0}
+    assert data["applications"] == {"available": True, "active_count": 0}
     assert data["jobs"]["available"] is True
     assert data["jobs"]["recent"] == []
 
@@ -302,3 +302,50 @@ def test_dashboard_requires_authentication(client):
     response = client.get("/dashboard")
 
     assert response.status_code in (401, 403)
+
+
+def test_dashboard_reflects_real_active_application_count(client, db):
+    user = _make_user(db)
+    job = _make_job(
+        db, employment_type="full_time", first_seen_at=datetime.utcnow()
+    )
+    db.commit()
+
+    # Merely saving a job is not yet "active".
+    save_response = client.post(
+        "/applications",
+        json={"job_id": str(job.id)},
+        headers=_auth_headers(user),
+    )
+    assert save_response.status_code == 201
+    application_id = save_response.json()["id"]
+
+    response = client.get("/dashboard", headers=_auth_headers(user))
+    assert response.json()["applications"] == {
+        "available": True,
+        "active_count": 0,
+    }
+
+    # Marking it applied makes it active.
+    status_response = client.patch(
+        f"/applications/{application_id}",
+        json={"status": "applied"},
+        headers=_auth_headers(user),
+    )
+    assert status_response.status_code == 200
+
+    response = client.get("/dashboard", headers=_auth_headers(user))
+    assert response.json()["applications"] == {
+        "available": True,
+        "active_count": 1,
+    }
+
+    # Rejecting it drops it back out of the active count.
+    client.patch(
+        f"/applications/{application_id}",
+        json={"status": "rejected"},
+        headers=_auth_headers(user),
+    )
+
+    response = client.get("/dashboard", headers=_auth_headers(user))
+    assert response.json()["applications"]["active_count"] == 0

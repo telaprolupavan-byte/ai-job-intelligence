@@ -13,10 +13,10 @@ authenticated user:
   the most recent check the user has actually run, wherever it was run.
 - `jobs` — real counts from the `Job` table (AJI has no per-user job
   personalization on this surface, so these are global counts).
-- `applications` — no `Application` model exists yet (only the unused,
-  reserved `SavedJob` — see docs/ARCHITECTURE.md's "Legacy models
-  removed" section), so this stays a fixed, honest empty state rather
-  than a fabricated count.
+- `applications` — real counts from the user's own `SavedJob` rows
+  (Application Tracking; see apps/api/services/application_service.py).
+  `active_count` is applications in "applied"/"interviewing"/"offer" -
+  a merely-saved-but-not-yet-applied job is not counted as active.
 """
 
 from datetime import datetime, timezone
@@ -35,6 +35,7 @@ from apps.api.models import (
     ResumeAIAnalysis,
     User,
 )
+from apps.api.services.application_service import count_active_applications
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -173,7 +174,9 @@ def get_dashboard(
             "recent": recent_jobs,
         },
         "applications": {
-            "available": False,
-            "active_count": 0,
+            "available": True,
+            "active_count": count_active_applications(
+                db, current_user=current_user
+            ),
         },
     }
