@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -15,6 +17,21 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
+
+
+def generate_reset_token() -> tuple[str, str]:
+    """Return (raw_token, token_hash).
+
+    The raw token is sent to the user via email and never stored; only
+    its SHA-256 hash is persisted, so a database read alone can't be
+    used to reset someone's password.
+    """
+    raw_token = secrets.token_urlsafe(32)
+    return raw_token, hash_reset_token(raw_token)
+
+
+def hash_reset_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
 def create_access_token(user_id: str) -> str:
