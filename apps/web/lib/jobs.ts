@@ -341,17 +341,31 @@ export type AtsAlignmentResult = {
   created_at: string;
 };
 
+// resumeVersionId is optional: when omitted, the query param is left off
+// entirely and the backend falls back to its existing default resume
+// resolution (most recent Resume, preferring its master ResumeVersion) -
+// AJI-019 never changes that default, it only lets the caller override it.
 export async function calculateAtsAlignment(
   jobId: string,
+  resumeVersionId?: string,
 ): Promise<AtsAlignmentResult> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/ats`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
+  const searchParams = new URLSearchParams();
+  if (resumeVersionId) {
+    searchParams.set("resume_version_id", resumeVersionId);
+  }
+  const query = searchParams.toString();
+
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/ats${query ? `?${query}` : ""}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      cache: "no-store",
     },
-    cache: "no-store",
-  });
+  );
 
   const data = await response.json().catch(() => null);
 
@@ -369,14 +383,21 @@ export async function calculateAtsAlignment(
 
 export async function calculateJobMatch(
   jobId: string,
+  resumeVersionId?: string,
 ): Promise<JobMatchResult> {
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("ai_job_intelligence_token")
       : null;
 
+  const searchParams = new URLSearchParams();
+  if (resumeVersionId) {
+    searchParams.set("resume_version_id", resumeVersionId);
+  }
+  const query = searchParams.toString();
+
   const response = await fetch(
-    `${API_BASE_URL}/jobs/${jobId}/match`,
+    `${API_BASE_URL}/jobs/${jobId}/match${query ? `?${query}` : ""}`,
     {
       method: "POST",
       headers: {
@@ -403,4 +424,111 @@ export async function calculateJobMatch(
   }
 
   return data as JobMatchResult;
+}
+
+export type GapSuggestionType =
+  | "ADD_IF_TRUE"
+  | "REPHRASE_EXISTING"
+  | "HIGHLIGHT_EXISTING";
+
+export type GapSuggestion = {
+  requirement_id: string;
+  requirement_type: "skill" | "experience" | "education" | "certification";
+  category: AtsRequirementCategory;
+  requirement_text: string;
+  status: "partial" | "missing";
+  jd_evidence: string;
+  resume_evidence: string | null;
+  suggestion_type: GapSuggestionType;
+  explanation: string;
+  explanation_source: "ai" | "deterministic";
+  suggestion_text: string;
+  suggestion_source: "ai" | "deterministic";
+  confidence: "high" | "medium" | "low";
+};
+
+export type GapAnalysisResult = {
+  id: string;
+  job_id: string;
+  resume_version_id: string;
+  job_intelligence_id: string;
+  ats_alignment_id: string;
+  analysis_version: string;
+  analyzer_version: string;
+  prompt_version: string;
+  model_provider: string | null;
+  model_name: string | null;
+  generation_status: string;
+  must_have_gap_count: number;
+  preferred_gap_count: number;
+  gaps: GapSuggestion[];
+  created_at: string;
+};
+
+export async function getGapAnalysis(
+  jobId: string,
+  resumeVersionId?: string,
+): Promise<GapAnalysisResult> {
+  const searchParams = new URLSearchParams();
+  if (resumeVersionId) {
+    searchParams.set("resume_version_id", resumeVersionId);
+  }
+  const query = searchParams.toString();
+
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/gap-analysis${query ? `?${query}` : ""}`,
+    {
+      headers: authHeaders(),
+      cache: "no-store",
+    },
+  );
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to load Gap Analysis.";
+
+    throw new Error(message);
+  }
+
+  return data as GapAnalysisResult;
+}
+
+export async function calculateGapAnalysis(
+  jobId: string,
+  resumeVersionId?: string,
+): Promise<GapAnalysisResult> {
+  const searchParams = new URLSearchParams();
+  if (resumeVersionId) {
+    searchParams.set("resume_version_id", resumeVersionId);
+  }
+  const query = searchParams.toString();
+
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/gap-analysis${query ? `?${query}` : ""}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to calculate Gap Analysis.";
+
+    throw new Error(message);
+  }
+
+  return data as GapAnalysisResult;
 }
