@@ -17,6 +17,7 @@ from apps.api.services.application_service import (
     create_application,
     get_application,
     list_applications,
+    remove_saved_job,
     update_application_status,
 )
 
@@ -118,6 +119,25 @@ def get_application_detail(
             for event in application.status_events
         ],
     )
+
+
+@router.delete(
+    "/{application_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_saved_job_endpoint(
+    application_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        remove_saved_job(
+            db, current_user=current_user, application_id=application_id
+        )
+    except ApplicationServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail=str(exc)
+        ) from exc
 
 
 @router.patch(

@@ -131,6 +131,34 @@ def get_application(
     return application
 
 
+def remove_saved_job(
+    db: Session,
+    *,
+    current_user: User,
+    application_id: str,
+) -> None:
+    """Remove a saved-but-not-yet-applied job from tracking.
+
+    Only valid while status is still "saved" - once the user has marked
+    it applied, the row is an Application and its history must be kept
+    (see module docstring); withdrawing via status update is the correct
+    action at that point, not deletion.
+    """
+    application = get_application(
+        db, current_user=current_user, application_id=application_id
+    )
+
+    if application.status != "saved":
+        raise ApplicationServiceError(
+            "Cannot remove an application that has already been applied "
+            "to. Update its status (e.g. withdrawn) instead.",
+            status_code=409,
+        )
+
+    db.delete(application)
+    db.commit()
+
+
 def update_application_status(
     db: Session,
     *,

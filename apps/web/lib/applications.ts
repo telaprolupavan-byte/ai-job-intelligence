@@ -88,3 +88,10 @@ export async function updateApplicationStatus(
     body: JSON.stringify({ status }),
   });
 }
+
+export async function removeSavedJob(applicationId: string): Promise<void> {
+  await apiRequest<null>(`/applications/${applicationId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}

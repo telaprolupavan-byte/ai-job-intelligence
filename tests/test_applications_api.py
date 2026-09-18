@@ -256,3 +256,107 @@ def test_update_status_missing_application_is_404(client, db):
     )
 
     assert response.status_code == 404
+
+
+def test_remove_saved_job_deletes_while_still_saved(client, db):
+    user = _make_user(db)
+    job = _make_job(db)
+    db.commit()
+
+    create_response = client.post(
+        "/applications",
+        json={"job_id": str(job.id)},
+        headers=_auth_headers(user),
+    )
+    application_id = create_response.json()["id"]
+
+    response = client.delete(
+        f"/applications/{application_id}", headers=_auth_headers(user)
+    )
+
+    assert response.status_code == 204
+    assert (
+        db.query(SavedJob).filter(SavedJob.id == application_id).first()
+        is None
+    )
+
+
+def test_remove_saved_job_rejects_once_applied(client, db):
+    user = _make_user(db)
+    job = _make_job(db)
+    db.commit()
+
+    create_response = client.post(
+        "/applications",
+        json={"job_id": str(job.id)},
+        headers=_auth_headers(user),
+    )
+    application_id = create_response.json()["id"]
+
+    client.patch(
+        f"/applications/{application_id}",
+        json={"status": "applied"},
+        headers=_auth_headers(user),
+    )
+
+    response = client.delete(
+        f"/applications/{application_id}", headers=_auth_headers(user)
+    )
+
+    assert response.status_code == 409
+    assert (
+        db.query(SavedJob).filter(SavedJob.id == application_id).first()
+        is not None
+    )
+
+
+def test_remove_saved_job_for_other_users_application_is_404(client, db):
+    owner = _make_user(db)
+    other_user = _make_user(db)
+    job = _make_job(db)
+    db.commit()
+
+    create_response = client.post(
+        "/applications",
+        json={"job_id": str(job.id)},
+        headers=_auth_headers(owner),
+    )
+    application_id = create_response.json()["id"]
+
+    response = client.delete(
+        f"/applications/{application_id}", headers=_auth_headers(other_user)
+    )
+
+    assert response.status_code == 404
+    assert (
+        db.query(SavedJob).filter(SavedJob.id == application_id).first()
+        is not None
+    )
+
+
+def test_remove_saved_job_missing_application_is_404(client, db):
+    user = _make_user(db)
+    db.commit()
+
+    response = client.delete(
+        f"/applications/{uuid4()}", headers=_auth_headers(user)
+    )
+
+    assert response.status_code == 404
+
+
+def test_remove_saved_job_requires_authentication(client, db):
+    user = _make_user(db)
+    job = _make_job(db)
+    db.commit()
+
+    create_response = client.post(
+        "/applications",
+        json={"job_id": str(job.id)},
+        headers=_auth_headers(user),
+    )
+    application_id = create_response.json()["id"]
+
+    response = client.delete(f"/applications/{application_id}")
+
+    assert response.status_code in (401, 403)
