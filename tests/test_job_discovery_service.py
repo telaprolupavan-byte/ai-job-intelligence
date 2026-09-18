@@ -2,6 +2,7 @@ import pytest
 
 from apps.api.config import settings
 from apps.api.models import DiscoveryRun, Job
+from apps.api.services import job_discovery_service
 from apps.api.services.job_discovery_service import (
     JobDiscoveryNotConfiguredError,
     JobDiscoveryServiceError,
@@ -307,3 +308,46 @@ def test_run_configured_discovery_raises_on_database_failure_during_commit(
         == 0
     )
     assert db.query(DiscoveryRun).filter(DiscoveryRun.source == "greenhouse").count() == 0
+
+
+def test_run_configured_discovery_rejects_overlapping_run(db, monkeypatch):
+    """A second call while one is already in flight must be rejected
+    (409) rather than run concurrently - see _discovery_lock's docstring
+    for why a plain in-process lock is the right (and only necessary)
+    mechanism given this app's single-worker deployment."""
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+
+    acquired = job_discovery_service._discovery_lock.acquire(blocking=False)
+    assert acquired, "sanity check: lock should start free"
+
+    try:
+        with pytest.raises(JobDiscoveryServiceError) as exc_info:
+            run_configured_discovery(db)
+        assert exc_info.value.status_code == 409
+    finally:
+        job_discovery_service._discovery_lock.release()
+
+    # A rejected overlapping attempt never touched the source or the DB -
+    # it isn't a "run" for observability purposes.
+    assert db.query(DiscoveryRun).count() == 0
+
+    # The lock was released - a rejected overlap must not permanently
+    # block later scheduled runs.
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        lambda self: [_sample_discovered_job("gh-recovery", "Recovery Role")],
+    )
+    summary = run_configured_discovery(db)
+    assert summary.inserted == 1
+    assert (
+        db.query(DiscoveryRun)
+        .filter(DiscoveryRun.source == "greenhouse", DiscoveryRun.status == "succeeded")
+        .count()
+        == 1
+    )

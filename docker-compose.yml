@@ -9,9 +9,37 @@ services:
       - ./apps/api:/app
     environment:
       DATABASE_URL: postgresql+psycopg://jobintel:jobintel@db:5432/jobintel
+      # Job Discovery source/trigger config - unset by default (${VAR:-}
+      # keeps it that way unless the operator's shell/.env sets it), so
+      # POST /internal/job-discovery/run stays a hard 503 until an
+      # operator deliberately configures a board. See
+      # services/job_discovery/README.md.
+      JOB_DISCOVERY_GREENHOUSE_BOARD_TOKEN: ${JOB_DISCOVERY_GREENHOUSE_BOARD_TOKEN:-}
+      JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME: ${JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME:-}
+      JOB_DISCOVERY_TRIGGER_TOKEN: ${JOB_DISCOVERY_TRIGGER_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
+
+  # Calls the existing POST /internal/job-discovery/run on an interval -
+  # see deploy/discovery-scheduler/run_scheduler.sh for what it does and
+  # why it's a plain loop rather than cron/a task queue. It shares the
+  # same JOB_DISCOVERY_TRIGGER_TOKEN as `api` so the request it sends is
+  # authenticated exactly like any other caller of that endpoint - this
+  # is not a second discovery execution path.
+  discovery-scheduler:
+    build:
+      context: ./deploy/discovery-scheduler
+    container_name: ai-job-intelligence-discovery-scheduler
+    depends_on:
+      - api
+    environment:
+      DISCOVERY_API_URL: http://api:8000
+      JOB_DISCOVERY_TRIGGER_TOKEN: ${JOB_DISCOVERY_TRIGGER_TOKEN:-}
+      # Initial operational default (every 6 hours) - not a product
+      # requirement. Change per environment without rebuilding the image.
+      DISCOVERY_INTERVAL_SECONDS: ${DISCOVERY_INTERVAL_SECONDS:-21600}
+    restart: unless-stopped
 
   db:
     image: postgres:16
