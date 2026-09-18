@@ -186,7 +186,19 @@ class OpenAIResumeProvider:
             )
 
         self.model_name = model_name or settings.ai_model
-        self.client = OpenAI(api_key=resolved_api_key)
+
+        # Without an explicit timeout, the SDK's default (10 minutes) lets
+        # a stalled connection (e.g. a network/proxy issue between this
+        # service and OpenAI) leave the "Analyze Resume" request - and the
+        # frontend's loading state - hanging far longer than any
+        # interactive UI should. A bounded timeout instead surfaces
+        # APITimeoutError/APIConnectionError quickly through the existing
+        # error handling below, as a clear, actionable failure.
+        self.client = OpenAI(
+            api_key=resolved_api_key,
+            timeout=60.0,
+            max_retries=1,
+        )
 
     def generate_structured_analysis(
         self,

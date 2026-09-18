@@ -21,7 +21,12 @@ from apps.api.services.resume_service import (
 )
 from apps.api.services.resume_fingerprint import compute_content_fingerprint
 from apps.api.services.resume_validation import validate_resume_text
+from apps.api.services.resume_ai.interpreter import (
+    ANALYSIS_VERSION,
+    PROMPT_VERSION,
+)
 from apps.api.services.resume_ai.service import (
+    ANALYZER_VERSION,
     ResumeAIServiceError,
     analyze_resume_version,
 )
@@ -352,10 +357,20 @@ def list_resume_versions(
 
     version_ids = [version.id for version in resume.versions]
 
+    # Only an analysis produced by the current analyzer/prompt pipeline
+    # counts as "available" - a version whose only stored analysis
+    # predates a schema change (see get_resume_ai_analysis below) is
+    # treated the same as "not yet analyzed" rather than advertising a
+    # result that would fail to load.
     analyzed_version_ids = {
         row[0]
         for row in db.query(ResumeAIAnalysis.resume_version_id)
-        .filter(ResumeAIAnalysis.resume_version_id.in_(version_ids))
+        .filter(
+            ResumeAIAnalysis.resume_version_id.in_(version_ids),
+            ResumeAIAnalysis.analysis_version == ANALYSIS_VERSION,
+            ResumeAIAnalysis.analyzer_version == ANALYZER_VERSION,
+            ResumeAIAnalysis.prompt_version == PROMPT_VERSION,
+        )
         .distinct()
         .all()
     }
@@ -442,11 +457,22 @@ def get_resume_ai_analysis(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Pinned to the current analyzer/prompt pipeline, exactly like the
+    # cache-reuse lookup in analyze_resume_version(): a row saved under a
+    # prior schema (e.g. the pre-Resume-Intelligence flat analysis
+    # format) is a different, incompatible shape than what the frontend
+    # renders today. Serving it as-is would crash the UI, and there is no
+    # lossless way to translate it into the current schema without
+    # fabricating fields that were never produced, so it is treated as
+    # equivalent to "not yet analyzed" until the version is re-analyzed.
     analysis = (
         db.query(ResumeAIAnalysis)
         .filter(
             ResumeAIAnalysis.resume_version_id == resume_version_id,
             ResumeAIAnalysis.user_id == current_user.id,
+            ResumeAIAnalysis.analysis_version == ANALYSIS_VERSION,
+            ResumeAIAnalysis.analyzer_version == ANALYZER_VERSION,
+            ResumeAIAnalysis.prompt_version == PROMPT_VERSION,
         )
         .order_by(ResumeAIAnalysis.created_at.desc())
         .first()
