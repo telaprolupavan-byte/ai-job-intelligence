@@ -1,12 +1,18 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from apps.api.config import settings
 from apps.api.database import get_db
 from apps.api.dependencies import get_current_user
 from apps.api.models import PasswordResetToken, User
+from apps.api.rate_limit import (
+    rate_limit_forgot_password,
+    rate_limit_login,
+    rate_limit_register,
+    rate_limit_reset_password,
+)
 from apps.api.schemas import (
     ForgotPasswordRequest,
     MessageResponse,
@@ -50,9 +56,12 @@ def auth_test():
     status_code=status.HTTP_201_CREATED,
 )
 def register_user(
+    request: Request,
     user_data: UserRegister,
     db: Session = Depends(get_db),
 ):
+    rate_limit_register(request)
+
     existing_user = (
         db.query(User)
         .filter(User.email == user_data.email)
@@ -85,9 +94,12 @@ def register_user(
     response_model=Token,
 )
 def login_user(
+    request: Request,
     user_data: UserLogin,
     db: Session = Depends(get_db),
 ):
+    rate_limit_login(request, user_data.email)
+
     user = (
         db.query(User)
         .filter(User.email == user_data.email)
@@ -139,9 +151,12 @@ def get_me(
     response_model=MessageResponse,
 )
 def forgot_password(
+    request: Request,
     request_data: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
+    rate_limit_forgot_password(request, request_data.email)
+
     user = (
         db.query(User)
         .filter(User.email == request_data.email)
@@ -176,9 +191,12 @@ def forgot_password(
     response_model=MessageResponse,
 )
 def reset_password(
+    request: Request,
     request_data: ResetPasswordRequest,
     db: Session = Depends(get_db),
 ):
+    rate_limit_reset_password(request)
+
     token_hash = hash_reset_token(request_data.token)
 
     reset_token = (
