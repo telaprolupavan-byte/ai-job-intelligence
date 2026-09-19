@@ -33,10 +33,8 @@ export default function Home() {
     <main className="min-h-screen overflow-hidden bg-app-bg">
       {/* Navigation */}
       <header className="relative z-50 border-b border-white/10">
-        <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
-          <Link href="/" className="flex items-center">
-            <NeroBrand />
-          </Link>
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3 sm:py-4 lg:px-8">
+          <NeroBrand imgClassName="h-20 w-auto sm:h-28" sizes="(min-width: 640px) 120px, 88px" />
 
           <div className="flex items-center gap-3">
             <Link
@@ -57,7 +55,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="relative min-h-[calc(100vh-80px)]">
+      <section className="relative min-h-[calc(100vh-104px)] sm:min-h-[calc(100vh-144px)]">
         <div className="technical-grid absolute inset-0 opacity-50" />
         <div className="red-atmosphere absolute inset-0" />
         <div className="web-atmosphere absolute inset-0 opacity-80" />
@@ -66,7 +64,7 @@ export default function Home() {
         <div className="absolute left-[8%] top-1/3 hidden h-px w-32 bg-gradient-to-r from-transparent via-app-red/40 to-transparent lg:block" />
         <div className="absolute right-[8%] top-2/3 hidden h-px w-32 bg-gradient-to-r from-transparent via-app-red/40 to-transparent lg:block" />
 
-        <div className="relative mx-auto flex min-h-[calc(100vh-80px)] max-w-7xl items-center px-6 py-24 lg:px-8">
+        <div className="relative mx-auto flex min-h-[calc(100vh-104px)] max-w-7xl items-center px-6 py-24 sm:min-h-[calc(100vh-144px)] lg:px-8">
           <div className="w-full">
             <div className="mb-8 flex items-center gap-3">
               <span className="mono text-[10px] tracking-[0.3em] text-app-red">

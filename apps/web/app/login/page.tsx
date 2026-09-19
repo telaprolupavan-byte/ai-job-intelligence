@@ -5,6 +5,7 @@ import { Suspense, FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/lib/auth";
 import AppButton from "@/components/app/app-button";
+import NeroBrand from "@/components/app/nero-brand";
 
 function LoginForm() {
   const router = useRouter();
@@ -58,8 +59,8 @@ function LoginForm() {
 
           <div className="rounded-[18px] border border-app-border bg-app-panel p-8 sm:p-10">
             <div className="mb-6">
-              <div className="font-[family-name:var(--font-display)] text-2xl font-bold text-app-text">
-                NERO
+              <div className="w-[180px]">
+                <NeroBrand sizes="180px" />
               </div>
 
               <h2 className="mt-4 text-lg font-bold text-app-text">

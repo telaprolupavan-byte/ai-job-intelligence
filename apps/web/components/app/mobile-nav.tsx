@@ -25,19 +25,22 @@ export default function MobileNav() {
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0 lg:hidden" />
 
         <Dialog.Popup
+          aria-label="Navigation menu"
           className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col rounded-r-xl border-r border-app-border bg-app-bg outline-none transition-transform duration-200 data-[open]:translate-x-0 data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full data-[closed]:-translate-x-full lg:hidden"
         >
-          <div className="flex items-center justify-between border-b border-app-border px-5 py-5">
-            <Dialog.Title className="flex items-center">
-              <NeroBrand size="sm" />
-            </Dialog.Title>
+          <div className="border-b border-app-border">
+            <div className="flex justify-end px-4 pt-3">
+              <Dialog.Close
+                className="app-focus-ring flex h-8 w-8 items-center justify-center rounded-lg text-app-muted transition hover:text-app-text"
+                aria-label="Close navigation menu"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
 
-            <Dialog.Close
-              className="app-focus-ring flex h-8 w-8 items-center justify-center rounded-lg text-app-muted transition hover:text-app-text"
-              aria-label="Close navigation menu"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </Dialog.Close>
+            <div className="px-6 pb-6">
+              <NeroBrand onClick={() => setOpen(false)} />
+            </div>
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
