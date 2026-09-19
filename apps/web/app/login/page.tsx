@@ -58,12 +58,12 @@ function LoginForm() {
           </div>
 
           <div className="rounded-[18px] border border-app-border bg-app-panel p-8 sm:p-10">
-            <div className="mb-6">
-              <div className="w-[180px]">
-                <NeroBrand sizes="180px" />
+            <div className="mb-8 flex flex-col items-center text-center">
+              <div className="w-[200px]">
+                <NeroBrand sizes="200px" />
               </div>
 
-              <h2 className="mt-4 text-lg font-bold text-app-text">
+              <h2 className="mt-7 text-lg font-bold text-app-text">
                 Sign in to your intelligence workspace
               </h2>
 
