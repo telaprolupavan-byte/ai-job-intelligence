@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
-import { Inter, Syne, JetBrains_Mono } from "next/font/google";
+import { Inter, Syne, JetBrains_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+// Handwritten accent used only for NERO's small "Better Jobs Ahead!"
+// hero annotation — not part of the app's typographic hierarchy.
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: ["600", "700"],
 });
 
 // Geometric display face used sparingly for hero/page headings — the
@@ -37,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${syne.variable} ${jetbrainsMono.variable}`}
+        className={`${inter.variable} ${syne.variable} ${jetbrainsMono.variable} ${caveat.variable}`}
       >
         {children}
       </body>

@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { Search, FileText, BarChart3, Target } from "lucide-react";
+import {
+  Search,
+  FileText,
+  BarChart3,
+  Target,
+  Mouse,
+  ChevronDown,
+} from "lucide-react";
 import NeroBrand from "@/components/app/nero-brand";
 import LandingNav from "@/components/app/landing-nav";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
@@ -90,6 +97,9 @@ export default function Home() {
         <div className="technical-grid absolute inset-0 opacity-40" />
         <div className="nero-atmosphere absolute inset-0" />
 
+        <div className="pointer-events-none absolute left-0 top-[34%] hidden h-px w-24 bg-gradient-to-r from-app-red/50 to-transparent lg:block" />
+        <div className="pointer-events-none absolute left-0 top-[34%] hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-app-red/70 lg:block" />
+
         <div className="relative mx-auto max-w-[1536px] px-6 pb-10 pt-10 sm:px-10 lg:px-20 lg:pt-14">
           <div className="hero-grid-layout">
             {/* LEFT — copy + CTAs */}
@@ -154,7 +164,7 @@ export default function Home() {
             {/* RIGHT — NERO stage */}
             <div className="hero-area-nero relative flex flex-col items-center pt-4 lg:pt-0">
               <div className="pointer-events-none absolute right-0 top-0 z-20 max-w-[220px] -rotate-2 text-right sm:right-4 sm:top-6">
-                <p className="font-[family-name:var(--font-display)] text-lg italic leading-tight text-app-text/90 sm:text-xl">
+                <p className="font-[family-name:var(--font-caveat)] text-xl leading-[1.1] text-app-text/90 sm:text-2xl">
                   Better
                   <br />
                   Jobs
@@ -188,14 +198,17 @@ export default function Home() {
                 <NeroHeroVisual />
               </div>
 
-              <div className="relative z-20 mx-auto mt-6 max-w-[280px] rounded-xl border border-app-border-soft border-l-2 border-l-app-red bg-app-panel/70 px-4 py-3.5 shadow-lg backdrop-blur-sm sm:absolute sm:right-0 sm:top-28 sm:mx-0 sm:mt-0 sm:max-w-[240px] lg:right-2">
-                <p className="text-xs leading-5 text-app-body">
-                  I&apos;ll help you find,
-                  <br />
-                  match, and prepare
-                  <br />
-                  for the right opportunities.
-                </p>
+              <div className="relative z-20 mx-auto mt-6 max-w-[280px] sm:absolute sm:right-0 sm:top-36 sm:mx-0 sm:mt-0 sm:max-w-[240px] lg:right-2">
+                <span className="absolute -left-2.5 top-3 hidden h-4 w-[3px] rounded-full bg-app-red sm:block" />
+                <div className="rounded-xl border border-app-border-soft bg-app-panel/70 px-4 py-3.5 shadow-lg backdrop-blur-sm">
+                  <p className="text-xs leading-5 text-app-body">
+                    I&apos;ll help you find,
+                    <br />
+                    match, and prepare
+                    <br />
+                    for the right opportunities.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -222,25 +235,33 @@ export default function Home() {
 
         {/* Hero bottom bar */}
         <div className="relative mx-auto flex max-w-[1536px] flex-col items-center gap-4 border-t border-white/5 px-6 py-5 text-center sm:px-10 lg:flex-row lg:justify-between lg:px-20 lg:text-left">
-          <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
-            MORE THAN JOBS
-            <br />
-            A BRIGHTER YOU
+          <div className="flex items-center gap-2.5">
+            <span className="hidden h-4 w-[3px] rounded-full bg-app-red/70 lg:block" />
+            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
+              MORE THAN JOBS
+              <br />
+              A BRIGHTER YOU
+            </div>
           </div>
 
           <div className="flex flex-col items-center gap-2">
             <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
               SCROLL TO EXPLORE
             </span>
-            <span className="relative flex h-7 w-[18px] justify-center rounded-full border border-app-border-soft">
-              <span className="scroll-dot mt-1.5 h-1.5 w-1.5 rounded-full bg-app-blue" />
-            </span>
+            <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
+            <ChevronDown
+              className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
+              aria-hidden="true"
+            />
           </div>
 
-          <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
-            POWERED BY AI
-            <br />
-            GUIDED BY NERO
+          <div className="flex items-center gap-2.5">
+            <span className="hidden h-px w-8 bg-gradient-to-r from-transparent to-app-red/50 lg:block" />
+            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
+              POWERED BY AI
+              <br />
+              GUIDED BY NERO
+            </div>
           </div>
         </div>
       </section>
