@@ -63,30 +63,44 @@ def _verify_trigger_token(
     dependencies=[Depends(_verify_trigger_token)],
 )
 def trigger_job_discovery(db: Session = Depends(get_db)):
+    """Runs every independently-configured source (Greenhouse, TheirStack)
+    once each and returns one summary per source. A given source failing
+    to fetch is reported in its own entry (status="failed") rather than
+    failing the whole request - see run_configured_discovery."""
     try:
-        summary = run_configured_discovery(db)
+        summaries = run_configured_discovery(db)
     except JobDiscoveryServiceError as exc:
         raise HTTPException(
             status_code=exc.status_code,
             detail=str(exc),
         ) from exc
 
-    logger.info(
-        "Job discovery run: source=%s fetched=%d inserted=%d updated=%d rejected=%d",
-        summary.source,
-        summary.fetched,
-        summary.inserted,
-        summary.updated,
-        summary.rejected,
-    )
+    for summary in summaries:
+        logger.info(
+            "Job discovery run: source=%s status=%s fetched=%d inserted=%d "
+            "updated=%d rejected=%d",
+            summary.source,
+            summary.status,
+            summary.fetched,
+            summary.inserted,
+            summary.updated,
+            summary.rejected,
+        )
 
     return {
-        "source": summary.source,
-        "fetched": summary.fetched,
-        "inserted": summary.inserted,
-        "updated": summary.updated,
-        "rejected": summary.rejected,
-        "rejected_reasons": summary.rejected_reasons,
+        "runs": [
+            {
+                "source": summary.source,
+                "status": summary.status,
+                "fetched": summary.fetched,
+                "inserted": summary.inserted,
+                "updated": summary.updated,
+                "rejected": summary.rejected,
+                "rejected_reasons": summary.rejected_reasons,
+                "error": summary.error,
+            }
+            for summary in summaries
+        ]
     }
 
 

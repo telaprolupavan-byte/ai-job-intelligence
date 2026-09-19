@@ -46,6 +46,36 @@ class Settings(BaseSettings):
     # concept on User to hang this off of instead.
     job_discovery_trigger_token: str | None = None
 
+    # TheirStack job discovery provider (AJI-021). Disabled by default -
+    # unlike Greenhouse (one unauthenticated board per deployment),
+    # TheirStack is a single paid, authenticated, cross-company search
+    # API, so it needs its own explicit enable switch and API key rather
+    # than being considered "configured" just because a key is present.
+    # THEIRSTACK_API_KEY is server-side only: never read by frontend code,
+    # never included in an API response, log line, or DB row - see
+    # services/job_discovery/sources/theirstack.py and
+    # services/job_discovery/README.md.
+    theirstack_enabled: bool = False
+    theirstack_api_key: str | None = None
+    # Hard ceiling on jobs fetched per discovery run for this provider -
+    # discovery must never pull an unbounded number of results.
+    theirstack_max_results: int = 50
+    # Results requested per TheirStack search page (<= theirstack_max_results).
+    theirstack_page_size: int = 25
+    theirstack_timeout_seconds: float = 15.0
+    # Bounded retries for transient failures (timeouts, HTTP 5xx, HTTP 429
+    # rate limiting) only - authentication/config errors are never
+    # retried. See TheirStackJobSource._post_with_retry.
+    theirstack_max_retries: int = 2
+    # TheirStack requires at least one search filter on every request;
+    # this one lets discovery run without pinning to a specific company.
+    theirstack_posted_at_max_age_days: int = 7
+    # Comma-separated job titles/country codes to narrow the search.
+    # Titles are unset (unfiltered) by default; country defaults to "US"
+    # since the existing validator only accepts United States jobs today.
+    theirstack_job_titles: str | None = None
+    theirstack_country_codes: str = "US"
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",

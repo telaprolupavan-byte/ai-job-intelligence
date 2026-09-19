@@ -58,6 +58,108 @@ Adding another provider (e.g. Lever) means implementing the same
 reusing the existing normalizer/validator/deduplicator/persistence/pipeline —
 no source-specific logic belongs in the generic pipeline.
 
+## TheirStack source adapter (AJI-021)
+
+`services/job_discovery/sources/theirstack.py` calls the TheirStack Jobs
+Search API (`POST https://api.theirstack.com/v1/jobs/search`), a paid,
+authenticated, cross-company search API — unlike Greenhouse's
+unauthenticated per-company board API. It is enabled independently of
+Greenhouse and goes through the exact same
+normalize/validate/deduplicate/persist pipeline once it has produced
+`DiscoveredJob`s; nothing in the pipeline is TheirStack-specific.
+
+**Field-mapping disclaimer:** this environment's outbound network access
+could not reach `theirstack.com` while building this adapter, so the
+per-job response field names in `_to_discovered_job` (`job_title`/`title`,
+`company.name`/`company_name`, `url`/`final_url`, `date_posted`, `remote`,
+`employment_statuses`, …) are based on TheirStack's published
+documentation and third-party integration write-ups, not a live response
+inspected directly. The adapter is written defensively — a missing or
+renamed field always comes through as `None` (then rejected by the
+existing validator if required) rather than a fabricated value — but the
+exact field names should be confirmed against one real response before
+relying on TheirStack data quality in production. See "Real local
+discovery run" below for how to do that.
+
+Configuration (all read from `apps.api.config.settings`, `.env`/
+environment variables — see `.env.example`):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `THEIRSTACK_ENABLED` | Turns the provider on/off independently of Greenhouse. | `false` |
+| `THEIRSTACK_API_KEY` | Bearer token for the TheirStack API. Server-side only — never read by frontend code, never included in an API response, log line, database row, or git commit. | unset |
+| `THEIRSTACK_MAX_RESULTS` | Hard ceiling on jobs fetched in one discovery run for this provider. Discovery never pulls an unbounded number of results. | `50` |
+| `THEIRSTACK_PAGE_SIZE` | Results requested per search page (paginates up to `THEIRSTACK_MAX_RESULTS`). | `25` |
+| `THEIRSTACK_TIMEOUT_SECONDS` | Per-request HTTP timeout. | `15` |
+| `THEIRSTACK_MAX_RETRIES` | Bounded retries for transient failures (timeouts, HTTP 5xx, HTTP 429) only. Authentication/configuration errors (401/403) are never retried. | `2` |
+| `THEIRSTACK_POSTED_AT_MAX_AGE_DAYS` | TheirStack requires at least one search filter per request; this lets discovery run without pinning to a specific company/domain. | `7` |
+| `THEIRSTACK_JOB_TITLES` | Optional comma-separated job title filter (`job_title_or`). | unset (unfiltered) |
+| `THEIRSTACK_COUNTRY_CODES` | Comma-separated country codes (`job_country_code_or`). Defaults to `US` since the existing validator only accepts United States jobs today. | `US` |
+
+If `THEIRSTACK_ENABLED=true` but `THEIRSTACK_API_KEY` is unset, TheirStack
+is skipped for that discovery run (logged as a warning) rather than
+blocking Greenhouse — see `build_configured_sources` in
+`apps/api/services/job_discovery_service.py`.
+
+### Real local discovery run
+
+With a real `THEIRSTACK_API_KEY`, run discovery against the real API and
+confirm jobs appear through the existing `GET /jobs` endpoint:
+
+```bash
+# 1. Configure (.env or exported in your shell)
+export THEIRSTACK_ENABLED=true
+export THEIRSTACK_API_KEY=<your real TheirStack API key>
+export THEIRSTACK_MAX_RESULTS=5          # keep a first run small
+export JOB_DISCOVERY_TRIGGER_TOKEN=<any long random string>
+
+# 2. Start the API (with a Postgres DB migrated via alembic) and trigger
+#    a real discovery run
+curl -X POST http://localhost:8000/internal/job-discovery/run \
+  -H "X-Discovery-Trigger-Token: $JOB_DISCOVERY_TRIGGER_TOKEN"
+
+# 3. Inspect the run's outcome (per-provider status/counts, never the API
+#    key)
+curl http://localhost:8000/internal/job-discovery/runs \
+  -H "X-Discovery-Trigger-Token: $JOB_DISCOVERY_TRIGGER_TOKEN"
+
+# 4. Confirm the jobs are visible through the existing public endpoint
+curl "http://localhost:8000/jobs?page=1&page_size=20" | jq '.jobs[] | select(.source=="theirstack")'
+```
+
+A `runs[].source == "theirstack"` entry with `status: "succeeded"` and
+`inserted > 0` (step 2/3), together with `theirstack` rows returned from
+step 4, is what "real TheirStack jobs are visible through NERO's existing
+/jobs API" looks like in practice. If step 4 returns TheirStack jobs with
+implausible field values (e.g. every job missing `location` or
+`description`), that's the field-mapping disclaimer above surfacing for
+real — inspect one raw response body TheirStack returned (temporarily,
+outside of any committed file or log) and adjust the field names in
+`_to_discovered_job`.
+
+### Known limitations (identified rather than silently worked around)
+
+- **No cross-provider deduplication.** `services/job_discovery/deduplicator.py`
+  builds each job's identity fingerprint from `source` + the provider's own
+  ID (or `source` + company/title/location/URL as a fallback), and
+  `services/job_discovery/persistence.py` always scopes its existing-job
+  lookup by `Job.source`. This means dedup only ever happens *within* one
+  provider's postings — the same real-world job posted to both a
+  Greenhouse board and returned by TheirStack will persist as two separate
+  `Job` rows, not one. This is the existing architecture's behavior for
+  any two sources, not something introduced by TheirStack, and this
+  change does not alter it — inventing a TheirStack-specific merge
+  strategy was explicitly out of scope. Real cross-source deduplication
+  (e.g. canonicalizing by company + title + location, independent of
+  `source`) is a separate, deliberate design decision for a future
+  ticket.
+- **No stale-job deactivation.** Nothing in the existing pipeline ever
+  sets `Job.is_active = False` — a job that stops being returned by its
+  source (closed on Greenhouse, or absent from a later TheirStack search)
+  stays `is_active=True` forever. This is a pre-existing gap in the
+  Greenhouse pipeline too, not one this change introduces or attempts to
+  silently patch for TheirStack only.
+
 ## Operationalizing discovery (running it without a developer manually
 ## invoking Python)
 

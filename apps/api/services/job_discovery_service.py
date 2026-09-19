@@ -10,8 +10,17 @@ Which company board(s) to actually ingest is a product/legal decision
 (whose public postings AJI has permission to aggregate), not something to
 hardcode here - `settings.job_discovery_greenhouse_board_token` /
 `job_discovery_greenhouse_company_name` are unset by default, and
-`run_configured_discovery` raises a clear, typed error until an operator
+`build_configured_sources` simply omits Greenhouse until an operator
 configures them.
+
+AJI-021 adds TheirStack as a second, independently-enabled source
+alongside Greenhouse (`settings.theirstack_enabled` +
+`settings.theirstack_api_key`). One discovery run now fetches from every
+configured source in turn, records one `DiscoveryRun` row per source (so
+each provider's success/failure/counts stay independently observable),
+and a failure fetching from one source never prevents another configured
+source from running - that independence is the whole point of "enabled
+independently".
 """
 
 from __future__ import annotations
@@ -19,7 +28,7 @@ from __future__ import annotations
 import logging
 import threading
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -32,6 +41,10 @@ from services.job_discovery.sources.greenhouse import (
     GreenhouseAdapterError,
     GreenhouseJobSource,
 )
+from services.job_discovery.sources.theirstack import (
+    TheirStackAdapterError,
+    TheirStackJobSource,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +52,11 @@ logger = logging.getLogger(__name__)
 # String column limit on DiscoveryRun.error_message - truncate so an
 # unusually long exception message can never fail that write too.
 _ERROR_MESSAGE_MAX_LEN = 1000
+
+# Exception types raised by a source adapter's fetch_jobs() that this
+# service treats as "that provider's fetch failed" (recorded as a failed
+# DiscoveryRun for that source alone) rather than a systemic failure.
+_SOURCE_FETCH_ERRORS = (GreenhouseAdapterError, TheirStackAdapterError)
 
 
 class JobDiscoveryServiceError(Exception):
@@ -52,7 +70,8 @@ class JobDiscoveryNotConfiguredError(JobDiscoveryServiceError):
         super().__init__(
             "Job discovery has no configured source. Set "
             "JOB_DISCOVERY_GREENHOUSE_BOARD_TOKEN and "
-            "JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME to enable it.",
+            "JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME, and/or "
+            "THEIRSTACK_ENABLED=true with THEIRSTACK_API_KEY, to enable it.",
             status_code=503,
         )
 
@@ -82,109 +101,181 @@ _discovery_lock = threading.Lock()
 @dataclass
 class DiscoveryRunSummary:
     source: str
-    fetched: int
-    inserted: int
-    updated: int
-    rejected: int
-    rejected_reasons: list[str]
+    status: str  # "succeeded" | "failed"
+    fetched: int = 0
+    inserted: int = 0
+    updated: int = 0
+    rejected: int = 0
+    rejected_reasons: list[str] = field(default_factory=list)
+    error: str | None = None
 
 
-def build_configured_source() -> JobSourceAdapter:
-    """Build the source adapter from configuration.
+def _build_theirstack_source() -> TheirStackJobSource:
+    job_titles = (
+        [
+            title.strip()
+            for title in settings.theirstack_job_titles.split(",")
+            if title.strip()
+        ]
+        if settings.theirstack_job_titles
+        else None
+    )
+    country_codes = [
+        code.strip()
+        for code in settings.theirstack_country_codes.split(",")
+        if code.strip()
+    ] or None
 
-    Raises JobDiscoveryNotConfiguredError if no source is configured. Only
-    one provider (Greenhouse) is wired up today; this function is the
-    single place a second provider would be added, so the router/service
-    boundary never needs to know which concrete adapter is in use.
-    """
-    board_token = settings.job_discovery_greenhouse_board_token
-    company_name = settings.job_discovery_greenhouse_company_name
-
-    if not board_token or not company_name:
-        raise JobDiscoveryNotConfiguredError()
-
-    return GreenhouseJobSource(
-        board_token=board_token,
-        company_name=company_name,
+    return TheirStackJobSource(
+        api_key=settings.theirstack_api_key,
+        job_title_or=job_titles,
+        job_country_code_or=country_codes,
+        posted_at_max_age_days=settings.theirstack_posted_at_max_age_days,
+        max_results=settings.theirstack_max_results,
+        page_size=settings.theirstack_page_size,
+        request_timeout=settings.theirstack_timeout_seconds,
+        max_retries=settings.theirstack_max_retries,
     )
 
 
-def run_configured_discovery(db: Session) -> DiscoveryRunSummary:
-    """Fetch from the configured source and run it through the existing
-    discovery pipeline, committing on success.
+def build_configured_sources() -> list[JobSourceAdapter]:
+    """Build every source adapter enabled by configuration.
 
-    Never fabricates jobs: if no source is configured, or the source
-    cannot be reached, this raises rather than returning a fake/empty
-    success.
-
-    Records one DiscoveryRun row for observability (source, start/end
-    time, status, counts, safe error info) - whether the run succeeds or
-    fails. A run that never starts (e.g. no source configured, or one is
-    already in progress) has nothing to record, since no attempt was made.
-
-    Rejects with JobDiscoveryAlreadyRunningError (409) rather than
-    running concurrently with another in-flight call - see
-    `_discovery_lock` for why a plain in-process lock is sufficient here.
+    Each provider is independent: Greenhouse is included iff its board
+    token/company name are both set; TheirStack is included iff
+    THEIRSTACK_ENABLED is true (a misconfiguration - enabled without an
+    API key - is logged and that provider is simply omitted, rather than
+    blocking Greenhouse from running). Raises
+    JobDiscoveryNotConfiguredError only if the resulting list is empty -
+    no provider is configured at all.
     """
-    source = build_configured_source()
+    sources: list[JobSourceAdapter] = []
 
-    if not _discovery_lock.acquire(blocking=False):
-        raise JobDiscoveryAlreadyRunningError()
+    board_token = settings.job_discovery_greenhouse_board_token
+    company_name = settings.job_discovery_greenhouse_company_name
+
+    if board_token and company_name:
+        sources.append(
+            GreenhouseJobSource(
+                board_token=board_token,
+                company_name=company_name,
+            )
+        )
+
+    if settings.theirstack_enabled:
+        if not settings.theirstack_api_key:
+            logger.warning(
+                "THEIRSTACK_ENABLED is true but THEIRSTACK_API_KEY is not "
+                "set - skipping TheirStack for this discovery run."
+            )
+        else:
+            sources.append(_build_theirstack_source())
+
+    if not sources:
+        raise JobDiscoveryNotConfiguredError()
+
+    return sources
+
+
+def build_configured_source() -> JobSourceAdapter:
+    """Backward-compatible single-source accessor: the first configured
+    source, preferring Greenhouse. Prefer `build_configured_sources` for
+    new code - this exists only for callers that genuinely need exactly
+    one adapter."""
+    return build_configured_sources()[0]
+
+
+def _run_single_source(db: Session, source: JobSourceAdapter) -> DiscoveryRunSummary:
+    """Fetch and persist one source's jobs. Flushes (via
+    run_discovery_pipeline's per-job `db.begin_nested()`/`db.flush()`
+    calls) but never commits - see run_configured_discovery, which
+    commits once for the whole multi-source run, matching
+    run_discovery_pipeline's own documented contract ("the caller owns
+    the transaction boundary and should call db.commit() once
+    satisfied"). A source's own fetch failure is caught here and recorded
+    on its DiscoveryRun without raising, so it can't prevent another
+    configured source from running; a failure inside the pipeline itself
+    (e.g. a DB outage) is a systemic problem and is left to propagate."""
+    run = DiscoveryRun(
+        id=uuid.uuid4(),
+        source=source.source_name,
+        status="running",
+        started_at=datetime.utcnow(),
+    )
+    db.add(run)
 
     try:
-        run = DiscoveryRun(
-            id=uuid.uuid4(), source=source.source_name, status="running"
+        discovered_jobs = source.fetch_jobs()
+    except _SOURCE_FETCH_ERRORS as exc:
+        error_message = str(exc)[:_ERROR_MESSAGE_MAX_LEN]
+        run.status = "failed"
+        run.completed_at = datetime.utcnow()
+        run.error_message = error_message
+
+        logger.warning(
+            "Discovery fetch failed for %s: %s", source.source_name, error_message
         )
-        db.add(run)
 
-        try:
-            discovered_jobs = source.fetch_jobs()
-        except GreenhouseAdapterError as exc:
-            run.status = "failed"
-            run.completed_at = datetime.utcnow()
-            run.error_message = str(exc)[:_ERROR_MESSAGE_MAX_LEN]
-            db.commit()
-            raise JobDiscoveryServiceError(
-                f"Unable to fetch jobs from {source.source_name}: {exc}",
-                status_code=502,
-            ) from exc
+        return DiscoveryRunSummary(
+            source=source.source_name,
+            status="failed",
+            error=error_message,
+        )
 
-        try:
-            result: PipelineResult = run_discovery_pipeline(db, discovered_jobs)
+    result: PipelineResult = run_discovery_pipeline(db, discovered_jobs)
 
-            run.status = "succeeded"
-            run.completed_at = datetime.utcnow()
-            run.fetched_count = len(discovered_jobs)
-            run.inserted_count = len(result.inserted)
-            run.updated_count = len(result.updated)
-            run.rejected_count = len(result.rejected)
-
-            db.commit()
-        except Exception as exc:  # noqa: BLE001 - e.g. a DB outage mid-run
-            # A failure here (including in db.commit() itself) means the
-            # DiscoveryRun "running" row never got committed either, so
-            # there is nothing to update in place. Not attempting a
-            # second write in the same broken transaction is deliberate:
-            # the caller (the request's get_db dependency) rolls the
-            # session back on close, and this failure mode is rare enough
-            # that losing the run's own observability row is an
-            # acceptable trade-off against the risk of a second write
-            # compounding a real DB outage.
-            logger.error(
-                "Discovery run for %s failed: %s", source.source_name, exc
-            )
-            raise JobDiscoveryServiceError(
-                f"Job discovery run failed while persisting results: {exc}",
-                status_code=503,
-            ) from exc
-    finally:
-        _discovery_lock.release()
+    run.status = "succeeded"
+    run.completed_at = datetime.utcnow()
+    run.fetched_count = len(discovered_jobs)
+    run.inserted_count = len(result.inserted)
+    run.updated_count = len(result.updated)
+    run.rejected_count = len(result.rejected)
 
     return DiscoveryRunSummary(
         source=source.source_name,
+        status="succeeded",
         fetched=len(discovered_jobs),
         inserted=len(result.inserted),
         updated=len(result.updated),
         rejected=len(result.rejected),
         rejected_reasons=[item.reason for item in result.rejected],
     )
+
+
+def run_configured_discovery(db: Session) -> list[DiscoveryRunSummary]:
+    """Fetch from every configured source and run each through the
+    existing discovery pipeline, committing once for the whole run.
+
+    Never fabricates jobs: if no source is configured, this raises rather
+    than returning a fake/empty success. A source that cannot be reached
+    is recorded as a failed DiscoveryRun and reported in the returned
+    list - it does not prevent other configured sources from running,
+    since providers are enabled independently of one another. A failure
+    while persisting (e.g. a DB outage) is systemic rather than specific
+    to one provider, so - unlike a source fetch failure - it aborts the
+    whole run (nothing from this run is committed) rather than being
+    isolated to one provider.
+
+    Rejects with JobDiscoveryAlreadyRunningError (409) rather than running
+    concurrently with another in-flight call - see `_discovery_lock` for
+    why a plain in-process lock is sufficient here.
+    """
+    sources = build_configured_sources()
+
+    if not _discovery_lock.acquire(blocking=False):
+        raise JobDiscoveryAlreadyRunningError()
+
+    try:
+        try:
+            summaries = [_run_single_source(db, source) for source in sources]
+            db.commit()
+        except Exception as exc:  # noqa: BLE001 - e.g. a DB outage mid-run
+            logger.error("Discovery run failed while persisting results: %s", exc)
+            raise JobDiscoveryServiceError(
+                f"Job discovery run failed while persisting results: {exc}",
+                status_code=503,
+            ) from exc
+
+        return summaries
+    finally:
+        _discovery_lock.release()

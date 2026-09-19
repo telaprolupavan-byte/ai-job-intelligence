@@ -57,6 +57,8 @@ def _clear_discovery_settings(monkeypatch):
     monkeypatch.setattr(
         settings, "job_discovery_greenhouse_company_name", None
     )
+    monkeypatch.setattr(settings, "theirstack_enabled", False)
+    monkeypatch.setattr(settings, "theirstack_api_key", None)
 
 
 def test_trigger_disabled_without_configured_token(client):
@@ -140,10 +142,13 @@ def test_trigger_runs_discovery_with_valid_token_and_configured_source(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["source"] == "greenhouse"
-    assert body["fetched"] == 1
-    assert body["inserted"] == 1
-    assert body["rejected"] == 0
+    assert len(body["runs"]) == 1
+    run_summary = body["runs"][0]
+    assert run_summary["source"] == "greenhouse"
+    assert run_summary["status"] == "succeeded"
+    assert run_summary["fetched"] == 1
+    assert run_summary["inserted"] == 1
+    assert run_summary["rejected"] == 0
 
     assert (
         db.query(Job)
@@ -151,6 +156,102 @@ def test_trigger_runs_discovery_with_valid_token_and_configured_source(
         .count()
         == 1
     )
+
+
+def test_trigger_runs_every_independently_configured_source(
+    client, monkeypatch, db
+):
+    monkeypatch.setattr(settings, "job_discovery_trigger_token", "secret-1")
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+    monkeypatch.setattr(settings, "theirstack_enabled", True)
+    monkeypatch.setattr(settings, "theirstack_api_key", "ts-secret-key")
+
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        lambda self: [_fake_discovered_job("gh-700", "Greenhouse Role")],
+    )
+
+    theirstack_job = DiscoveredJob(
+        source="theirstack",
+        source_job_id="ts-700",
+        title="TheirStack Role",
+        company="Example Inc",
+        description="Build things.",
+        requirements=None,
+        responsibilities=None,
+        location="Remote, USA",
+        country="USA",
+        remote_type="remote",
+        employment_type="full_time",
+        salary_min=None,
+        salary_max=None,
+        salary_currency=None,
+        contract_duration=None,
+        contract_worker_type=None,
+        source_url="https://api.theirstack.com/jobs/ts-700",
+        application_url="https://api.theirstack.com/jobs/ts-700",
+        posted_at=None,
+        expires_at=None,
+    )
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.TheirStackJobSource"
+        ".fetch_jobs",
+        lambda self: [theirstack_job],
+    )
+
+    response = client.post(
+        "/internal/job-discovery/run",
+        headers={"X-Discovery-Trigger-Token": "secret-1"},
+    )
+
+    assert response.status_code == 200
+    runs_by_source = {run["source"]: run for run in response.json()["runs"]}
+    assert runs_by_source["greenhouse"]["status"] == "succeeded"
+    assert runs_by_source["greenhouse"]["inserted"] == 1
+    assert runs_by_source["theirstack"]["status"] == "succeeded"
+    assert runs_by_source["theirstack"]["inserted"] == 1
+
+    assert db.query(Job).filter(Job.source == "greenhouse").count() == 1
+    assert db.query(Job).filter(Job.source == "theirstack").count() == 1
+
+
+def test_trigger_reports_theirstack_disabled_without_api_key_as_not_configured(
+    client, monkeypatch
+):
+    """THEIRSTACK_ENABLED without an API key must not silently 200 with a
+    fabricated TheirStack run, and must not block Greenhouse from
+    running - it is simply omitted from this discovery run (see
+    build_configured_sources)."""
+    monkeypatch.setattr(settings, "job_discovery_trigger_token", "secret-1")
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_board_token", "example"
+    )
+    monkeypatch.setattr(
+        settings, "job_discovery_greenhouse_company_name", "Example Inc"
+    )
+    monkeypatch.setattr(settings, "theirstack_enabled", True)
+    monkeypatch.setattr(settings, "theirstack_api_key", None)
+
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".fetch_jobs",
+        lambda self: [_fake_discovered_job("gh-800", "Greenhouse Only Role")],
+    )
+
+    response = client.post(
+        "/internal/job-discovery/run",
+        headers={"X-Discovery-Trigger-Token": "secret-1"},
+    )
+
+    assert response.status_code == 200
+    runs = response.json()["runs"]
+    assert [run["source"] for run in runs] == ["greenhouse"]
 
 
 def test_list_runs_rejects_missing_token(client):
@@ -280,7 +381,7 @@ def test_overlapping_triggers_reject_the_second_and_recover_afterwards(
     first_thread.join(timeout=5)
     assert not first_thread.is_alive()
     assert results["first"].status_code == 200
-    assert results["first"].json()["inserted"] == 1
+    assert results["first"].json()["runs"][0]["inserted"] == 1
 
     # Recovery after a rejected overlap (the lock being released so a
     # later run is not permanently blocked) is covered, single-threaded,
