@@ -1,7 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
 
-export default function NeroBrand({ onClick }: { onClick?: () => void }) {
+export default function NeroBrand({
+  onClick,
+  imgClassName = "h-auto w-full",
+  sizes = "240px",
+}: {
+  onClick?: () => void;
+  imgClassName?: string;
+  sizes?: string;
+}) {
   return (
     <Link href="/" onClick={onClick} className="app-focus-ring block">
       <Image
@@ -10,8 +18,8 @@ export default function NeroBrand({ onClick }: { onClick?: () => void }) {
         width={1312}
         height={1199}
         priority
-        sizes="240px"
-        className="h-auto w-full"
+        sizes={sizes}
+        className={imgClassName}
       />
     </Link>
   );
