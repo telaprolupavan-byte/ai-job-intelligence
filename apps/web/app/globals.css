@@ -301,7 +301,7 @@ body {
    only (no wordmark/mark) using percentage background-size + position
    so the crop stays exact at any container width — no new artwork. */
 .nero-hero-figure {
-  aspect-ratio: 712 / 930;
+  aspect-ratio: 1098 / 1334;
   background-image: url("/brand/nero-hero-figure.png");
   background-repeat: no-repeat;
   background-size: 100% 100%;
