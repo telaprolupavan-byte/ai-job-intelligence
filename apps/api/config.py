@@ -16,7 +16,15 @@ class Settings(BaseSettings):
 
     # AI configuration
     ai_provider: str = "openai"
-    ai_model: str = "gpt-5.6"
+    # "gpt-5.6" (with no suffix) is the bare model alias, which OpenAI
+    # routes to GPT-5.6 Sol - the flagship frontier-reasoning tier. Sol
+    # runs an explicit reasoning pass by default, which is appropriate
+    # for frontier research/agentic-coding workloads but adds latency
+    # that routinely exceeds this app's interactive, client-timeout-
+    # bounded AI endpoints (resume/job/gap/requirement analysis all read
+    # this same setting). Terra is OpenAI's recommended tier for this
+    # kind of bounded-latency structured-extraction task.
+    ai_model: str = "gpt-5.6-terra"
     openai_api_key: str | None = None
 
     # Password reset
