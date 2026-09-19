@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { primaryNavItems, secondaryNavItems } from "@/lib/nav-items";
+import NeroBrand from "@/components/app/nero-brand";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -27,8 +28,8 @@ export default function MobileNav() {
           className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col rounded-r-xl border-r border-app-border bg-app-bg outline-none transition-transform duration-200 data-[open]:translate-x-0 data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full data-[closed]:-translate-x-full lg:hidden"
         >
           <div className="flex items-center justify-between border-b border-app-border px-5 py-5">
-            <Dialog.Title className="font-mono text-xs tracking-[0.2em] text-app-blue">
-              AI / JOB INTELLIGENCE
+            <Dialog.Title className="flex items-center">
+              <NeroBrand size="sm" />
             </Dialog.Title>
 
             <Dialog.Close
