@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NeroBrand from "@/components/app/nero-brand";
 
 const capabilities = [
   {
@@ -33,20 +34,8 @@ export default function Home() {
       {/* Navigation */}
       <header className="relative z-50 border-b border-white/10">
         <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="relative flex h-9 w-9 items-center justify-center">
-              <div className="absolute inset-0 rounded-full border border-app-red/50" />
-              <div className="absolute h-2 w-2 rounded-full bg-app-red red-text-glow" />
-            </div>
-
-            <div>
-              <div className="text-sm font-semibold tracking-tight">
-                AI JOB
-              </div>
-              <div className="mono text-[9px] tracking-[0.22em] text-app-muted">
-                INTELLIGENCE
-              </div>
-            </div>
+          <Link href="/" className="flex items-center">
+            <NeroBrand />
           </Link>
 
           <div className="flex items-center gap-3">
