@@ -5,10 +5,12 @@ export default function NeroBrand({
   onClick,
   imgClassName = "h-auto w-full",
   sizes = "240px",
+  preload = true,
 }: {
   onClick?: () => void;
   imgClassName?: string;
   sizes?: string;
+  preload?: boolean;
 }) {
   return (
     <Link href="/" onClick={onClick} className="app-focus-ring block">
@@ -17,7 +19,8 @@ export default function NeroBrand({
         alt="NERO — AI Job Intelligence"
         width={1312}
         height={1199}
-        priority
+        preload={preload}
+        quality={95}
         sizes={sizes}
         className={imgClassName}
       />
