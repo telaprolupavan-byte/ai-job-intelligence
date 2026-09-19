@@ -3,22 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { primaryNavItems, secondaryNavItems } from "@/lib/nav-items";
+import NeroBrand from "@/components/app/nero-brand";
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-[220px] shrink-0 overflow-y-auto border-r border-app-border bg-app-panel lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:flex-col">
-      <div className="border-b border-app-border px-6 py-6">
-        <Link href="/" className="app-focus-ring block">
-          <div className="font-mono text-xs tracking-[0.25em] text-app-blue">
-            AI / JOB
-          </div>
-
-          <div className="mt-1 font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-app-text">
-            INTELLIGENCE
-          </div>
-        </Link>
+    <aside className="hidden w-72 shrink-0 overflow-y-auto border-r border-app-border bg-app-panel lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:flex-col">
+      <div className="border-b border-app-border px-6 py-7">
+        <NeroBrand />
       </div>
 
       <nav className="flex-1 px-6 py-6" aria-label="Primary">
