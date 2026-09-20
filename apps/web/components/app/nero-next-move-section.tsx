@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import Badge from "@/components/app/badge";
 import NeroNextMoveVisual from "@/components/app/nero-next-move-visual";
+import NeroFinaleVisual from "@/components/app/nero-finale-visual";
 
 const journeySteps: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: Bookmark, title: "Save", text: "Keep the roles worth pursuing." },
@@ -62,18 +63,18 @@ const valueItems: { icon: LucideIcon; title: string; text: string }[] = [
 const APPLICATION_STAGES = ["Saved", "Applied", "Screening", "Interview", "Offer"];
 const CURRENT_STAGE = "Screening";
 
-const PROGRESS_STEPS = ["01", "02", "03", "04", "05"];
+const PROGRESS_STEPS = ["01", "02", "03", "04", "05", "06"];
 const ACTIVE_STEP = "05";
 
 /**
- * Page 5 — "Make Your Next Move." A self-contained five-scene chapter
- * (Hero / Journey / Application in Progress / Insights / Value Row)
- * that closes out the site's numbered pages before the un-numbered
- * Final CTA epilogue. Reuses Page 4's exact motion language — same
- * technical-grid + atmosphere background, same system-card-reveal
- * entrance animation, same NERO float/glow treatment, same rail +
- * scroll-continue bottom bar — scoped here to Page 5's own five
- * internal scenes rather than the site-wide 01-06 rail Page 4 uses.
+ * Page 5 — "Make Your Next Move." A self-contained six-scene chapter
+ * (Hero / Journey / Application in Progress / Insights / Value Row /
+ * Finale) that closes with its own cinematic "Same You. A Brighter
+ * Tomorrow." payoff before Page 6 begins. Reuses Page 4's exact motion
+ * language — same technical-grid + atmosphere background, same
+ * system-card-reveal entrance animation, same NERO float/glow
+ * treatment — and, for this closing scene, the same site-wide 01-06
+ * progress rail Page 4 ends on, now with 05 active.
  */
 export default function NeroNextMoveSection() {
   return (
@@ -265,10 +266,86 @@ export default function NeroNextMoveSection() {
         </div>
 
         {/* ------------------------------------------------------ */}
-        {/* Foreground detail — bottom utility bar, Page 5's own    */}
-        {/* five-scene progress rail (Hero -> Journey -> In         */}
-        {/* Progress -> Insights -> Value Row), same rail/scroll-   */}
-        {/* continue treatment as Page 4's site-wide rail.          */}
+        {/* F — FINALE: "Same You. A Brighter Tomorrow."            */}
+        {/* The cinematic payoff of Page 5's journey — NERO looking */}
+        {/* out over a CSS/SVG ridge toward a distant skyline, same  */}
+        {/* atmosphere/grid/reveal language as the rest of the site. */}
+        {/* ------------------------------------------------------ */}
+        <div
+          id="pricing"
+          className="relative mt-24 scroll-mt-24 overflow-hidden rounded-3xl border border-white/10 lg:mt-32"
+        >
+          <NeroFinaleVisual />
+
+          <div
+            className="pointer-events-none absolute left-5 top-6 z-20 max-w-[170px] -rotate-2 sm:left-8 sm:top-8"
+            aria-hidden="true"
+          >
+            <p className="font-[family-name:var(--font-caveat)] text-xl leading-[1.15] text-app-text/90 sm:text-2xl">
+              Same You.
+              <br />
+              Higher Possibilities.
+            </p>
+          </div>
+
+          <div
+            className="pointer-events-none absolute right-5 top-6 z-20 hidden max-w-[190px] rotate-2 text-right sm:right-8 sm:top-8 sm:block"
+            aria-hidden="true"
+          >
+            <p className="font-[family-name:var(--font-caveat)] text-xl leading-[1.15] text-app-text/90 sm:text-2xl">
+              More Opportunities.
+              <br />
+              A Brighter You.
+            </p>
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center px-6 pt-20 pb-64 text-center sm:px-10 sm:pt-24 sm:pb-80 lg:py-28 lg:pl-64">
+            <div className="flex items-center gap-3">
+              <span className="hidden h-px w-10 bg-app-red/50 sm:block" aria-hidden="true" />
+              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+                05 / 06 &nbsp; IT&apos;S MORE THAN A JOB.
+              </span>
+              <span className="hidden h-px w-10 bg-app-red/50 sm:block" aria-hidden="true" />
+            </div>
+
+            <h2 className="mt-6 font-[family-name:var(--font-display)] text-[clamp(2.75rem,7vw,5.5rem)] font-bold leading-[1.1] tracking-[-0.03em] text-app-text">
+              SAME YOU.
+              <br />
+              <span className="bg-gradient-to-r from-app-red via-[#ff6a52] to-[#ff9166] bg-clip-text text-transparent">
+                A BRIGHTER TOMORROW.
+              </span>
+            </h2>
+
+            <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-app-muted sm:text-lg">
+              Start your next chapter with NERO.
+            </p>
+
+            <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">
+              <Link
+                href="/register"
+                className="app-focus-ring group inline-flex items-center justify-center gap-2 rounded-lg bg-crimson-fill px-7 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_rgba(217,40,31,0.4)] transition hover:bg-crimson-fill-hover"
+              >
+                Get Started
+                <span className="transition-transform group-hover:translate-x-1">
+                  →
+                </span>
+              </Link>
+
+              <Link
+                href="/jobs"
+                className="app-focus-ring inline-flex items-center justify-center rounded-lg border border-app-border-soft bg-black/20 px-7 py-3.5 text-sm font-medium text-app-text backdrop-blur-sm transition hover:bg-white/10"
+              >
+                Explore NERO
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* ------------------------------------------------------ */}
+        {/* Foreground detail — bottom utility bar, the site-wide   */}
+        {/* 01-06 progress rail (05 active) marking the close of    */}
+        {/* Page 5 before Page 6 begins, same rail/scroll-continue  */}
+        {/* treatment as Page 4's.                                  */}
         {/* ------------------------------------------------------ */}
         <div className="relative mt-16 flex flex-col items-center gap-5 border-t border-white/5 pt-6 text-center lg:mt-20 lg:flex-row lg:justify-between lg:text-left">
           <ProgressRail />
@@ -285,9 +362,9 @@ export default function NeroNextMoveSection() {
           </div>
 
           <div className="mono text-[9px] leading-5 tracking-[0.2em] text-app-muted">
-            YOUR TERMS.
+            THE NEXT CHAPTER
             <br />
-            YOUR NEXT MOVE.
+            STARTS HERE.
           </div>
         </div>
       </div>
