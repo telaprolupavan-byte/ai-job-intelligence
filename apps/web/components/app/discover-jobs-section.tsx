@@ -42,9 +42,11 @@ const EMPTY_FILTERS: DiscoverFilters = {
   location: "",
 };
 
-// Kept small — this is a marketing preview of live search, not the full
-// paginated Jobs workspace (that lives at /jobs behind sign-in).
-const PAGE_SIZE = 6;
+// Kept deliberately small — this is a curated product demo on the
+// marketing page, not the full paginated Jobs workspace (that lives at
+// /jobs behind sign-in). Three cards is enough to show what NERO surfaces
+// without the section reading like a job board.
+const PAGE_SIZE = 3;
 
 const EMPLOYMENT_OPTIONS: { value: EmploymentFilter; label: string }[] = [
   { value: "full_time", label: "Full-Time" },
