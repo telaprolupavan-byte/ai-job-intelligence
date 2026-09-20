@@ -461,6 +461,78 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
+/* Landing "Discover Jobs" section — hero / filters / results /      */
+/* insights                                                          */
+/* ---------------------------------------------------------------- */
+
+/* Own grid (not the shared .hero-grid-layout) so Section 1's Hero is
+   never touched: mobile order is headline -> mascot -> search, per the
+   approved information hierarchy, before the search/quick-filters card
+   moves back up beside the copy at the lg breakpoint. */
+.discover-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: "content" "nero" "search";
+  row-gap: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .discover-hero-grid {
+    grid-template-columns: minmax(0, 680px) 1fr;
+    grid-template-areas: "content nero" "search nero";
+    column-gap: 3rem;
+    row-gap: 1.5rem;
+    align-items: start;
+  }
+}
+
+.discover-hero-area-content {
+  grid-area: content;
+}
+
+.discover-hero-area-nero {
+  grid-area: nero;
+}
+
+.discover-hero-area-search {
+  grid-area: search;
+}
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: "jobs" "insights";
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .discover-grid {
+    grid-template-columns: 260px minmax(0, 1fr) 320px;
+    grid-template-areas: "filters jobs insights";
+    gap: 2rem;
+    align-items: start;
+  }
+}
+
+.discover-area-filters {
+  grid-area: filters;
+}
+
+.discover-area-jobs {
+  grid-area: jobs;
+}
+
+.discover-area-insights {
+  grid-area: insights;
+}
+
+/* Generic card entrance reveal — reuses the System section's keyframes
+   under a section-agnostic name for the Discover Jobs result cards. */
+.reveal-up {
+  animation: system-card-reveal 0.5s ease-out both;
+}
+
+/* ---------------------------------------------------------------- */
 /* Landing "Job Intelligence" section — Page 4 scene                 */
 /* four input panels -> NERO -> clarity object, same world as the    */
 /* hero/system sections above (same tokens, grid, atmosphere).       */
