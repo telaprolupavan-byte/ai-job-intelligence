@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import {
   BadgeCheck,
   Compass,
@@ -33,7 +34,9 @@ const stages: { icon: LucideIcon; title: string; text: string }[] = [
  * page: the rail's background glow and connecting line carry their
  * own depth layers, and each stage's icon drifts a hair independently
  * of its text for a subtle layered feel without ever competing with
- * legibility.
+ * legibility. A small NERO companion (same approved artwork used
+ * everywhere else) floats beside the rail on wide screens, reinforcing
+ * that this is a path walked together rather than an automated report.
  */
 export default function NeroJourneySection() {
   return (
@@ -76,6 +79,25 @@ export default function NeroJourneySection() {
             From your resume to a tracked application — the same
             system, the whole way.
           </p>
+
+          {/* Compact mascot cameo for narrower screens, where the
+              desktop companion beside the rail (below) has no room —
+              same approved artwork, just repositioned. */}
+          <div className="relative mx-auto mt-8 w-16 xl:hidden">
+            <Image
+              src="/brand/nero-hero-figure.png"
+              alt="NERO, the AI Job Intelligence mascot"
+              width={1098}
+              height={1334}
+              sizes="64px"
+              quality={95}
+              className="nero-float relative z-10 h-auto w-full drop-shadow-[0_16px_28px_rgba(0,0,0,0.5)]"
+            />
+            <div
+              className="nero-floor-glow pointer-events-none absolute -bottom-2 left-1/2 h-8 w-[85%] -translate-x-1/2"
+              aria-hidden="true"
+            />
+          </div>
         </div>
 
         <div className="relative mt-16 lg:mt-20">
@@ -85,6 +107,35 @@ export default function NeroJourneySection() {
             className="pointer-events-none absolute left-6 top-2 bottom-2 w-px bg-gradient-to-b from-transparent via-app-border-strong to-transparent"
             aria-hidden="true"
           />
+
+          {/* Mascot companion — same approved standing/pointing artwork
+              reused across the page, walking the rail alongside the
+              visitor rather than acting as a new character. */}
+          <div
+            data-parallax-speed="0.05"
+            data-parallax-local
+            className="pointer-events-none absolute -right-8 top-16 hidden w-[150px] xl:block"
+            aria-hidden="true"
+          >
+            <div className="relative -left-4 -top-4 max-w-[160px] -rotate-2 rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-3 shadow-lg backdrop-blur-sm">
+              <p className="font-[family-name:var(--font-caveat)] text-lg leading-5 text-app-text">
+                I&apos;ll walk this with you.
+              </p>
+            </div>
+            <Image
+              src="/brand/nero-hero-figure.png"
+              alt=""
+              width={1098}
+              height={1334}
+              sizes="150px"
+              quality={95}
+              className="nero-float relative z-10 mt-2 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
+            />
+            <div
+              className="nero-floor-glow absolute -bottom-3 left-1/2 h-14 w-[85%] -translate-x-1/2"
+              aria-hidden="true"
+            />
+          </div>
 
           <ol className="relative flex flex-col gap-10 sm:gap-12">
             {stages.map((stage, index) => (

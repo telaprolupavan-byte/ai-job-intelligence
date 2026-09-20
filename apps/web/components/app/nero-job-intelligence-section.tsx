@@ -237,7 +237,7 @@ export default function NeroJobIntelligenceSection() {
 
           <div className="relative px-6 py-16 text-center sm:px-10 sm:py-20">
             <span className="mono text-[10px] tracking-[0.3em] text-app-blue">
-              IT&apos;S MORE THAN A JOB.
+              CLARITY, NOT GUESSWORK.
             </span>
 
             <h3 className="mx-auto mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[clamp(2rem,5vw,3.25rem)] font-bold leading-[0.95] tracking-[-0.03em] text-app-text">

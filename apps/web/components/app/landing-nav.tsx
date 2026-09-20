@@ -16,14 +16,18 @@ export default function LandingNav() {
 
   return (
     <>
-      <div className="hidden items-center gap-9 lg:flex">
+      <div className="hidden items-center gap-8 lg:flex">
         {NAV_LINKS.map((link) => (
           <Link
             key={link.href}
             href={link.href}
-            className="app-focus-ring text-sm text-app-body transition hover:text-app-text"
+            className="app-focus-ring group relative text-[13px] font-medium tracking-[0.02em] text-app-body transition hover:text-app-text"
           >
             {link.label}
+            <span
+              className="absolute -bottom-1.5 left-0 h-px w-0 bg-app-red transition-all duration-200 group-hover:w-full"
+              aria-hidden="true"
+            />
           </Link>
         ))}
       </div>

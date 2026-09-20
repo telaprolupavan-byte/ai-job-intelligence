@@ -99,7 +99,18 @@ export default function ParallaxController() {
       const scrollY = window.scrollY;
       const viewportH = window.innerHeight;
 
-      for (const { el, speed, speedX, scaleTo, local } of parallaxEls) {
+      // Read pass first, write pass second. Reading layout
+      // (getBoundingClientRect) for a "local" element and then writing
+      // el.style.transform for the *previous* element in the same loop
+      // forces the browser to resolve layout synchronously on every
+      // subsequent read — classic layout thrashing, and the main source
+      // of scroll jank here: it scales with how many data-parallax-local
+      // elements are on screen at once (four Job Intelligence panels,
+      // the eight-stage Journey rail, etc.), which is exactly when fast
+      // or continuous scrolling felt worst. Batching all reads before
+      // any writes eliminates the forced reflow without changing any of
+      // the motion math below.
+      const updates = parallaxEls.map(({ el, speed, speedX, scaleTo, local }) => {
         // "signal" and "progress" are the two knobs every formula below
         // is built from — for the hero (local === false) they're exactly
         // the original page-global scrollY / scrollY-over-viewport-height
@@ -136,6 +147,10 @@ export default function ParallaxController() {
           const scale = 1 + (scaleTo - 1) * progress;
           transform += ` scale(${scale.toFixed(4)})`;
         }
+        return { el, transform };
+      });
+
+      for (const { el, transform } of updates) {
         el.style.transform = transform;
       }
       ticking = false;

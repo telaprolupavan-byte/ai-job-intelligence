@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import { ArrowDown } from "lucide-react";
 
 const questions: { text: string; rotate: number }[] = [
@@ -19,6 +20,12 @@ const questions: { text: string; rotate: number }[] = [
  * visually settles from scattered guesswork into a single clear line
  * — "NERO turns those questions into intelligence" — without any
  * continuous per-frame animation.
+ *
+ * NERO itself arrives at that resolution line — the same approved
+ * standing/pointing artwork reused everywhere else on the page, kept
+ * small and quieter than its later full-scale appearances so the
+ * section's dimmer mood still reads as "guesswork resolving," not a
+ * bright hero entrance.
  */
 export default function ProblemSection() {
   return (
@@ -64,19 +71,42 @@ export default function ProblemSection() {
           ))}
         </div>
 
-        <div
-          data-reveal
-          data-reveal-delay="480"
-          style={{ "--reveal-distance": "10px" } as CSSProperties}
-          className="mx-auto mt-16 flex max-w-md flex-col items-center gap-4 text-center sm:mt-20"
-        >
-          <ArrowDown className="h-5 w-5 text-app-muted" aria-hidden="true" />
-          <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.01em] text-app-text sm:text-2xl">
-            NERO turns those questions into{" "}
-            <span className="bg-gradient-to-r from-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
-              intelligence.
-            </span>
-          </p>
+        <div className="mx-auto mt-16 flex max-w-2xl flex-col items-center gap-6 sm:mt-20 lg:flex-row lg:justify-center lg:gap-8">
+          <div
+            data-reveal
+            data-reveal-delay="480"
+            style={{ "--reveal-distance": "10px" } as CSSProperties}
+            className="flex max-w-md flex-col items-center gap-4 text-center lg:items-end lg:text-right"
+          >
+            <ArrowDown className="h-5 w-5 text-app-muted" aria-hidden="true" />
+            <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.01em] text-app-text sm:text-2xl">
+              NERO turns those questions into{" "}
+              <span className="bg-gradient-to-r from-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
+                intelligence.
+              </span>
+            </p>
+          </div>
+
+          <div
+            data-reveal
+            data-reveal-delay="560"
+            style={{ "--reveal-distance": "14px" } as CSSProperties}
+            className="relative w-28 shrink-0 opacity-90 sm:w-32"
+          >
+            <Image
+              src="/brand/nero-hero-figure.png"
+              alt="NERO, the AI Job Intelligence mascot, arriving to make sense of the questions above"
+              width={1098}
+              height={1334}
+              sizes="130px"
+              quality={95}
+              className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
+            />
+            <div
+              className="nero-floor-glow pointer-events-none absolute -bottom-3 left-1/2 h-12 w-[85%] -translate-x-1/2"
+              aria-hidden="true"
+            />
+          </div>
         </div>
       </div>
     </section>
