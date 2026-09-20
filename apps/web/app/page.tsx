@@ -17,6 +17,7 @@ import NeroBrand from "@/components/app/nero-brand";
 import LandingNav from "@/components/app/landing-nav";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
+import DiscoverJobsSection from "@/components/app/discover-jobs-section";
 
 const systemBlocks: {
   number: string;
@@ -452,60 +453,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Match intelligence */}
-      <section
-        id="how-it-works"
-        className="relative overflow-hidden border-t border-white/10"
-      >
-        <div className="technical-grid absolute inset-0 opacity-30" />
-        <div className="red-atmosphere absolute inset-0" aria-hidden="true" />
-
-        <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-          <div className="grid gap-14 lg:grid-cols-[minmax(0,460px)_1fr] lg:items-center lg:gap-16">
-            {/* LEFT — copy + principle rows */}
-            <div>
-              <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-                03 / MATCH INTELLIGENCE
-              </div>
-
-              <h2 className="font-[family-name:var(--font-display)] mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
-                NOT EVERY JOB
-                <br />
-                <span className="text-app-muted">DESERVES YOUR TIME.</span>
-              </h2>
-
-              <p className="mt-6 max-w-md text-base leading-7 text-app-muted">
-                Before you apply, NERO breaks down exactly how a role lines
-                up with your resume — and how ready that resume is for this
-                specific job.
-              </p>
-
-              <div className="mt-9 space-y-6">
-                <PrincipleRow
-                  icon={ListChecks}
-                  title="Job Match"
-                  text="Skills, experience, role, location, and employment type — measured against the job, not guessed."
-                />
-                <PrincipleRow
-                  icon={FileCheck2}
-                  title="ATS Alignment"
-                  text="How clearly your resume demonstrates this job's specific requirements."
-                />
-                <PrincipleRow
-                  icon={Target}
-                  title="Application Signal"
-                  text="A combined read on relevance and readiness, so you know where to spend your time."
-                />
-              </div>
-            </div>
-
-            {/* RIGHT — sample match report card */}
-            <div className="flex justify-center lg:justify-end">
-              <SampleMatchReport />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Discover Jobs */}
+      <DiscoverJobsSection />
 
       {/* Philosophy */}
       <section id="resources" className="border-t border-white/10">
@@ -696,132 +645,6 @@ function SystemHub({ size = "lg" }: { size?: "sm" | "lg" }) {
         >
           N
         </span>
-      </div>
-    </div>
-  );
-}
-
-function PrincipleRow({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: LucideIcon;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="flex items-start gap-4">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-border-soft bg-app-surface text-app-blue">
-        <Icon className="h-5 w-5" aria-hidden="true" />
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold text-app-text">{title}</h3>
-        <p className="mt-1 text-sm leading-6 text-app-muted">{text}</p>
-      </div>
-    </div>
-  );
-}
-
-const MATCH_REPORT_ITEMS = [
-  "Required & preferred skills, and experience",
-  "Role, seniority, location & employment type fit",
-  "Resume structure & keyword coverage",
-  "Requirement-by-requirement evidence",
-];
-
-// A single illustrative example, styled after the reference's job-card /
-// score-badge / checklist visual language — not a real, personalized
-// result. Real Job Match and ATS Alignment require a signed-in user's
-// resume (see /jobs); this card never claims to be that.
-function SampleMatchReport() {
-  return (
-    <div className="reveal-up relative w-full max-w-md rounded-2xl border border-app-border bg-app-panel p-6 shadow-[0_0_40px_-12px_rgba(10,132,255,0.35)] sm:p-7">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-app-blue bg-app-surface text-[10px] font-bold text-app-blue"
-            aria-hidden="true"
-          >
-            N
-          </span>
-          <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
-            Sample Match Report
-          </span>
-        </div>
-
-        <span className="rounded-full border border-app-border px-2.5 py-1 font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
-          Illustrative Example
-        </span>
-      </div>
-
-      <h3 className="mt-4 text-lg font-semibold text-app-text">
-        Senior Product Engineer
-      </h3>
-      <p className="mt-0.5 text-sm text-app-muted">
-        Example role · Full-Time · Remote
-      </p>
-
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <ScoreTile value="94%" tone="success" label="Job Match" />
-        <ScoreTile value="91%" tone="blue" label="ATS Readiness" />
-        <ScoreTile value="HIGH" tone="success" label="App. Signal" />
-      </div>
-
-      <div className="mt-6 border-t border-app-border pt-5">
-        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-          What NERO Evaluates
-        </span>
-
-        <ul className="mt-3 space-y-2.5">
-          {MATCH_REPORT_ITEMS.map((line) => (
-            <li
-              key={line}
-              className="flex items-start gap-2 text-xs leading-5 text-app-body"
-            >
-              <span className="mt-0.5 text-app-blue" aria-hidden="true">
-                ✓
-              </span>
-              {line}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <p className="mt-5 text-[11px] leading-4 text-app-faint">
-        * Illustrative example, not a real result. Sign in and add your
-        resume to generate your own Job Match and ATS Alignment.
-      </p>
-    </div>
-  );
-}
-
-const SCORE_TONE_CLASS: Record<string, string> = {
-  success: "text-app-success border-app-success/40",
-  blue: "text-app-blue border-app-blue/40",
-  amber: "text-app-amber border-app-amber/40",
-};
-
-function ScoreTile({
-  value,
-  tone,
-  label,
-}: {
-  value: string;
-  tone: "success" | "blue" | "amber";
-  label: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border bg-app-surface px-3 py-3 text-center",
-        SCORE_TONE_CLASS[tone],
-      )}
-    >
-      <div className="text-lg font-bold sm:text-xl">{value}</div>
-      <div className="mt-1 font-mono text-[8px] uppercase leading-tight tracking-[0.08em] text-app-faint">
-        {label}
       </div>
     </div>
   );
