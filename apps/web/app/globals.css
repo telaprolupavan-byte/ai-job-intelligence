@@ -386,6 +386,34 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
+/* Landing "The Problem" section — question cluster settling to order */
+/* Dimmer than the hero/system atmosphere on purpose: the visual      */
+/* "temperature" only warms back up once NERO enters, in the next     */
+/* section.                                                           */
+/* ---------------------------------------------------------------- */
+.problem-atmosphere {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(122, 92, 255, 0.1), transparent 50%),
+    radial-gradient(circle at 70% 70%, rgba(10, 132, 255, 0.08), transparent 55%);
+  filter: blur(4px);
+}
+
+/* ---------------------------------------------------------------- */
+/* Landing "Meet NERO" section — same blue/red atmosphere recipe as   */
+/* the hero, independently parallaxed, warming the scene back up      */
+/* after The Problem's dimmer treatment.                              */
+/* ---------------------------------------------------------------- */
+.meet-nero-atmosphere-blue {
+  background: radial-gradient(circle at 70% 35%, rgba(10, 132, 255, 0.22), transparent 48%);
+  filter: blur(4px);
+}
+
+.meet-nero-atmosphere-red {
+  background: radial-gradient(circle at 20% 75%, rgba(255, 59, 48, 0.14), transparent 45%);
+  filter: blur(4px);
+}
+
+/* ---------------------------------------------------------------- */
 /* Landing "System" section — four-card grid + NERO hub              */
 /* ---------------------------------------------------------------- */
 
@@ -475,6 +503,19 @@ body {
 
 .system-hub-pulse {
   animation: system-hub-pulse 3.2s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------- */
+/* Landing "Resume Intelligence" section — stage rail + before/after  */
+/* resume mock, same blue -> purple blend as Job Intelligence but      */
+/* weighted cooler (no red yet — that returns once Job Intelligence's  */
+/* "don't apply blind" framing re-enters).                            */
+/* ---------------------------------------------------------------- */
+.resume-intel-atmosphere {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(10, 132, 255, 0.2), transparent 46%),
+    radial-gradient(circle at 78% 70%, rgba(122, 92, 255, 0.16), transparent 52%);
+  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -728,13 +769,60 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
+/* Landing "NERO Journey" section — eight-stage rail. Deepest, most    */
+/* layered atmosphere on the page (three independently-parallaxed      */
+/* pieces: two atmosphere washes plus the connecting rail line) since   */
+/* this is the strongest parallax moment in the approved story.        */
+/* ---------------------------------------------------------------- */
+.journey-atmosphere-a {
+  background: radial-gradient(circle at 18% 12%, rgba(10, 132, 255, 0.16), transparent 45%);
+  filter: blur(4px);
+}
+
+.journey-atmosphere-b {
+  background: radial-gradient(circle at 82% 88%, rgba(255, 59, 48, 0.12), transparent 48%);
+  filter: blur(4px);
+}
+
+/* ---------------------------------------------------------------- */
+/* Landing "For Students" section — personal, single-workspace tone.   */
+/* ---------------------------------------------------------------- */
+.student-atmosphere {
+  background:
+    radial-gradient(circle at 26% 30%, rgba(10, 132, 255, 0.18), transparent 46%),
+    radial-gradient(circle at 82% 75%, rgba(122, 92, 255, 0.12), transparent 50%);
+  filter: blur(4px);
+}
+
+/* ---------------------------------------------------------------- */
+/* Landing "For Consultancies" section — many-entity, structured-scale */
+/* tone (contrast with the single-companion Student section above).   */
+/* ---------------------------------------------------------------- */
+.consultancy-atmosphere {
+  background:
+    radial-gradient(circle at 72% 24%, rgba(10, 132, 255, 0.16), transparent 48%),
+    radial-gradient(circle at 22% 78%, rgba(255, 149, 0, 0.08), transparent 46%);
+  filter: blur(4px);
+}
+
+/* ---------------------------------------------------------------- */
+/* Landing "Final CTA" section — single restrained wash, no other      */
+/* decorative layers, per spec ("keep this section visually clean").   */
+/* ---------------------------------------------------------------- */
+.final-cta-atmosphere {
+  background: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(122, 92, 255, 0.1), transparent 65%);
+  filter: blur(4px);
+}
+
+/* ---------------------------------------------------------------- */
 /* Scroll parallax + entrance reveal (ParallaxController)             */
 /* ---------------------------------------------------------------- */
 
 /* Scroll-driven layers write transform directly via JS each frame —
    hinting the browser up front avoids a layer promotion hitch on the
    first scroll frame. */
-[data-parallax-speed] {
+[data-parallax-speed],
+[data-parallax-x] {
   will-change: transform;
 }
 
@@ -745,8 +833,9 @@ body {
    the feature row's fuller rise. */
 [data-reveal] {
   --reveal-distance: 24px;
+  --reveal-rotate: 0deg;
   opacity: 0;
-  transform: translateY(var(--reveal-distance));
+  transform: translateY(var(--reveal-distance)) rotate(var(--reveal-rotate));
   transition:
     opacity 0.6s ease-out,
     transform 0.6s ease-out;
@@ -755,7 +844,7 @@ body {
 
 [data-reveal].is-revealed {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) rotate(0deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -782,7 +871,8 @@ body {
     transform: none;
   }
 
-  [data-parallax-speed] {
+  [data-parallax-speed],
+  [data-parallax-x] {
     transform: none !important;
   }
 }

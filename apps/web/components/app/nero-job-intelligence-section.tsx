@@ -7,38 +7,57 @@ import {
   Lightbulb,
   Link2,
   Mouse,
+  RefreshCcw,
   Search,
+  Sparkles,
+  Target,
   User,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NeroJobIntelligenceVisual from "@/components/app/nero-job-intelligence-visual";
 
+// The first two panels — Job Description and Your Resume — are the pair
+// the section's parallax is built around (spec: "Resume and job
+// description move toward NERO"), so they carry a noticeably larger
+// horizontal convergence speed than the supporting Skills/Preferences
+// panels.
 const inputPanels: {
   icon: LucideIcon;
   title: string;
   lines: string[];
+  parallaxX: number;
 }[] = [
   {
     icon: FileText,
     title: "Job Description",
     lines: ["Requirements", "Responsibilities", "Company Goals"],
+    parallaxX: 0.045,
   },
   {
     icon: FileCheck2,
     title: "Your Resume",
     lines: ["Experience", "Skills", "Achievements"],
+    parallaxX: 0.045,
   },
   {
     icon: BarChart3,
     title: "Your Skills",
     lines: ["Technical Skills", "Tools & Technologies", "Domain Knowledge"],
+    parallaxX: 0.02,
   },
   {
     icon: User,
     title: "Your Preferences",
     lines: ["Location", "Work Type", "Career Goals"],
+    parallaxX: 0.02,
   },
+];
+
+const resolutionSteps: { icon: LucideIcon; title: string }[] = [
+  { icon: Target, title: "Match" },
+  { icon: Sparkles, title: "Improve" },
+  { icon: RefreshCcw, title: "Recheck" },
 ];
 
 const principles: {
@@ -74,8 +93,16 @@ const ACTIVE_STEP = "04";
  * type scale, and micro-labels, just the next scene in the scroll —
  * four conceptual inputs resolving into a single clearer
  * understanding. Built in distinct layers (background / environment /
- * inputs / streams / NERO / clarity object / foreground details) so a
- * future scroll-driven parallax can target each one independently.
+ * inputs / streams / NERO / clarity object / foreground details) so
+ * scroll-driven parallax can target each one independently.
+ *
+ * Parallax reuses the site-wide ParallaxController: the Job
+ * Description and Your Resume panels drift horizontally toward NERO
+ * as the page scrolls (data-parallax-x) — motion standing in for
+ * "these two are the pair being matched" — while NERO and the clarity
+ * object carry their own, slower depth layers (data-parallax-speed).
+ * The Match / Improve / Recheck strip is the scene's explicit
+ * resolution, revealed once the clarity object is in view.
  */
 export default function NeroJobIntelligenceSection() {
   return (
@@ -146,14 +173,44 @@ export default function NeroJobIntelligenceSection() {
             ))}
           </div>
 
-          <div className="job-intel-area-nero relative flex items-center justify-center py-4 lg:py-0">
+          <div
+            data-parallax-speed="0.1"
+            data-parallax-local
+            className="job-intel-area-nero relative flex items-center justify-center py-4 lg:py-0"
+          >
             <DataStreams />
             <NeroJobIntelligenceVisual />
           </div>
 
-          <div className="job-intel-area-clarity flex justify-center lg:justify-end">
+          <div
+            data-parallax-speed="0.08"
+            data-parallax-scale-to="1.03"
+            data-parallax-local
+            className="job-intel-area-clarity flex justify-center lg:justify-end"
+          >
             <ClarityObject />
           </div>
+        </div>
+
+        {/* Resolution — the scene explicitly resolving into Match / */}
+        {/* Improve / Recheck, per the approved Job Intelligence story. */}
+        <div
+          data-reveal
+          className="mt-14 flex flex-wrap items-center justify-center gap-3 lg:mt-16"
+        >
+          {resolutionSteps.map((step, index) => (
+            <div key={step.title} className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-app-border-soft bg-app-panel/70 px-4 py-2">
+                <step.icon className="h-3.5 w-3.5 text-app-blue" aria-hidden="true" />
+                <span className="mono text-[10px] tracking-[0.2em] text-app-text">
+                  {step.title.toUpperCase()}
+                </span>
+              </span>
+              {index < resolutionSteps.length - 1 && (
+                <span className="h-px w-6 bg-app-border-strong" aria-hidden="true" />
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Foreground detail — handwritten annotation, own row so it never
@@ -237,16 +294,21 @@ function InputPanel({
   title,
   lines,
   index,
+  parallaxX,
 }: {
   icon: LucideIcon;
   title: string;
   lines: string[];
   index: number;
+  parallaxX: number;
 }) {
   return (
     <div
-      className="system-card-reveal glass-panel relative rounded-2xl border border-app-border-soft p-4 shadow-[0_0_24px_-14px_rgba(10,132,255,0.5)]"
-      style={{ animationDelay: `${index * 100}ms` }}
+      data-reveal
+      data-reveal-delay={index * 100}
+      data-parallax-x={parallaxX}
+      data-parallax-local
+      className="glass-panel relative rounded-2xl border border-app-border-soft p-4 shadow-[0_0_24px_-14px_rgba(10,132,255,0.5)]"
     >
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-app-blue/50 bg-app-surface/80 text-app-blue">
@@ -351,8 +413,9 @@ function PrincipleCard({
 }) {
   return (
     <div
-      className="system-card-reveal flex flex-col items-center text-center sm:items-start sm:text-left"
-      style={{ animationDelay: `${index * 110}ms` }}
+      data-reveal
+      data-reveal-delay={index * 110}
+      className="flex flex-col items-center text-center sm:items-start sm:text-left"
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-full border border-app-border-soft text-app-blue">
         <Icon className="h-5 w-5" aria-hidden="true" />

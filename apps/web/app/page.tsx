@@ -22,6 +22,13 @@ import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
 import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
 import NeroNextMoveSection from "@/components/app/nero-next-move-section";
+import ProblemSection from "@/components/app/problem-section";
+import MeetNeroSection from "@/components/app/meet-nero-section";
+import ResumeIntelligenceSection from "@/components/app/resume-intelligence-section";
+import NeroJourneySection from "@/components/app/nero-journey-section";
+import StudentSection from "@/components/app/student-section";
+import ConsultancySection from "@/components/app/consultancy-section";
+import FinalCtaSection from "@/components/app/final-cta-section";
 
 const systemBlocks: {
   number: string;
@@ -338,6 +345,12 @@ export default function Home() {
         </div>
       </section>
 
+      {/* The Problem */}
+      <ProblemSection />
+
+      {/* Meet NERO */}
+      <MeetNeroSection />
+
       {/* System */}
       <section
         id="system"
@@ -508,15 +521,30 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Resume Intelligence */}
+      <ResumeIntelligenceSection />
+
       {/* Discover Jobs */}
       <DiscoverJobsSection />
 
       {/* Job Intelligence (Page 4) */}
       <NeroJobIntelligenceSection />
 
+      {/* The NERO Journey */}
+      <NeroJourneySection />
+
       {/* Make Your Next Move (Page 5) — includes its own cinematic
           "Same You. A Brighter Tomorrow." finale as its closing scene. */}
       <NeroNextMoveSection />
+
+      {/* For Students */}
+      <StudentSection />
+
+      {/* For Consultancies */}
+      <ConsultancySection />
+
+      {/* Final CTA */}
+      <FinalCtaSection />
 
       {/* Footer */}
       <footer className="border-t border-white/10">
