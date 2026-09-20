@@ -634,6 +634,86 @@ body {
   filter: blur(4px);
 }
 
+/* ---------------------------------------------------------------- */
+/* Landing "Make Your Next Move" section — Page 5 Finale             */
+/* "Same You. A Brighter Tomorrow." NERO overlooking a CSS/SVG ridge  */
+/* that recedes toward a distant skyline. Reuses the data-stream      */
+/* dash-offset technique (job-intel-flow) for the road's glow instead */
+/* of introducing a new animation system.                            */
+/* ---------------------------------------------------------------- */
+.finale-sky {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(122, 92, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, #05070c 0%, #0a0d14 45%, #120a0c 100%);
+}
+
+.finale-horizon-glow {
+  background: radial-gradient(
+    ellipse 70% 100% at 50% 100%,
+    rgba(255, 90, 48, 0.28),
+    rgba(255, 59, 48, 0.1) 45%,
+    transparent 75%
+  );
+}
+
+.finale-planet {
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(122, 92, 255, 0.22),
+    rgba(10, 132, 255, 0.08) 55%,
+    transparent 75%
+  );
+  filter: blur(1px);
+}
+
+.finale-ridge-back {
+  fill: #141a26;
+  opacity: 0.7;
+}
+
+.finale-ridge-mid {
+  fill: #0f131c;
+  opacity: 0.85;
+}
+
+.finale-ridge-front {
+  fill: #080a10;
+}
+
+.finale-city {
+  fill: #0a0d14;
+}
+
+.finale-city-glow {
+  fill: rgba(255, 149, 90, 0.85);
+}
+
+.finale-road {
+  stroke: url(#finale-road-gradient);
+  stroke-width: 1.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 4 7;
+  opacity: 0.65;
+  filter: drop-shadow(0 0 4px rgba(255, 100, 60, 0.5));
+}
+
+.finale-road-animated {
+  animation: job-intel-flow 4.5s linear infinite;
+}
+
+.finale-scrim {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 28%, rgba(6, 8, 13, 0.6), transparent 70%),
+    linear-gradient(
+      180deg,
+      rgba(6, 8, 13, 0.4) 0%,
+      rgba(6, 8, 13, 0.05) 35%,
+      rgba(6, 8, 13, 0.1) 70%,
+      rgba(6, 8, 13, 0.45) 100%
+    );
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
