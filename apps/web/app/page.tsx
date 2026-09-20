@@ -1,5 +1,15 @@
 import Link from "next/link";
+import {
+  Search,
+  FileText,
+  BarChart3,
+  Target,
+  Mouse,
+  ChevronDown,
+} from "lucide-react";
 import NeroBrand from "@/components/app/nero-brand";
+import LandingNav from "@/components/app/landing-nav";
+import NeroHeroVisual from "@/components/app/nero-hero-visual";
 
 const capabilities = [
   {
@@ -28,108 +38,230 @@ const capabilities = [
   },
 ];
 
+const featureItems = [
+  {
+    icon: Search,
+    title: "Discover",
+    description: "Relevant jobs",
+  },
+  {
+    icon: FileText,
+    title: "Match",
+    description: "AI-powered insights",
+  },
+  {
+    icon: BarChart3,
+    title: "Improve",
+    description: "Stronger applications",
+  },
+  {
+    icon: Target,
+    title: "Achieve",
+    description: "Your career goals",
+  },
+];
+
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-app-bg">
       {/* Navigation */}
-      <header className="relative z-50 border-b border-white/10">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:py-5 lg:px-8">
-          <NeroBrand imgClassName="h-24 w-auto sm:h-[140px]" sizes="(min-width: 640px) 154px, 105px" />
+      <header className="relative z-50 border-b border-white/10 bg-app-bg/80 backdrop-blur-md">
+        <nav className="relative mx-auto flex h-[90px] max-w-[1536px] items-center justify-between px-6 sm:px-10 lg:px-20">
+          <NeroBrand imgClassName="h-11 w-auto sm:h-12" sizes="160px" />
 
-          <div className="flex items-center gap-3">
+          <LandingNav />
+
+          <div className="hidden items-center gap-3 lg:flex">
             <Link
               href="/login"
-              className="hidden px-4 py-2 text-sm text-app-muted transition hover:text-app-text sm:block"
+              className="app-focus-ring px-4 py-2 text-sm text-app-body transition hover:text-app-text"
             >
               Sign in
             </Link>
 
             <Link
               href="/register"
-              className="rounded-lg bg-crimson-fill px-5 py-2.5 text-sm font-medium text-white transition hover:bg-crimson-fill-hover"
+              className="app-focus-ring group inline-flex items-center justify-center gap-2 rounded-lg bg-crimson-fill px-5 py-2.5 text-sm font-medium text-white shadow-[0_0_24px_rgba(217,40,31,0.35)] transition hover:bg-crimson-fill-hover"
             >
               Get started
+              <span className="transition-transform group-hover:translate-x-1">
+                →
+              </span>
             </Link>
           </div>
         </nav>
       </header>
 
       {/* Hero */}
-      <section className="relative min-h-[calc(100vh-128px)] sm:min-h-[calc(100vh-180px)]">
-        <div className="technical-grid absolute inset-0 opacity-50" />
-        <div className="red-atmosphere absolute inset-0" />
-        <div className="web-atmosphere absolute inset-0 opacity-80" />
+      <section className="relative">
+        <div className="technical-grid absolute inset-0 opacity-40" />
+        <div className="nero-atmosphere absolute inset-0" />
 
-        {/* Decorative lines */}
-        <div className="absolute left-[8%] top-1/3 hidden h-px w-32 bg-gradient-to-r from-transparent via-app-red/40 to-transparent lg:block" />
-        <div className="absolute right-[8%] top-2/3 hidden h-px w-32 bg-gradient-to-r from-transparent via-app-red/40 to-transparent lg:block" />
+        <div className="pointer-events-none absolute left-0 top-[34%] hidden h-px w-24 bg-gradient-to-r from-app-red/50 to-transparent lg:block" />
+        <div className="pointer-events-none absolute left-0 top-[34%] hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-app-red/70 lg:block" />
 
-        <div className="relative mx-auto flex min-h-[calc(100vh-128px)] max-w-7xl items-center px-6 py-24 sm:min-h-[calc(100vh-180px)] lg:px-8">
-          <div className="w-full">
-            <div className="mb-8 flex items-center gap-3">
-              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                01 / AI JOB INTELLIGENCE
-              </span>
+        <div className="relative mx-auto max-w-[1536px] px-6 pb-10 pt-10 sm:px-10 lg:px-20 lg:pt-14">
+          <div className="hero-grid-layout">
+            {/* LEFT — copy + CTAs */}
+            <div className="hero-area-content flex flex-col justify-center">
+              <div className="flex items-center gap-3">
+                <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+                  01 / AI JOB INTELLIGENCE
+                </span>
+                <span className="h-px w-12 bg-app-red/50" />
+              </div>
 
-              <span className="h-px w-12 bg-app-red/50" />
+              <h1 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.75rem,6vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-app-text">
+                FIND
+                <br />
+                BETTER
+                <br />
+                <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
+                  OPPORTUNITIES.
+                </span>
+              </h1>
+
+              <p className="mt-6 max-w-[560px] text-base leading-7 text-app-muted sm:text-lg">
+                Discover relevant jobs, understand your match, analyze ATS
+                readiness, and improve your resume before you apply.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/jobs"
+                  className="app-focus-ring group inline-flex items-center justify-center gap-3 rounded-lg bg-crimson-fill px-6 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_rgba(217,40,31,0.4)] transition hover:bg-crimson-fill-hover"
+                >
+                  Start your search
+                  <span className="transition-transform group-hover:translate-x-1">
+                    →
+                  </span>
+                </Link>
+
+                <Link
+                  href="#system"
+                  className="app-focus-ring inline-flex items-center justify-center rounded-lg border border-app-border-soft bg-white/[0.02] px-6 py-3.5 text-sm font-medium text-app-text transition hover:bg-white/[0.05]"
+                >
+                  Explore the system
+                </Link>
+              </div>
+
+              <div className="mt-8 flex items-center gap-3 border-t border-white/10 pt-5">
+                <span className="mono text-[10px] tracking-[0.2em] text-app-muted">
+                  SYSTEM STATUS
+                </span>
+                <span className="h-1 w-1 rounded-full bg-app-muted/40" />
+                <span className="flex items-center gap-2 text-xs text-app-body">
+                  <span className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]" />
+                  INTELLIGENCE ONLINE
+                </span>
+                <span className="hidden h-1 w-1 rounded-full bg-app-muted/40 sm:block" />
+                <span className="mono hidden text-[10px] tracking-[0.15em] text-app-muted sm:block">
+                  DISCOVER / MATCH / ATS / OPTIMIZE
+                </span>
+              </div>
             </div>
 
-            <h1 className="max-w-5xl font-[family-name:var(--font-display)] text-[clamp(3.2rem,8vw,7.5rem)] font-bold leading-[0.9] tracking-[-0.03em]">
-              FIND
-              <br />
-              BETTER
-              <br />
-              <span className="text-app-muted">OPPORTUNITIES.</span>
-            </h1>
-
-            <div className="mt-12 grid max-w-4xl gap-10 lg:grid-cols-[1fr_280px] lg:items-end">
-              <div>
-                <p className="max-w-2xl text-base leading-7 text-app-muted sm:text-lg">
-                  Discover relevant jobs, understand your match, analyze ATS
-                  readiness, and improve your resume before you apply.
+            {/* RIGHT — NERO stage */}
+            <div className="hero-area-nero relative flex flex-col items-center pt-4 lg:pt-0">
+              <div className="pointer-events-none absolute right-0 top-0 z-20 max-w-[220px] -rotate-2 text-right sm:right-4 sm:top-6">
+                <p className="font-[family-name:var(--font-caveat)] text-xl leading-[1.1] text-app-text/90 sm:text-2xl">
+                  Better
+                  <br />
+                  Jobs
+                  <br />
+                  Ahead!
                 </p>
-
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <Link
-                    href="/register"
-                    className="group inline-flex items-center justify-center gap-3 rounded-lg bg-crimson-fill px-6 py-3.5 text-sm font-medium text-white transition hover:bg-crimson-fill-hover"
-                  >
-                    Start your search
-                    <span className="transition-transform group-hover:translate-x-1">
-                      →
-                    </span>
-                  </Link>
-
-                  <Link
-                    href="#system"
-                    className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] px-6 py-3.5 text-sm font-medium transition hover:bg-white/[0.05]"
-                  >
-                    Explore the system
-                  </Link>
-                </div>
+                <svg
+                  viewBox="0 0 90 16"
+                  className="ml-auto mt-1 h-4 w-20 text-app-red/70"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2 8c20 8 55 8 76-2"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M68 3l12 3-9 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
 
-              <div className="border-l border-white/10 pl-6">
-                <div className="mono text-[10px] tracking-[0.2em] text-app-muted">
-                  SYSTEM STATUS
-                </div>
+              <div className="w-full pt-14 sm:pt-20 lg:pt-4">
+                <NeroHeroVisual />
+              </div>
 
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-app-red shadow-[0_0_12px_rgba(255,59,48,0.6)]" />
-                  <span className="text-sm">INTELLIGENCE ONLINE</span>
-                </div>
-
-                <div className="mono mt-3 text-[10px] leading-5 text-app-muted">
-                  DISCOVER / MATCH / ATS / OPTIMIZE
+              <div className="relative z-20 mx-auto mt-6 max-w-[280px] sm:absolute sm:right-0 sm:top-36 sm:mx-0 sm:mt-0 sm:max-w-[240px] lg:right-2">
+                <span className="absolute -left-2.5 top-3 hidden h-4 w-[3px] rounded-full bg-app-red sm:block" />
+                <div className="rounded-xl border border-app-border-soft bg-app-panel/70 px-4 py-3.5 shadow-lg backdrop-blur-sm">
+                  <p className="text-xs leading-5 text-app-body">
+                    I&apos;ll help you find,
+                    <br />
+                    match, and prepare
+                    <br />
+                    for the right opportunities.
+                  </p>
                 </div>
               </div>
+            </div>
+
+            {/* Feature row */}
+            <div className="hero-area-features grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+              {featureItems.map((item) => (
+                <div key={item.title} className="flex flex-col gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-app-border-soft text-app-blue">
+                    <item.icon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-app-text">
+                      {item.title}
+                    </div>
+                    <div className="mt-0.5 text-xs text-app-muted">
+                      {item.description}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <div className="mono text-[9px] tracking-[0.3em] text-app-muted">
-            SCROLL TO EXPLORE
+        {/* Hero bottom bar */}
+        <div className="relative mx-auto flex max-w-[1536px] flex-col items-center gap-4 border-t border-white/5 px-6 py-5 text-center sm:px-10 lg:flex-row lg:justify-between lg:px-20 lg:text-left">
+          <div className="flex items-center gap-2.5">
+            <span className="hidden h-4 w-[3px] rounded-full bg-app-red/70 lg:block" />
+            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
+              MORE THAN JOBS
+              <br />
+              A BRIGHTER YOU
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-2">
+            <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
+              SCROLL TO EXPLORE
+            </span>
+            <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
+            <ChevronDown
+              className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
+              aria-hidden="true"
+            />
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <span className="hidden h-px w-8 bg-gradient-to-r from-transparent to-app-red/50 lg:block" />
+            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
+              POWERED BY AI
+              <br />
+              GUIDED BY NERO
+            </div>
           </div>
         </div>
       </section>
@@ -186,7 +318,7 @@ export default function Home() {
       </section>
 
       {/* Match intelligence */}
-      <section className="relative border-t border-white/10">
+      <section id="how-it-works" className="relative border-t border-white/10">
         <div className="technical-grid absolute inset-0 opacity-30" />
 
         <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
@@ -227,7 +359,7 @@ export default function Home() {
       </section>
 
       {/* Philosophy */}
-      <section className="border-t border-white/10">
+      <section id="resources" className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
           <div className="grid gap-16 lg:grid-cols-2">
             <div>
@@ -272,7 +404,7 @@ export default function Home() {
       </section>
 
       {/* Final CTA */}
-      <section className="border-t border-white/10">
+      <section id="pricing" className="border-t border-white/10">
         <div className="relative overflow-hidden">
           <div className="red-atmosphere absolute inset-0" />
 

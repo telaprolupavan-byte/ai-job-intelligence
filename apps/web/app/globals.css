@@ -261,6 +261,113 @@ body {
   animation: app-skeleton-pulse 1.6s ease-in-out infinite;
 }
 
+/* ---------------------------------------------------------------- */
+/* Landing hero — reference-match layout                             */
+/* ---------------------------------------------------------------- */
+
+/* Mobile order: content -> nero stage -> feature row.
+   Desktop: content/features stack in the left column while the nero
+   stage spans both rows on the right (asymmetric 45/55 split). */
+.hero-grid-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: "content" "nero" "features";
+  row-gap: 3rem;
+}
+
+@media (min-width: 1024px) {
+  .hero-grid-layout {
+    grid-template-columns: minmax(0, 680px) 1fr;
+    grid-template-areas: "content nero" "features nero";
+    column-gap: 3rem;
+    row-gap: 1.75rem;
+    align-items: start;
+  }
+}
+
+.hero-area-content {
+  grid-area: content;
+}
+
+.hero-area-nero {
+  grid-area: nero;
+}
+
+.hero-area-features {
+  grid-area: features;
+}
+
+/* Crops the single approved NERO artwork sprite down to the character
+   only (no wordmark/mark) using percentage background-size + position
+   so the crop stays exact at any container width — no new artwork. */
+.nero-hero-figure {
+  aspect-ratio: 1098 / 1334;
+  background-image: url("/brand/nero-hero-figure.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: 0 0;
+}
+
+/* Blue/cyan + red/pink atmospheric blend behind NERO, with a soft
+   purple transition where the two meet — matches the reference glow. */
+.nero-atmosphere {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
+    radial-gradient(circle at 78% 20%, rgba(255, 59, 48, 0.22), transparent 42%),
+    radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
+  filter: blur(4px);
+}
+
+.nero-floor-glow {
+  background: radial-gradient(
+    ellipse 55% 60% at 50% 50%,
+    rgba(10, 132, 255, 0.35),
+    rgba(122, 92, 255, 0.12) 55%,
+    transparent 75%
+  );
+}
+
+.hero-hairline {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.14),
+    transparent
+  );
+}
+
+@keyframes nero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+.nero-float {
+  animation: nero-float 6s ease-in-out infinite;
+}
+
+@keyframes scroll-dot {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+}
+
+.scroll-dot {
+  animation: scroll-dot 1.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
