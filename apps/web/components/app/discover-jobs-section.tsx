@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -430,48 +431,67 @@ export default function DiscoverJobsSection() {
           </Dialog.Root>
         </div>
 
-        {/* MAIN DISCOVERY AREA */}
-        <div id="discover-results" className="discover-grid mt-6">
-          {/* FILTER PANEL (desktop) */}
-          <aside className="discover-area-filters hidden lg:block">
-            <div className="sticky top-6 rounded-2xl border border-app-border bg-app-panel/70 p-5">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
-                  Filters
-                </span>
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearAll}
-                    className="app-focus-ring text-[10px] font-semibold uppercase tracking-[0.1em] text-app-faint hover:text-app-text"
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
+        {/* MAIN DISCOVERY AREA — framed as one console-like instrument
+            rather than a raw two-column grid loose inside the section's
+            full 1536px canvas, so it reads as a composed scene instead
+            of a dashboard widget dropped onto the page. */}
+        <div className="relative mx-auto mt-10 max-w-[760px] overflow-hidden rounded-3xl border border-white/10 bg-app-panel/30 p-5 sm:p-7">
+          <div className="technical-grid absolute inset-0 opacity-20" aria-hidden="true" />
 
-              <div className="mt-4">
-                <FilterPanelBody
-                  applied={applied}
-                  toggleEmployment={toggleEmployment}
-                  toggleRemote={toggleRemote}
-                />
-              </div>
+          <div id="discover-results" className="discover-grid relative">
+            {/* FILTER PANEL (desktop) */}
+            <aside
+              data-reveal
+              style={{ "--reveal-distance": "12px" } as CSSProperties}
+              className="discover-area-filters hidden lg:block"
+            >
+              <div className="sticky top-6 rounded-2xl border border-app-border bg-app-panel/70 p-5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
+                    Filters
+                  </span>
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAll}
+                      className="app-focus-ring text-[10px] font-semibold uppercase tracking-[0.1em] text-app-faint hover:text-app-text"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
 
-              <button
-                type="button"
-                className={cn(BLUE_BUTTON_CLASS, "mt-5")}
-                onClick={applyDraft}
-              >
-                Apply Filters
-              </button>
+                <div className="mt-4">
+                  <FilterPanelBody
+                    applied={applied}
+                    toggleEmployment={toggleEmployment}
+                    toggleRemote={toggleRemote}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className={cn(BLUE_BUTTON_CLASS, "mt-5")}
+                  onClick={applyDraft}
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </aside>
+
+            {/* NERO INSIGHTS — stretched to the filter column's height
+                (align-items: stretch on .discover-grid) so the console
+                panel's border doesn't enclose a large empty gap under a
+                naturally shorter column. */}
+            <div
+              data-reveal
+              data-reveal-delay="100"
+              style={{ "--reveal-distance": "12px" } as CSSProperties}
+              className="discover-area-insights flex h-full flex-col gap-4"
+            >
+              <NeroInsightsPanel jobs={jobs} />
+              <WhyNeroFoundThese filters={applied} className="flex-1" />
             </div>
-          </aside>
-
-          {/* NERO INSIGHTS */}
-          <div className="discover-area-insights space-y-4">
-            <NeroInsightsPanel jobs={jobs} />
-            <WhyNeroFoundThese filters={applied} />
           </div>
         </div>
 
@@ -954,7 +974,13 @@ function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
   );
 }
 
-function WhyNeroFoundThese({ filters }: { filters: DiscoverFilters }) {
+function WhyNeroFoundThese({
+  filters,
+  className,
+}: {
+  filters: DiscoverFilters;
+  className?: string;
+}) {
   const reasons: string[] = ["Sorted by the most recently posted"];
 
   if (filters.search) {
@@ -973,7 +999,12 @@ function WhyNeroFoundThese({ filters }: { filters: DiscoverFilters }) {
   reasons.push("Full Job Match & ATS Alignment unlock once you sign in");
 
   return (
-    <div className="rounded-2xl border border-app-border bg-app-panel/70 p-4">
+    <div
+      className={cn(
+        "flex flex-col justify-center rounded-2xl border border-app-border bg-app-panel/70 p-4",
+        className,
+      )}
+    >
       <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
         Why NERO Found These
       </span>

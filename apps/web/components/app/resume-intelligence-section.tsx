@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import {
   CheckCircle2,
   FileText,
@@ -38,6 +39,10 @@ const improvedLines = [
  * resume's own transition toward improvement is what communicates
  * progress, not a numeric score. No ATS percentage or score is
  * invented anywhere in this section.
+ *
+ * A small NERO cameo sits beside the header (same standing/pointing
+ * artwork reused everywhere else) so the section's own companion
+ * presence stays consistent with the rest of the page.
  */
 export default function ResumeIntelligenceSection() {
   return (
@@ -49,26 +54,60 @@ export default function ResumeIntelligenceSection() {
       <div className="resume-intel-atmosphere absolute inset-0" aria-hidden="true" />
 
       <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
-        <div className="max-w-2xl">
-          <div className="flex items-center gap-3">
-            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-              RESUME INTELLIGENCE
-            </span>
-            <span className="h-px w-12 bg-app-red/50" />
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-3">
+              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+                RESUME INTELLIGENCE
+              </span>
+              <span className="h-px w-12 bg-app-red/50" />
+            </div>
+
+            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5.5vw,4rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
+              KNOW WHERE YOUR{" "}
+              <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+                RESUME
+              </span>{" "}
+              STANDS.
+            </h2>
+
+            <p className="mt-6 max-w-[540px] text-base leading-7 text-app-muted sm:text-lg">
+              NERO reads your resume the way a hiring manager would, then
+              shows you exactly what to strengthen before you apply.
+            </p>
           </div>
 
-          <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5.5vw,4rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
-            KNOW WHERE YOUR{" "}
-            <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
-              RESUME
-            </span>{" "}
-            STANDS.
-          </h2>
+          {/* Mascot cameo — same approved standing/pointing artwork used
+              throughout the page, sized to sit beside the header on wide
+              screens and centered below it on mobile, without taking
+              over the section's existing before/after layout. */}
+          <div className="relative mx-auto w-[130px] shrink-0 sm:mx-0 sm:w-[150px] lg:w-[170px]">
+            <div className="pointer-events-none absolute -top-8 right-[-8%] z-20 hidden max-w-[170px] rotate-2 sm:block">
+              <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-3 shadow-lg backdrop-blur-sm">
+                <p className="font-[family-name:var(--font-caveat)] text-xl leading-5 text-app-text">
+                  Here&apos;s what I found.
+                </p>
+                <span
+                  className="absolute -bottom-1.5 left-9 h-3.5 w-3.5 rotate-45 border-b border-r border-app-border-soft bg-app-panel/85"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
 
-          <p className="mt-6 max-w-[540px] text-base leading-7 text-app-muted sm:text-lg">
-            NERO reads your resume the way a hiring manager would, then
-            shows you exactly what to strengthen before you apply.
-          </p>
+            <Image
+              src="/brand/nero-hero-figure.png"
+              alt="NERO, the AI Job Intelligence mascot, reviewing a resume"
+              width={1098}
+              height={1334}
+              sizes="170px"
+              quality={95}
+              className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
+            />
+            <div
+              className="nero-floor-glow pointer-events-none absolute -bottom-3 left-1/2 h-14 w-[85%] -translate-x-1/2"
+              aria-hidden="true"
+            />
+          </div>
         </div>
 
         {/* Stage rail */}

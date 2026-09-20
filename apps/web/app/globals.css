@@ -553,7 +553,11 @@ body {
     grid-template-columns: 260px minmax(0, 420px);
     grid-template-areas: "filters insights";
     gap: 1.5rem;
-    align-items: start;
+    /* Stretch (not start) so the shorter insights column fills the same
+       row height as the longer filter list now that both sit inside one
+       bordered console panel — otherwise the panel's border encloses a
+       large empty gap under the shorter column. */
+    align-items: stretch;
   }
 }
 

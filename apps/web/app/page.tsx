@@ -22,9 +22,7 @@ import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
 import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
-import NeroNextMoveSection, {
-  NeroFinaleSection,
-} from "@/components/app/nero-next-move-section";
+import NeroFinaleSection from "@/components/app/nero-finale-section";
 import ProblemSection from "@/components/app/problem-section";
 import ResumeIntelligenceSection from "@/components/app/resume-intelligence-section";
 import NeroJourneySection from "@/components/app/nero-journey-section";
@@ -113,17 +111,30 @@ export default function Home() {
     <main className="min-h-screen overflow-hidden bg-app-bg">
       <ParallaxController />
 
-      {/* Navigation */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-app-bg/80 backdrop-blur-md">
-        <nav className="relative mx-auto flex h-[90px] max-w-[1536px] items-center justify-between px-6 sm:px-10 lg:px-20">
-          <NeroBrand imgClassName="h-11 w-auto sm:h-12" sizes="160px" />
+      {/* Navigation — same links/functionality as before, restyled to
+          read as NERO's own instrument bar (mono system-status label,
+          crimson hairline) instead of a generic SaaS navbar. */}
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-app-bg/85 backdrop-blur-md relative">
+        <div
+          className="hero-hairline pointer-events-none absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
+        <nav className="relative mx-auto flex h-20 max-w-[1536px] items-center justify-between px-6 sm:px-10 lg:px-20">
+          <div className="flex items-center gap-4">
+            <NeroBrand imgClassName="h-9 w-auto sm:h-10" sizes="140px" />
+            <span className="hidden h-6 w-px bg-white/10 lg:block" aria-hidden="true" />
+            <span className="mono hidden text-[9px] tracking-[0.25em] text-app-muted lg:flex lg:items-center lg:gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_8px_rgba(255,59,48,0.6)]" />
+              AI JOB INTELLIGENCE
+            </span>
+          </div>
 
           <LandingNav />
 
-          <div className="hidden items-center gap-3 lg:flex">
+          <div className="hidden items-center gap-2 lg:flex">
             <Link
               href="/login"
-              className="app-focus-ring px-4 py-2 text-sm text-app-body transition hover:text-app-text"
+              className="app-focus-ring rounded-lg px-4 py-2 text-sm text-app-body transition hover:text-app-text"
             >
               Sign in
             </Link>
@@ -394,9 +405,12 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
+        <div className="relative mx-auto max-w-[1536px] px-6 py-14 sm:px-10 sm:py-18 lg:px-20 lg:py-24">
           {/* Meet NERO — character intro + the three intelligence
-              pillars, ahead of the system capabilities below. */}
+              pillars, framed as the overture for the system below
+              rather than a second full-scale hero: a smaller display
+              size and a tighter approach into the System content keep
+              the two halves reading as one continuous scene. */}
           <div className="max-w-2xl">
             <div className="flex items-center gap-3">
               <span className="mono text-[10px] tracking-[0.3em] text-app-red">
@@ -405,21 +419,21 @@ export default function Home() {
               <span className="h-px w-12 bg-app-red/50" />
             </div>
 
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5.5vw,4rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
+            <h2 className="mt-4 font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.75rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
               MEET{" "}
               <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
                 NERO.
               </span>
             </h2>
 
-            <p className="mt-6 max-w-[520px] text-base leading-7 text-app-muted sm:text-lg">
+            <p className="mt-4 max-w-[520px] text-base leading-7 text-app-muted">
               NERO is your AI job intelligence companion — built to help
               you understand your position, your opportunities, and your
               next move.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:grid-cols-3">
             {neroPillars.map((pillar, index) => (
               <div
                 key={pillar.title}
@@ -442,7 +456,7 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-14 grid gap-14 border-t border-white/10 pt-14 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 xl:grid-cols-[minmax(0,520px)_1fr]">
+          <div className="mt-10 grid gap-10 border-t border-white/5 pt-10 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 xl:grid-cols-[minmax(0,520px)_1fr]">
             {/* LEFT — copy + NERO */}
             <div className="flex flex-col">
               <div className="flex items-center gap-3">
@@ -458,12 +472,12 @@ export default function Home() {
                 <span className="text-app-muted">INTELLIGENTLY.</span>
               </h2>
 
-              <p className="mt-6 max-w-[470px] text-base leading-7 text-app-muted sm:text-lg">
+              <p className="mt-5 max-w-[470px] text-base leading-7 text-app-muted sm:text-lg">
                 One workflow for discovering opportunities and understanding
                 exactly where you stand before you apply.
               </p>
 
-              <div className="mt-8 flex items-start gap-3">
+              <div className="mt-6 flex items-start gap-3">
                 <span
                   className="mt-0.5 h-12 w-[3px] shrink-0 rounded-full bg-app-red"
                   aria-hidden="true"
@@ -475,7 +489,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="relative mt-6 w-fit">
+              <div className="relative mt-5 w-fit">
                 <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-blue sm:text-[26px]">
                   Smarter
                   <br />
@@ -489,7 +503,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="relative mx-auto mt-10 w-full max-w-[280px] sm:max-w-[320px] lg:mt-12 lg:max-w-[360px]">
+              <div className="relative mx-auto mt-8 w-full max-w-[280px] sm:max-w-[320px] lg:mt-8 lg:max-w-[360px]">
                 <NeroSystemVisual />
 
                 <div
@@ -597,9 +611,6 @@ export default function Home() {
 
       {/* The NERO Journey */}
       <NeroJourneySection />
-
-      {/* Make Your Next Move (Page 5) */}
-      <NeroNextMoveSection />
 
       {/* For Students */}
       <StudentSection />
