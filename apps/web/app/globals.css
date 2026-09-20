@@ -806,6 +806,29 @@ body {
   will-change: transform;
 }
 
+/*
+ * Motion-foundation CSS variables, written by ParallaxController each
+ * frame (only while it's running — never during prefers-reduced-motion).
+ * Defaults here keep any future consumer safe if it's ever read before
+ * JS has run, or while reduced motion is active.
+ *
+ *   --scroll-progress-page   0->1 eased page scroll progress (one
+ *                             viewport-height range), page-global.
+ *   --scroll-velocity        -1->1 normalized, clamped scroll velocity.
+ *   --scene-progress         0->1 eased viewport-transit progress, set
+ *                             per-element on anything opting in with
+ *                             data-scroll-progress. Convention: 0%
+ *                             entering, 25% developing, 50% primary
+ *                             interaction, 75% transitioning, 100%
+ *                             exiting. Not set here globally — it's
+ *                             per-element, written directly on the
+ *                             opted-in element by the controller.
+ */
+:root {
+  --scroll-progress-page: 0;
+  --scroll-velocity: 0;
+}
+
 /* Default-hidden, JS reveals via .is-revealed once the element enters
    the viewport (ParallaxController's IntersectionObserver). Distance/
    delay are tunable per element via --reveal-distance / --reveal-delay
