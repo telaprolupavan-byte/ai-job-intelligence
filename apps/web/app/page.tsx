@@ -464,33 +464,57 @@ export default function Home() {
       {/* Make Your Next Move (Page 5) */}
       <NeroNextMoveSection />
 
-      {/* Final CTA */}
-      <section id="pricing" className="border-t border-white/10">
-        <div className="relative overflow-hidden">
-          <div className="red-atmosphere absolute inset-0" />
+      {/* Final CTA — the un-numbered closing coda after Page 5's
+          journey, same technical-grid + red-atmosphere motion language
+          as the rest of the scroll, now with its own cinematic NERO
+          visual instead of text alone. */}
+      <section
+        id="pricing"
+        className="relative overflow-hidden border-t border-white/10 bg-[#0a0c11]"
+      >
+        <div className="technical-grid absolute inset-0 opacity-25" aria-hidden="true" />
+        <div className="red-atmosphere absolute inset-0" aria-hidden="true" />
 
-          <div className="relative mx-auto max-w-5xl px-6 py-28 text-center lg:px-8 lg:py-40">
-            <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-              06 / BEGIN
+        <div className="relative mx-auto max-w-[1536px] px-6 py-24 sm:px-10 lg:px-20 lg:py-32">
+          <div className="grid items-center gap-14 lg:grid-cols-[1fr_minmax(0,420px)] lg:gap-16">
+            <div className="text-center lg:text-left">
+              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+                IT&apos;S MORE THAN A JOB.
+              </span>
+
+              <h2 className="mt-6 font-[family-name:var(--font-display)] text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">
+                SAME YOU.
+                <br />
+                <span className="text-app-muted">A BRIGHTER TOMORROW.</span>
+              </h2>
+
+              <p className="mx-auto mt-6 max-w-xl text-app-muted lg:mx-0">
+                Start your next chapter with NERO.
+              </p>
+
+              <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
+                <Link
+                  href="/register"
+                  className="app-focus-ring group inline-flex items-center justify-center gap-2 rounded-lg bg-crimson-fill px-7 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_rgba(217,40,31,0.4)] transition hover:bg-crimson-fill-hover"
+                >
+                  Get Started
+                  <span className="transition-transform group-hover:translate-x-1">
+                    →
+                  </span>
+                </Link>
+
+                <Link
+                  href="/jobs"
+                  className="app-focus-ring inline-flex items-center justify-center rounded-lg border border-app-border-soft bg-white/[0.02] px-7 py-3.5 text-sm font-medium text-app-text transition hover:bg-white/[0.05]"
+                >
+                  Explore NERO
+                </Link>
+              </div>
             </div>
 
-            <h2 className="font-[family-name:var(--font-display)] mt-6 text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">
-              READY TO
-              <br />
-              <span className="text-app-muted">FIND YOUR EDGE?</span>
-            </h2>
-
-            <p className="mx-auto mt-6 max-w-xl text-app-muted">
-              Upload your resume. Define your target. Let the intelligence
-              layer handle the search.
-            </p>
-
-            <Link
-              href="/register"
-              className="mt-9 inline-flex rounded-lg bg-crimson-fill px-7 py-3.5 text-sm font-medium text-white transition hover:bg-crimson-fill-hover"
-            >
-              Create your account
-            </Link>
+            <div className="relative mx-auto w-full max-w-[300px] lg:max-w-[360px]">
+              <NeroHeroVisual />
+            </div>
           </div>
         </div>
       </section>

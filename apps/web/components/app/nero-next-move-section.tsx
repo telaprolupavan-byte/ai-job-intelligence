@@ -1,56 +1,79 @@
+import Link from "next/link";
 import {
+  Activity,
+  Award,
+  BarChart3,
+  Bookmark,
+  Check,
   ChevronDown,
-  Eye,
+  FileCheck2,
+  Lightbulb,
+  ListChecks,
+  MapPin,
   Mouse,
-  ShieldCheck,
-  SlidersHorizontal,
-  User,
+  Search,
+  Send,
+  Target,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Badge from "@/components/app/badge";
 import NeroNextMoveVisual from "@/components/app/nero-next-move-visual";
 
-const principles: {
-  icon: LucideIcon;
-  title: string;
-  text: string;
-}[] = [
+const journeySteps: { icon: LucideIcon; title: string; text: string }[] = [
+  { icon: Bookmark, title: "Save", text: "Keep the roles worth pursuing." },
+  { icon: Send, title: "Apply", text: "Submit with confidence, not guesswork." },
+  { icon: Activity, title: "Track", text: "Watch every application move forward." },
+  { icon: FileCheck2, title: "Prepare", text: "Walk into every stage ready." },
+  { icon: Award, title: "Achieve", text: "Land the role that's actually right." },
+];
+
+const insightStats: { icon: LucideIcon; title: string; text: string }[] = [
   {
-    icon: User,
-    title: "PERSONAL",
-    text: "Your resume, experience, skills, titles, and preferences shape the search.",
+    icon: FileCheck2,
+    title: "Resume optimized",
+    text: "Tightened and aligned to the roles you're actually going after.",
   },
   {
-    icon: ShieldCheck,
-    title: "TRUTHFUL",
-    text: "Recommendations improve your existing qualifications without fabricating experience.",
+    icon: Search,
+    title: "Relevant roles",
+    text: "Surfaced from live listings, not just keyword matches.",
   },
   {
-    icon: Eye,
-    title: "TRANSPARENT",
-    text: "Every match and recommendation should have a reason behind it.",
+    icon: BarChart3,
+    title: "Match scores",
+    text: "A clear read on fit before you spend time applying.",
   },
   {
-    icon: SlidersHorizontal,
-    title: "USER CONTROLLED",
-    text: "The system helps you decide. It does not blindly apply to jobs for you.",
+    icon: ListChecks,
+    title: "Applications organized",
+    text: "Every application, every stage, in one place.",
   },
 ];
 
-const PROGRESS_STEPS = ["01", "02", "03", "04", "05", "06"];
+const valueItems: { icon: LucideIcon; title: string; text: string }[] = [
+  { icon: Bookmark, title: "Stay Organized", text: "Every saved role in one place." },
+  { icon: Activity, title: "Track Progress", text: "Know where each application stands." },
+  { icon: BarChart3, title: "Get Insights", text: "Understand your fit before you apply." },
+  { icon: TrendingUp, title: "Move Forward", text: "Turn intelligence into your next step." },
+];
+
+const APPLICATION_STAGES = ["Saved", "Applied", "Screening", "Interview", "Offer"];
+const CURRENT_STAGE = "Screening";
+
+const PROGRESS_STEPS = ["01", "02", "03", "04", "05"];
 const ACTIVE_STEP = "05";
 
 /**
- * Page 5 — "Make Your Next Move." (Principles).
- *
- * Same world as the hero/system/job-intelligence scenes before it: same
- * background, technical grid, atmospheric lighting recipe, NERO figure,
- * type scale, and micro-labels — the atmosphere blend just shifts
- * weight toward red here as the scroll journey approaches the final
- * CTA's red-atmosphere. Built in the same distinct layers (background /
- * environment / copy+NERO / principle cards / foreground details) as
- * Page 4 so a future scroll-driven parallax can target each one the
- * same way.
+ * Page 5 — "Make Your Next Move." A self-contained five-scene chapter
+ * (Hero / Journey / Application in Progress / Insights / Value Row)
+ * that closes out the site's numbered pages before the un-numbered
+ * Final CTA epilogue. Reuses Page 4's exact motion language — same
+ * technical-grid + atmosphere background, same system-card-reveal
+ * entrance animation, same NERO float/glow treatment, same rail +
+ * scroll-continue bottom bar — scoped here to Page 5's own five
+ * internal scenes rather than the site-wide 01-06 rail Page 4 uses.
  */
 export default function NeroNextMoveSection() {
   return (
@@ -73,56 +96,180 @@ export default function NeroNextMoveSection() {
       />
 
       <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
-        <div className="grid gap-14 lg:grid-cols-[minmax(0,480px)_1fr] lg:gap-16 xl:grid-cols-[minmax(0,540px)_1fr]">
-          {/* LEFT — copy + NERO */}
-          <div className="flex flex-col">
-            <div className="flex items-center gap-3">
-              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                05 / 06 &nbsp; MAKE YOUR NEXT MOVE
-              </span>
-              <span className="h-px w-12 bg-app-border-strong" />
-            </div>
+        {/* Foreground detail — top-right handwritten annotation, same
+            motif as the hero/job-intel scenes above it. */}
+        <div
+          className="pointer-events-none absolute right-6 top-10 z-20 hidden max-w-[180px] -rotate-2 text-right sm:right-10 lg:right-20 lg:block"
+          aria-hidden="true"
+        >
+          <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-text/90">
+            Every
+            <br />
+            Move Counts.
+          </p>
+        </div>
 
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5vw,3.75rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
-              MAKE YOUR
-              <br />
-              NEXT{" "}
-              <span className="bg-gradient-to-r from-[#8f7bff] via-[#b46bff] to-app-red bg-clip-text text-transparent">
-                MOVE.
-              </span>
-            </h2>
+        {/* ------------------------------------------------------ */}
+        {/* A — HERO                                                */}
+        {/* ------------------------------------------------------ */}
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+              05 / 05 &nbsp; YOUR NEXT MOVE
+            </span>
+            <span className="h-px w-12 bg-app-red/50" />
+          </div>
 
-            <p className="mt-6 max-w-[470px] text-base leading-7 text-app-muted sm:text-lg">
-              Every recommendation follows the same four rules — so
-              whatever you decide next, it&apos;s actually yours.
-            </p>
-
-            <div className="relative mt-6 w-fit">
-              <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-blue sm:text-[26px]">
-                Your Terms.
+          <div className="mt-10 grid gap-14 lg:grid-cols-[minmax(0,560px)_1fr] lg:items-center lg:gap-16">
+            <div>
+              <h2 className="font-[family-name:var(--font-display)] text-[clamp(2.75rem,6vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
+                MAKE YOUR
                 <br />
-                Your Career.
+                NEXT{" "}
+                <span className="bg-gradient-to-r from-[#8f7bff] via-[#b46bff] to-app-red bg-clip-text text-transparent">
+                  MOVE.
+                </span>
+              </h2>
+
+              <p className="mt-6 max-w-[520px] text-base leading-7 text-app-muted sm:text-lg">
+                Discover, match, and prepare are only the beginning. Now
+                it&apos;s time to apply, track, and follow through — with
+                NERO alongside you the whole way.
               </p>
-              <span
-                className="absolute -bottom-1 left-0 h-0.5 w-24 -rotate-6 bg-app-red/80"
-                aria-hidden="true"
-              />
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/register"
+                  className="app-focus-ring group inline-flex items-center justify-center gap-2 rounded-lg bg-crimson-fill px-6 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_rgba(217,40,31,0.4)] transition hover:bg-crimson-fill-hover"
+                >
+                  Get Started
+                  <span className="transition-transform group-hover:translate-x-1">
+                    →
+                  </span>
+                </Link>
+
+                <Link
+                  href="#next-move-journey"
+                  className="app-focus-ring inline-flex items-center justify-center rounded-lg border border-app-border-soft bg-white/[0.02] px-6 py-3.5 text-sm font-medium text-app-text transition hover:bg-white/[0.05]"
+                >
+                  See It in Action
+                </Link>
+              </div>
             </div>
 
-            <div className="relative mx-auto mt-10 w-full max-w-[280px] sm:max-w-[320px] lg:mt-12 lg:max-w-[340px]">
+            <div className="relative mx-auto w-full max-w-[320px] sm:max-w-[360px]">
+              <div className="pointer-events-none absolute -top-6 right-[-4%] z-20 hidden sm:block">
+                <FloatingStat icon={FileCheck2} label="RESUME READY" />
+              </div>
+              <div className="pointer-events-none absolute left-[-12%] top-24 z-20 hidden sm:block">
+                <FloatingStat icon={Target} label="94% MATCH" />
+              </div>
+              <div className="pointer-events-none absolute bottom-2 right-[-6%] z-20 hidden sm:block">
+                <FloatingStat icon={ListChecks} label="APPLICATION TRACKED" />
+              </div>
+
               <NeroNextMoveVisual />
             </div>
           </div>
+        </div>
 
-          {/* RIGHT — four principle cards */}
-          <div className="grid gap-6 sm:grid-cols-2">
-            {principles.map((principle, index) => (
-              <PrincipleCard key={principle.title} {...principle} index={index} />
+        {/* ------------------------------------------------------ */}
+        {/* B — NERO APPLICATION JOURNEY                            */}
+        {/* ------------------------------------------------------ */}
+        <div id="next-move-journey" className="mt-24 scroll-mt-24 lg:mt-32">
+          <div className="flex items-center gap-3">
+            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+              THE NERO APPLICATION JOURNEY
+            </span>
+            <span className="h-px w-12 bg-app-border-strong" />
+          </div>
+
+          <h3 className="mt-5 max-w-xl font-[family-name:var(--font-display)] text-3xl font-bold tracking-[-0.02em] text-app-text sm:text-4xl">
+            Five steps. One system.
+          </h3>
+
+          <div className="mt-14 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 md:grid-cols-5">
+            {journeySteps.map((step, index) => (
+              <FeatureTile key={step.title} {...step} index={index} />
+            ))}
+          </div>
+
+          <div className="mt-12 flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-app-border-soft bg-app-panel/70 px-5 py-2.5">
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]"
+                aria-hidden="true"
+              />
+              <span className="mono text-[10px] tracking-[0.25em] text-app-text">
+                YOU&apos;RE IN CONTROL
+              </span>
+            </span>
+          </div>
+        </div>
+
+        {/* ------------------------------------------------------ */}
+        {/* C — APPLICATION IN PROGRESS                             */}
+        {/* ------------------------------------------------------ */}
+        <div id="next-move-progress" className="mt-24 scroll-mt-24 lg:mt-32">
+          <div className="flex items-center gap-3">
+            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+              APPLICATION IN PROGRESS
+            </span>
+            <span className="h-px w-12 bg-app-border-strong" />
+          </div>
+
+          <h3 className="mt-5 max-w-xl font-[family-name:var(--font-display)] text-3xl font-bold tracking-[-0.02em] text-app-text sm:text-4xl">
+            See exactly where you stand.
+          </h3>
+
+          <div className="mt-10 max-w-2xl">
+            <ApplicationInProgressCard />
+          </div>
+        </div>
+
+        {/* ------------------------------------------------------ */}
+        {/* D — NERO INSIGHTS                                       */}
+        {/* ------------------------------------------------------ */}
+        <div id="next-move-insights" className="mt-24 scroll-mt-24 lg:mt-32">
+          <div className="flex items-center gap-3">
+            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+              NERO INSIGHTS
+            </span>
+            <span className="h-px w-12 bg-app-border-strong" />
+          </div>
+
+          <h3 className="mt-5 max-w-xl font-[family-name:var(--font-display)] text-3xl font-bold tracking-[-0.02em] text-app-text sm:text-4xl">
+            You&apos;re on the right track.
+          </h3>
+
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {insightStats.map((stat, index) => (
+              <InsightTile key={stat.title} {...stat} index={index} />
+            ))}
+          </div>
+
+          <p className="mx-auto mt-14 max-w-lg text-center font-[family-name:var(--font-caveat)] text-2xl leading-[1.2] text-app-blue sm:text-[26px]">
+            NERO gives you the clarity. The decision is yours.
+          </p>
+        </div>
+
+        {/* ------------------------------------------------------ */}
+        {/* E — SUPPORTING VALUE ROW                                */}
+        {/* ------------------------------------------------------ */}
+        <div id="next-move-value" className="mt-24 scroll-mt-24 border-t border-white/10 pt-14 lg:mt-32">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4">
+            {valueItems.map((item, index) => (
+              <FeatureTile key={item.title} {...item} index={index} />
             ))}
           </div>
         </div>
 
-        {/* Foreground detail — bottom utility bar, same structure as Page 4's */}
+        {/* ------------------------------------------------------ */}
+        {/* Foreground detail — bottom utility bar, Page 5's own    */}
+        {/* five-scene progress rail (Hero -> Journey -> In         */}
+        {/* Progress -> Insights -> Value Row), same rail/scroll-   */}
+        {/* continue treatment as Page 4's site-wide rail.          */}
+        {/* ------------------------------------------------------ */}
         <div className="relative mt-16 flex flex-col items-center gap-5 border-t border-white/5 pt-6 text-center lg:mt-20 lg:flex-row lg:justify-between lg:text-left">
           <ProgressRail />
 
@@ -148,7 +295,18 @@ export default function NeroNextMoveSection() {
   );
 }
 
-function PrincipleCard({
+function FloatingStat({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-app-border-soft bg-app-panel/90 px-3.5 py-2 shadow-lg backdrop-blur-sm">
+      <Icon className="h-3.5 w-3.5 text-app-blue" aria-hidden="true" />
+      <span className="mono text-[9px] tracking-[0.12em] text-app-body">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function FeatureTile({
   icon: Icon,
   title,
   text,
@@ -161,18 +319,164 @@ function PrincipleCard({
 }) {
   return (
     <div
-      className="system-card-reveal glass-panel relative rounded-2xl border border-app-border-soft p-5 shadow-[0_0_24px_-14px_rgba(255,59,48,0.4)]"
-      style={{ animationDelay: `${index * 100}ms` }}
+      className="system-card-reveal flex flex-col items-center gap-3 text-center"
+      style={{ animationDelay: `${index * 90}ms` }}
     >
       <div className="flex h-11 w-11 items-center justify-center rounded-full border border-app-border-soft text-app-blue">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
+      <div>
+        <div className="text-sm font-semibold text-app-text">{title}</div>
+        <div className="mt-1 max-w-[150px] text-xs leading-5 text-app-muted">
+          {text}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      <h3 className="mt-4 text-sm font-semibold tracking-[0.15em] text-app-text">
-        {title}
-      </h3>
-
+function InsightTile({
+  icon: Icon,
+  title,
+  text,
+  index,
+}: {
+  icon: LucideIcon;
+  title: string;
+  text: string;
+  index: number;
+}) {
+  return (
+    <div
+      className="system-card-reveal glass-panel rounded-2xl border border-app-border-soft p-5"
+      style={{ animationDelay: `${index * 100}ms` }}
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-app-border-soft text-app-blue">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </div>
+      <h4 className="mt-4 text-sm font-semibold text-app-text">{title}</h4>
       <p className="mt-2 text-sm leading-6 text-app-muted">{text}</p>
+    </div>
+  );
+}
+
+function StageTracker() {
+  const currentIndex = APPLICATION_STAGES.indexOf(CURRENT_STAGE);
+
+  return (
+    <div
+      className="flex items-start"
+      role="img"
+      aria-label={`Application stage: ${CURRENT_STAGE}`}
+    >
+      {APPLICATION_STAGES.map((stage, index) => {
+        const isComplete = index < currentIndex;
+        const isCurrent = index === currentIndex;
+
+        return (
+          <div key={stage} className="flex flex-1 items-center last:flex-none">
+            <div className="flex flex-col items-center gap-2">
+              <span
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold",
+                  isCurrent
+                    ? "border-app-blue bg-app-blue text-black shadow-[0_0_12px_rgba(10,132,255,0.6)]"
+                    : isComplete
+                      ? "border-app-success bg-app-success text-black"
+                      : "border-app-border-soft bg-app-surface text-app-muted",
+                )}
+                aria-hidden="true"
+              >
+                {isComplete ? <Check className="h-3 w-3" /> : index + 1}
+              </span>
+              <span
+                className={cn(
+                  "mono text-[9px] tracking-[0.1em]",
+                  isCurrent ? "text-app-text" : "text-app-muted/60",
+                )}
+              >
+                {stage.toUpperCase()}
+              </span>
+            </div>
+
+            {index < APPLICATION_STAGES.length - 1 && (
+              <span
+                className={cn(
+                  "mx-1.5 mb-4 h-px flex-1",
+                  isComplete ? "bg-app-success/60" : "bg-app-border-soft",
+                )}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ApplicationInProgressCard() {
+  return (
+    <div className="system-card-reveal glass-panel relative rounded-2xl border border-app-border-soft p-6 shadow-[0_0_32px_-16px_rgba(10,132,255,0.4)] sm:p-7">
+      <span className="absolute right-5 top-5 mono text-[9px] tracking-[0.15em] text-app-faint">
+        SAMPLE APPLICATION
+      </span>
+
+      <div className="flex items-start gap-4">
+        <div
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-app-border-strong bg-app-surface text-sm font-bold text-app-blue"
+          aria-hidden="true"
+        >
+          G
+        </div>
+
+        <div className="min-w-0">
+          <h4 className="text-lg font-semibold text-app-text">
+            AI/ML Engineer
+          </h4>
+          <p className="mt-0.5 text-sm text-app-muted">Google</p>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-app-faint">
+            <MapPin className="h-3 w-3" aria-hidden="true" />
+            Mountain View, CA
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Badge tone="neutral-soft">Full-Time</Badge>
+        <Badge tone="neutral-soft">Remote</Badge>
+        <Badge tone="success-soft" className="ml-auto">
+          94% Match*
+        </Badge>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {["Python", "LLM", "Machine Learning"].map((skill) => (
+          <Badge key={skill} tone="blue-soft">
+            {skill}
+          </Badge>
+        ))}
+      </div>
+
+      <div className="mt-6 border-t border-white/10 pt-5">
+        <StageTracker />
+      </div>
+
+      <div className="mt-5 flex items-start gap-3 rounded-xl border border-app-blue/30 bg-app-blue-soft p-4">
+        <Lightbulb
+          className="mt-0.5 h-4 w-4 shrink-0 text-app-blue"
+          aria-hidden="true"
+        />
+        <div>
+          <p className="mono text-[9px] tracking-[0.15em] text-app-blue">
+            NEXT STEP
+          </p>
+          <p className="mt-1 text-sm leading-6 text-app-body">
+            Prepare for your screening call — NERO will help you brush up
+            on the skills this role weighs most.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
