@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   Activity,
-  Award,
   BarChart3,
   Bookmark,
   Check,
@@ -12,7 +11,6 @@ import {
   MapPin,
   Mouse,
   Search,
-  Send,
   Target,
   TrendingUp,
   type LucideIcon,
@@ -21,14 +19,6 @@ import { cn } from "@/lib/utils";
 import Badge from "@/components/app/badge";
 import NeroNextMoveVisual from "@/components/app/nero-next-move-visual";
 import NeroFinaleVisual from "@/components/app/nero-finale-visual";
-
-const journeySteps: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: Bookmark, title: "Save", text: "Keep the roles worth pursuing." },
-  { icon: Send, title: "Apply", text: "Submit with confidence, not guesswork." },
-  { icon: Activity, title: "Track", text: "Watch every application move forward." },
-  { icon: FileCheck2, title: "Prepare", text: "Walk into every stage ready." },
-  { icon: Award, title: "Achieve", text: "Land the role that's actually right." },
-];
 
 const insightStats: { icon: LucideIcon; title: string; text: string }[] = [
   {
@@ -67,14 +57,25 @@ const PROGRESS_STEPS = ["01", "02", "03", "04", "05", "06"];
 const ACTIVE_STEP = "05";
 
 /**
- * Page 5 — "Make Your Next Move." A self-contained six-scene chapter
- * (Hero / Journey / Application in Progress / Insights / Value Row /
- * Finale) that closes with its own cinematic "Same You. A Brighter
- * Tomorrow." payoff before Page 6 begins. Reuses Page 4's exact motion
- * language — same technical-grid + atmosphere background, same
- * system-card-reveal entrance animation, same NERO float/glow
- * treatment — and, for this closing scene, the same site-wide 01-06
- * progress rail Page 4 ends on, now with 05 active.
+ * Page 5 — "Make Your Next Move." Hero / Application in Progress /
+ * Insights / Value Row. Reuses Page 4's exact motion language — same
+ * technical-grid + atmosphere background, same system-card-reveal
+ * entrance animation, same NERO float/glow treatment — and the same
+ * site-wide 01-06 progress rail Page 4 ends on, now with 05 active.
+ *
+ * The standalone five-step "Save / Apply / Track / Prepare / Achieve"
+ * journey sub-scene that used to sit here was removed as duplicate
+ * content once the dedicated eight-step NERO Journey section (Resume
+ * -> Understand -> Discover -> Match -> Improve -> Verify -> Apply ->
+ * Track) became the page's single primary journey visualization; the
+ * Hero's "See It in Action" link now points there instead.
+ *
+ * The cinematic "Same You. A Brighter Tomorrow." finale that used to
+ * close this section is exported separately below as
+ * `NeroFinaleSection` — same file, same content, unchanged — so
+ * page.tsx can position it as the page's true final section, after
+ * For Students / For Consultancies, per the approved landing-page
+ * story order.
  */
 export default function NeroNextMoveSection() {
   return (
@@ -150,7 +151,7 @@ export default function NeroNextMoveSection() {
                 </Link>
 
                 <Link
-                  href="#next-move-journey"
+                  href="#nero-journey"
                   className="app-focus-ring inline-flex items-center justify-center rounded-lg border border-app-border-soft bg-white/[0.02] px-6 py-3.5 text-sm font-medium text-app-text transition hover:bg-white/[0.05]"
                 >
                   See It in Action
@@ -175,41 +176,7 @@ export default function NeroNextMoveSection() {
         </div>
 
         {/* ------------------------------------------------------ */}
-        {/* B — NERO APPLICATION JOURNEY                            */}
-        {/* ------------------------------------------------------ */}
-        <div id="next-move-journey" className="mt-24 scroll-mt-24 lg:mt-32">
-          <div className="flex items-center gap-3">
-            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-              THE NERO APPLICATION JOURNEY
-            </span>
-            <span className="h-px w-12 bg-app-border-strong" />
-          </div>
-
-          <h3 className="mt-5 max-w-xl font-[family-name:var(--font-display)] text-3xl font-bold tracking-[-0.02em] text-app-text sm:text-4xl">
-            Five steps. One system.
-          </h3>
-
-          <div className="mt-14 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 md:grid-cols-5">
-            {journeySteps.map((step, index) => (
-              <FeatureTile key={step.title} {...step} index={index} />
-            ))}
-          </div>
-
-          <div className="mt-12 flex justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-app-border-soft bg-app-panel/70 px-5 py-2.5">
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]"
-                aria-hidden="true"
-              />
-              <span className="mono text-[10px] tracking-[0.25em] text-app-text">
-                YOU&apos;RE IN CONTROL
-              </span>
-            </span>
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------ */}
-        {/* C — APPLICATION IN PROGRESS                             */}
+        {/* B — APPLICATION IN PROGRESS                             */}
         {/* ------------------------------------------------------ */}
         <div id="next-move-progress" className="mt-24 scroll-mt-24 lg:mt-32">
           <div className="flex items-center gap-3">
@@ -229,7 +196,7 @@ export default function NeroNextMoveSection() {
         </div>
 
         {/* ------------------------------------------------------ */}
-        {/* D — NERO INSIGHTS                                       */}
+        {/* C — NERO INSIGHTS                                       */}
         {/* ------------------------------------------------------ */}
         <div id="next-move-insights" className="mt-24 scroll-mt-24 lg:mt-32">
           <div className="flex items-center gap-3">
@@ -255,7 +222,7 @@ export default function NeroNextMoveSection() {
         </div>
 
         {/* ------------------------------------------------------ */}
-        {/* E — SUPPORTING VALUE ROW                                */}
+        {/* D — SUPPORTING VALUE ROW                                */}
         {/* ------------------------------------------------------ */}
         <div id="next-move-value" className="mt-24 scroll-mt-24 border-t border-white/10 pt-14 lg:mt-32">
           <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4">
@@ -266,15 +233,52 @@ export default function NeroNextMoveSection() {
         </div>
 
         {/* ------------------------------------------------------ */}
-        {/* F — FINALE: "Same You. A Brighter Tomorrow."            */}
-        {/* The cinematic payoff of Page 5's journey — NERO looking */}
-        {/* out over a CSS/SVG ridge toward a distant skyline, same  */}
-        {/* atmosphere/grid/reveal language as the rest of the site. */}
+        {/* Foreground detail — bottom utility bar, the site-wide   */}
+        {/* 01-06 progress rail (05 active), transitioning into the */}
+        {/* Student / Consultancy chapters that follow.             */}
         {/* ------------------------------------------------------ */}
-        <div
-          id="pricing"
-          className="relative mt-24 scroll-mt-24 overflow-hidden rounded-3xl border border-white/10 lg:mt-32"
-        >
+        <div className="relative mt-16 flex flex-col items-center gap-5 border-t border-white/5 pt-6 text-center lg:mt-20 lg:flex-row lg:justify-between lg:text-left">
+          <ProgressRail />
+
+          <div className="flex flex-col items-center gap-2">
+            <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
+              SCROLL TO CONTINUE
+            </span>
+            <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
+            <ChevronDown
+              className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
+              aria-hidden="true"
+            />
+          </div>
+
+          <div className="mono text-[9px] leading-5 tracking-[0.2em] text-app-muted">
+            THE NEXT CHAPTER
+            <br />
+            STARTS HERE.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * "Same You. A Brighter Tomorrow." — the page's cinematic finale and
+ * final conversion moment. Identical content/markup to what previously
+ * closed `NeroNextMoveSection` (same NeroFinaleVisual ridge/skyline
+ * scene, same copy, same CTAs) — only its position changed: it now
+ * renders after For Students / For Consultancies, as the last section
+ * before the footer, per the approved landing-page story. No other CTA
+ * section follows it.
+ */
+export function NeroFinaleSection() {
+  return (
+    <section
+      id="pricing"
+      className="relative overflow-hidden border-t border-white/10 bg-[#0a0d13]"
+    >
+      <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
+        <div className="relative scroll-mt-24 overflow-hidden rounded-3xl border border-white/10">
           <NeroFinaleVisual />
 
           <div
@@ -338,33 +342,6 @@ export default function NeroNextMoveSection() {
                 Explore NERO
               </Link>
             </div>
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------ */}
-        {/* Foreground detail — bottom utility bar, the site-wide   */}
-        {/* 01-06 progress rail (05 active) marking the close of    */}
-        {/* Page 5 before Page 6 begins, same rail/scroll-continue  */}
-        {/* treatment as Page 4's.                                  */}
-        {/* ------------------------------------------------------ */}
-        <div className="relative mt-16 flex flex-col items-center gap-5 border-t border-white/5 pt-6 text-center lg:mt-20 lg:flex-row lg:justify-between lg:text-left">
-          <ProgressRail />
-
-          <div className="flex flex-col items-center gap-2">
-            <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
-              SCROLL TO CONTINUE
-            </span>
-            <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
-            <ChevronDown
-              className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
-              aria-hidden="true"
-            />
-          </div>
-
-          <div className="mono text-[9px] leading-5 tracking-[0.2em] text-app-muted">
-            THE NEXT CHAPTER
-            <br />
-            STARTS HERE.
           </div>
         </div>
       </div>

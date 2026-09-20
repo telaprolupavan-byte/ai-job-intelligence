@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ListChecks,
   FileCheck2,
+  Send,
   Settings2,
   Globe,
   type LucideIcon,
@@ -21,14 +22,14 @@ import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
 import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
-import NeroNextMoveSection from "@/components/app/nero-next-move-section";
+import NeroNextMoveSection, {
+  NeroFinaleSection,
+} from "@/components/app/nero-next-move-section";
 import ProblemSection from "@/components/app/problem-section";
-import MeetNeroSection from "@/components/app/meet-nero-section";
 import ResumeIntelligenceSection from "@/components/app/resume-intelligence-section";
 import NeroJourneySection from "@/components/app/nero-journey-section";
 import StudentSection from "@/components/app/student-section";
 import ConsultancySection from "@/components/app/consultancy-section";
-import FinalCtaSection from "@/components/app/final-cta-section";
 
 const systemBlocks: {
   number: string;
@@ -63,6 +64,24 @@ const systemBlocks: {
     description:
       "Improve your resume truthfully around the requirements that matter most.",
     icon: Settings2,
+  },
+];
+
+const neroPillars: { icon: LucideIcon; title: string; text: string }[] = [
+  {
+    icon: FileCheck2,
+    title: "Resume Intelligence",
+    text: "Understand where your resume stands and what to strengthen.",
+  },
+  {
+    icon: Search,
+    title: "Job Intelligence",
+    text: "See how a specific opportunity actually lines up with you.",
+  },
+  {
+    icon: Send,
+    title: "Application Intelligence",
+    text: "Know where every application stands, at every stage.",
   },
 ];
 
@@ -348,10 +367,9 @@ export default function Home() {
       {/* The Problem */}
       <ProblemSection />
 
-      {/* Meet NERO */}
-      <MeetNeroSection />
-
-      {/* System */}
+      {/* Meet NERO / System — one unified NERO introduction: character +
+          the three intelligence pillars, immediately followed by the
+          underlying four-step system it's built on. */}
       <section
         id="system"
         className="relative overflow-hidden border-t border-white/10 bg-[#090c11]"
@@ -377,7 +395,54 @@ export default function Home() {
         </div>
 
         <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
-          <div className="grid gap-14 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 xl:grid-cols-[minmax(0,520px)_1fr]">
+          {/* Meet NERO — character intro + the three intelligence
+              pillars, ahead of the system capabilities below. */}
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-3">
+              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+                MEET NERO
+              </span>
+              <span className="h-px w-12 bg-app-red/50" />
+            </div>
+
+            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5.5vw,4rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
+              MEET{" "}
+              <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
+                NERO.
+              </span>
+            </h2>
+
+            <p className="mt-6 max-w-[520px] text-base leading-7 text-app-muted sm:text-lg">
+              NERO is your AI job intelligence companion — built to help
+              you understand your position, your opportunities, and your
+              next move.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-3">
+            {neroPillars.map((pillar, index) => (
+              <div
+                key={pillar.title}
+                data-reveal
+                data-reveal-delay={index * 100}
+                className="flex items-start gap-3.5 rounded-xl border border-app-border-soft bg-app-panel/50 p-4"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-app-blue/50 bg-app-surface/80 text-app-blue">
+                  <pillar.icon className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-app-text">
+                    {pillar.title}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-app-muted">
+                    {pillar.text}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-14 grid gap-14 border-t border-white/10 pt-14 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 xl:grid-cols-[minmax(0,520px)_1fr]">
             {/* LEFT — copy + NERO */}
             <div className="flex flex-col">
               <div className="flex items-center gap-3">
@@ -533,8 +598,7 @@ export default function Home() {
       {/* The NERO Journey */}
       <NeroJourneySection />
 
-      {/* Make Your Next Move (Page 5) — includes its own cinematic
-          "Same You. A Brighter Tomorrow." finale as its closing scene. */}
+      {/* Make Your Next Move (Page 5) */}
       <NeroNextMoveSection />
 
       {/* For Students */}
@@ -543,8 +607,9 @@ export default function Home() {
       {/* For Consultancies */}
       <ConsultancySection />
 
-      {/* Final CTA */}
-      <FinalCtaSection />
+      {/* Final scene — "Same You. A Brighter Tomorrow." — the page's
+          cinematic finale and final conversion moment. */}
+      <NeroFinaleSection />
 
       {/* Footer */}
       <footer className="border-t border-white/10">
