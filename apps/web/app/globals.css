@@ -318,6 +318,23 @@ body {
   filter: blur(4px);
 }
 
+/* Hero atmosphere, split into independently-parallaxed blue/red layers
+   (Figma "Blue Atmosphere" / "Red Atmosphere"). Same gradients/values as
+   the combined .nero-atmosphere recipe reused elsewhere on the page —
+   splitting only changes how the two halves move, not how they look at
+   rest. */
+.hero-atmosphere-blue {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
+    radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
+  filter: blur(4px);
+}
+
+.hero-atmosphere-red {
+  background: radial-gradient(circle at 78% 20%, rgba(255, 59, 48, 0.22), transparent 42%);
+  filter: blur(4px);
+}
+
 .nero-floor-glow {
   background: radial-gradient(
     ellipse 55% 60% at 50% 50%,
@@ -710,6 +727,37 @@ body {
     );
 }
 
+/* ---------------------------------------------------------------- */
+/* Scroll parallax + entrance reveal (ParallaxController)             */
+/* ---------------------------------------------------------------- */
+
+/* Scroll-driven layers write transform directly via JS each frame —
+   hinting the browser up front avoids a layer promotion hitch on the
+   first scroll frame. */
+[data-parallax-speed] {
+  will-change: transform;
+}
+
+/* Default-hidden, JS reveals via .is-revealed once the element enters
+   the viewport (ParallaxController's IntersectionObserver). Distance/
+   delay are tunable per element via --reveal-distance / --reveal-delay
+   so the same mechanism covers both the restrained hero-copy nudge and
+   the feature row's fuller rise. */
+[data-reveal] {
+  --reveal-distance: 24px;
+  opacity: 0;
+  transform: translateY(var(--reveal-distance));
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s ease-out;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -725,5 +773,16 @@ body {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  /* Belt-and-suspenders: correct even if JS hasn't (yet) added
+     .is-revealed, and independent of ParallaxController running at all. */
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
+  [data-parallax-speed] {
+    transform: none !important;
   }
 }

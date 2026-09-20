@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -15,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import NeroBrand from "@/components/app/nero-brand";
 import LandingNav from "@/components/app/landing-nav";
+import ParallaxController from "@/components/app/parallax-controller";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
@@ -83,8 +85,10 @@ const featureItems = [
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-app-bg">
+      <ParallaxController />
+
       {/* Navigation */}
-      <header className="relative z-50 border-b border-white/10 bg-app-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-app-bg/80 backdrop-blur-md">
         <nav className="relative mx-auto flex h-[90px] max-w-[1536px] items-center justify-between px-6 sm:px-10 lg:px-20">
           <NeroBrand imgClassName="h-11 w-auto sm:h-12" sizes="160px" />
 
@@ -113,8 +117,21 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative">
-        <div className="technical-grid absolute inset-0 opacity-40" />
-        <div className="nero-atmosphere absolute inset-0" />
+        <div
+          data-parallax-speed="0.04"
+          className="technical-grid absolute inset-0 opacity-40"
+          aria-hidden="true"
+        />
+        <div
+          data-parallax-speed="0.08"
+          className="hero-atmosphere-blue absolute inset-0"
+          aria-hidden="true"
+        />
+        <div
+          data-parallax-speed="0.06"
+          className="hero-atmosphere-red absolute inset-0"
+          aria-hidden="true"
+        />
 
         <div className="pointer-events-none absolute left-0 top-[34%] hidden h-px w-24 bg-gradient-to-r from-app-red/50 to-transparent lg:block" />
         <div className="pointer-events-none absolute left-0 top-[34%] hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-app-red/70 lg:block" />
@@ -123,14 +140,20 @@ export default function Home() {
           <div className="hero-grid-layout">
             {/* LEFT — copy + CTAs */}
             <div className="hero-area-content flex flex-col justify-center">
-              <div className="flex items-center gap-3">
+              <div
+                className="reveal-up flex items-center gap-3"
+                style={{ animationDelay: "0ms" }}
+              >
                 <span className="mono text-[10px] tracking-[0.3em] text-app-red">
                   01 / AI JOB INTELLIGENCE
                 </span>
                 <span className="h-px w-12 bg-app-red/50" />
               </div>
 
-              <h1 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.75rem,6vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-app-text">
+              <h1
+                className="reveal-up mt-5 font-[family-name:var(--font-display)] text-[clamp(2.75rem,6vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-app-text"
+                style={{ animationDelay: "80ms" }}
+              >
                 FIND
                 <br />
                 BETTER
@@ -140,12 +163,18 @@ export default function Home() {
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-[560px] text-base leading-7 text-app-muted sm:text-lg">
+              <p
+                className="reveal-up mt-6 max-w-[560px] text-base leading-7 text-app-muted sm:text-lg"
+                style={{ animationDelay: "160ms" }}
+              >
                 Discover relevant jobs, understand your match, analyze ATS
                 readiness, and improve your resume before you apply.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div
+                className="reveal-up mt-8 flex flex-col gap-3 sm:flex-row"
+                style={{ animationDelay: "220ms" }}
+              >
                 <Link
                   href="/jobs"
                   className="app-focus-ring group inline-flex items-center justify-center gap-3 rounded-lg bg-crimson-fill px-6 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_rgba(217,40,31,0.4)] transition hover:bg-crimson-fill-hover"
@@ -164,19 +193,27 @@ export default function Home() {
                 </Link>
               </div>
 
-              <div className="mt-8 flex items-center gap-3 border-t border-white/10 pt-5">
-                <span className="mono text-[10px] tracking-[0.2em] text-app-muted">
-                  SYSTEM STATUS
-                </span>
-                <span className="h-1 w-1 rounded-full bg-app-muted/40" />
-                <span className="flex items-center gap-2 text-xs text-app-body">
-                  <span className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]" />
-                  INTELLIGENCE ONLINE
-                </span>
-                <span className="hidden h-1 w-1 rounded-full bg-app-muted/40 sm:block" />
-                <span className="mono hidden text-[10px] tracking-[0.15em] text-app-muted sm:block">
-                  DISCOVER / MATCH / ATS / OPTIMIZE
-                </span>
+              <div
+                data-parallax-speed="0.12"
+                className="mt-8 border-t border-white/10 pt-5"
+              >
+                <div
+                  className="reveal-up flex items-center gap-3"
+                  style={{ animationDelay: "280ms" }}
+                >
+                  <span className="mono text-[10px] tracking-[0.2em] text-app-muted">
+                    SYSTEM STATUS
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-app-muted/40" />
+                  <span className="flex items-center gap-2 text-xs text-app-body">
+                    <span className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]" />
+                    INTELLIGENCE ONLINE
+                  </span>
+                  <span className="hidden h-1 w-1 rounded-full bg-app-muted/40 sm:block" />
+                  <span className="mono hidden text-[10px] tracking-[0.15em] text-app-muted sm:block">
+                    DISCOVER / MATCH / ATS / OPTIMIZE
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -213,13 +250,24 @@ export default function Home() {
                 </svg>
               </div>
 
-              <div className="w-full pt-14 sm:pt-20 lg:pt-4">
+              <div
+                data-parallax-speed="0.16"
+                data-parallax-scale-to="1.04"
+                className="w-full pt-14 sm:pt-20 lg:pt-4"
+              >
                 <NeroHeroVisual />
               </div>
 
-              <div className="relative z-20 mx-auto mt-6 max-w-[280px] sm:absolute sm:right-0 sm:top-36 sm:mx-0 sm:mt-0 sm:max-w-[240px] lg:right-2">
+              <div
+                data-parallax-speed="0.12"
+                className="relative z-20 mx-auto mt-6 max-w-[280px] sm:absolute sm:right-0 sm:top-36 sm:mx-0 sm:mt-0 sm:max-w-[240px] lg:right-2"
+              >
                 <span className="absolute -left-2.5 top-3 hidden h-4 w-[3px] rounded-full bg-app-red sm:block" />
-                <div className="rounded-xl border border-app-border-soft bg-app-panel/70 px-4 py-3.5 shadow-lg backdrop-blur-sm">
+                <div
+                  data-reveal
+                  style={{ "--reveal-distance": "16px" } as CSSProperties}
+                  className="rounded-xl border border-app-border-soft bg-app-panel/70 px-4 py-3.5 shadow-lg backdrop-blur-sm"
+                >
                   <p className="text-xs leading-5 text-app-body">
                     I&apos;ll help you find,
                     <br />
@@ -233,8 +281,13 @@ export default function Home() {
 
             {/* Feature row */}
             <div className="hero-area-features grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
-              {featureItems.map((item) => (
-                <div key={item.title} className="flex flex-col gap-3">
+              {featureItems.map((item, index) => (
+                <div
+                  key={item.title}
+                  data-reveal
+                  data-reveal-delay={index * 80}
+                  className="flex flex-col gap-3"
+                >
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-app-border-soft text-app-blue">
                     <item.icon className="h-5 w-5" aria-hidden="true" />
                   </div>
