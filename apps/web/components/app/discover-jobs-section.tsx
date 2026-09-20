@@ -209,7 +209,7 @@ export default function DiscoverJobsSection() {
             {/* SECTION HEADER */}
             <div className="flex items-center gap-3">
               <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                03 / 05
+                03 / 06
               </span>
               <span className="h-px w-12 bg-app-red/50" />
               <span className="mono text-[10px] tracking-[0.3em] text-app-muted">
@@ -603,23 +603,23 @@ export default function DiscoverJobsSection() {
           <div>
             <div className="flex items-center justify-center gap-2 lg:justify-start">
               <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                NEXT 04 / 05
+                NEXT 04 / 06
               </span>
             </div>
             <div className="mono mt-1 text-[10px] tracking-[0.3em] text-app-blue">
-              PRINCIPLES
+              JOB INTELLIGENCE
             </div>
 
             <div className="mt-4 flex items-center justify-center gap-3 lg:justify-start">
               <h3 className="font-[family-name:var(--font-display)] text-2xl font-bold leading-[1.05] tracking-[-0.02em] text-app-text sm:text-3xl">
-                INTELLIGENCE
+                KNOW BEFORE
                 <br />
-                WITHOUT NOISE.
+                YOU APPLY.
               </h3>
 
               <a
-                href="#resources"
-                aria-label="Continue to Principles"
+                href="#job-intelligence"
+                aria-label="Continue to Job Intelligence"
                 className="app-focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-app-border-strong text-app-text transition hover:border-app-blue hover:text-app-blue"
               >
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />

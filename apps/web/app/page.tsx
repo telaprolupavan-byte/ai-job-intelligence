@@ -18,6 +18,7 @@ import LandingNav from "@/components/app/landing-nav";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
+import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
 
 const systemBlocks: {
   number: string;
@@ -456,13 +457,16 @@ export default function Home() {
       {/* Discover Jobs */}
       <DiscoverJobsSection />
 
+      {/* Job Intelligence (Page 4) */}
+      <NeroJobIntelligenceSection />
+
       {/* Philosophy */}
       <section id="resources" className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
           <div className="grid gap-16 lg:grid-cols-2">
             <div>
               <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-                04 / PRINCIPLES
+                05 / PRINCIPLES
               </div>
 
               <h2 className="font-[family-name:var(--font-display)] mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -508,7 +512,7 @@ export default function Home() {
 
           <div className="relative mx-auto max-w-5xl px-6 py-28 text-center lg:px-8 lg:py-40">
             <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-              05 / BEGIN
+              06 / BEGIN
             </div>
 
             <h2 className="font-[family-name:var(--font-display)] mt-6 text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">
