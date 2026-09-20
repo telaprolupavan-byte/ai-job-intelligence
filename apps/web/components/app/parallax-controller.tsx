@@ -9,8 +9,27 @@ import { useEffect } from "react";
  * decorative element, sections opt in declaratively via data attributes
  * on plain (server-rendered) elements:
  *
- *   data-parallax-speed="0.08"        translateY(-scrollY * speed), rAF + passive
+ *   data-parallax-speed="0.08"        translateY(-signal * speed), rAF + passive
+ *   data-parallax-x="0.05"            optional translateX(signal * speed) — same
+ *                                      scroll signal, horizontal axis; used where
+ *                                      motion should read as "moving toward" a
+ *                                      fixed point (e.g. resume/job panels
+ *                                      converging on NERO) rather than depth
  *   data-parallax-scale-to="1.04"     optional scroll-linked scale, 1 -> value
+ *   data-parallax-local               opt-in: "signal" above becomes this
+ *                                      element's own scroll-into-view progress
+ *                                      (bounded to roughly its transit through
+ *                                      the viewport) instead of raw page
+ *                                      window.scrollY. Required for anything
+ *                                      outside the hero — on a long page, a
+ *                                      speed multiplied by a global scrollY
+ *                                      that can reach into the tens of
+ *                                      thousands produces an offset large
+ *                                      enough to push the element off-screen
+ *                                      entirely, not a subtle drift. The hero
+ *                                      omits this attribute on purpose: its
+ *                                      already-verified motion is scrollY-based
+ *                                      and is left exactly as it was.
  *   data-reveal                       fade/rise-in once the element enters view
  *   data-reveal-delay="120"           optional stagger, ms
  *
@@ -58,13 +77,17 @@ export default function ParallaxController() {
     setupReveal();
 
     const parallaxEls = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-parallax-speed]"),
+      document.querySelectorAll<HTMLElement>(
+        "[data-parallax-speed], [data-parallax-x]",
+      ),
     ).map((el) => ({
       el,
       speed: parseFloat(el.dataset.parallaxSpeed ?? "0") || 0,
+      speedX: parseFloat(el.dataset.parallaxX ?? "0") || 0,
       scaleTo: el.dataset.parallaxScaleTo
         ? parseFloat(el.dataset.parallaxScaleTo)
         : null,
+      local: el.dataset.parallaxLocal !== undefined,
     }));
 
     let mobileFactor = window.innerWidth < 768 ? 0.5 : 1;
@@ -74,11 +97,42 @@ export default function ParallaxController() {
 
     const applyTransforms = () => {
       const scrollY = window.scrollY;
-      for (const { el, speed, scaleTo } of parallaxEls) {
-        const translate = -scrollY * speed * mobileFactor;
-        let transform = `translate3d(0, ${translate.toFixed(2)}px, 0)`;
+      const viewportH = window.innerHeight;
+
+      for (const { el, speed, speedX, scaleTo, local } of parallaxEls) {
+        // "signal" and "progress" are the two knobs every formula below
+        // is built from — for the hero (local === false) they're exactly
+        // the original page-global scrollY / scrollY-over-viewport-height
+        // this was verified against. For anything local, they're the same
+        // shape of value (a roughly-linear ramp, 0 near the top of the
+        // element's transit through the viewport), just re-based on that
+        // element's own position instead of the whole page's.
+        let signal: number;
+        let progress = 0;
+
+        if (local) {
+          const rect = el.getBoundingClientRect();
+          // 0 as the element's bottom reaches the viewport's bottom edge
+          // (about to enter), 1 as its top passes the viewport's top edge
+          // (about to leave) — monotonic across the transit, independent
+          // of how far down the page the element sits.
+          progress = Math.min(
+            Math.max(
+              (viewportH - rect.top) / (viewportH + rect.height),
+              0,
+            ),
+            1,
+          );
+          signal = (progress - 0.5) * viewportH;
+        } else {
+          signal = scrollY;
+          if (scaleTo) progress = Math.min(Math.max(scrollY / scaleRange, 0), 1);
+        }
+
+        const translateY = -signal * speed * mobileFactor;
+        const translateX = signal * speedX * mobileFactor;
+        let transform = `translate3d(${translateX.toFixed(2)}px, ${translateY.toFixed(2)}px, 0)`;
         if (scaleTo) {
-          const progress = Math.min(Math.max(scrollY / scaleRange, 0), 1);
           const scale = 1 + (scaleTo - 1) * progress;
           transform += ` scale(${scale.toFixed(4)})`;
         }
