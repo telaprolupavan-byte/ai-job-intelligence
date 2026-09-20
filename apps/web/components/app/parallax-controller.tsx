@@ -1,0 +1,150 @@
+"use client";
+
+import { useEffect } from "react";
+
+/**
+ * Small, page-agnostic scroll-motion controller for the landing page.
+ *
+ * Rather than duplicating scroll listeners/observers across every
+ * decorative element, sections opt in declaratively via data attributes
+ * on plain (server-rendered) elements:
+ *
+ *   data-parallax-speed="0.08"        translateY(-scrollY * speed), rAF + passive
+ *   data-parallax-scale-to="1.04"     optional scroll-linked scale, 1 -> value
+ *   data-reveal                       fade/rise-in once the element enters view
+ *   data-reveal-delay="120"           optional stagger, ms
+ *
+ * Renders nothing — it only wires up effects against elements already in
+ * the DOM. All continuous scroll work happens via direct style writes
+ * inside a single rAF loop (no React state, no per-frame re-renders).
+ */
+export default function ParallaxController() {
+  useEffect(() => {
+    const reduceMotionQuery = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    );
+
+    const revealEls = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-reveal]"),
+    );
+    let revealObserver: IntersectionObserver | null = null;
+
+    const setupReveal = () => {
+      if (reduceMotionQuery.matches) {
+        revealEls.forEach((el) => el.classList.add("is-revealed"));
+        return;
+      }
+
+      revealObserver = new IntersectionObserver(
+        (entries, observer) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-revealed");
+              observer.unobserve(entry.target);
+            }
+          }
+        },
+        { threshold: 0.2, rootMargin: "0px 0px -10% 0px" },
+      );
+
+      revealEls.forEach((el, index) => {
+        const delay = el.dataset.revealDelay;
+        if (delay) el.style.setProperty("--reveal-delay", `${delay}ms`);
+        revealObserver?.observe(el);
+        void index;
+      });
+    };
+
+    setupReveal();
+
+    const parallaxEls = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-parallax-speed]"),
+    ).map((el) => ({
+      el,
+      speed: parseFloat(el.dataset.parallaxSpeed ?? "0") || 0,
+      scaleTo: el.dataset.parallaxScaleTo
+        ? parseFloat(el.dataset.parallaxScaleTo)
+        : null,
+    }));
+
+    let mobileFactor = window.innerWidth < 768 ? 0.5 : 1;
+    let scaleRange = window.innerHeight;
+    let ticking = false;
+    let running = false;
+
+    const applyTransforms = () => {
+      const scrollY = window.scrollY;
+      for (const { el, speed, scaleTo } of parallaxEls) {
+        const translate = -scrollY * speed * mobileFactor;
+        let transform = `translate3d(0, ${translate.toFixed(2)}px, 0)`;
+        if (scaleTo) {
+          const progress = Math.min(Math.max(scrollY / scaleRange, 0), 1);
+          const scale = 1 + (scaleTo - 1) * progress;
+          transform += ` scale(${scale.toFixed(4)})`;
+        }
+        el.style.transform = transform;
+      }
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(applyTransforms);
+        ticking = true;
+      }
+    };
+
+    const onResize = () => {
+      mobileFactor = window.innerWidth < 768 ? 0.5 : 1;
+      scaleRange = window.innerHeight;
+    };
+
+    const clearTransforms = () => {
+      for (const { el } of parallaxEls) el.style.transform = "";
+    };
+
+    const startParallax = () => {
+      if (running || !parallaxEls.length) return;
+      running = true;
+      applyTransforms();
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onResize, { passive: true });
+    };
+
+    const stopParallax = () => {
+      if (!running) return;
+      running = false;
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      clearTransforms();
+    };
+
+    if (!reduceMotionQuery.matches) startParallax();
+
+    const onMotionPreferenceChange = () => {
+      if (reduceMotionQuery.matches) {
+        stopParallax();
+        revealObserver?.disconnect();
+        revealEls.forEach((el) => el.classList.add("is-revealed"));
+      } else {
+        startParallax();
+        revealObserver?.disconnect();
+        revealEls.forEach((el) => el.classList.remove("is-revealed"));
+        setupReveal();
+      }
+    };
+
+    reduceMotionQuery.addEventListener("change", onMotionPreferenceChange);
+
+    return () => {
+      stopParallax();
+      revealObserver?.disconnect();
+      reduceMotionQuery.removeEventListener(
+        "change",
+        onMotionPreferenceChange,
+      );
+    };
+  }, []);
+
+  return null;
+}
