@@ -101,12 +101,22 @@ export default function NeroJourneySection() {
         </div>
 
         <div className="relative mt-16 lg:mt-20">
+          {/* Rail line doubles as the section's literal "line
+              progression": data-scroll-progress writes this element's
+              own 0->1 viewport-transit progress to --scene-progress
+              (foundation capability from the motion-foundation pass),
+              which the nested .journey-rail-fill reads via CSS
+              inheritance to grow a crimson->blue fill down from the
+              top — "the path walked so far" — over the static line. */}
           <div
             data-parallax-speed="0.04"
             data-parallax-local
+            data-scroll-progress
             className="pointer-events-none absolute left-6 top-2 bottom-2 w-px bg-gradient-to-b from-transparent via-app-border-strong to-transparent"
             aria-hidden="true"
-          />
+          >
+            <div className="journey-rail-fill absolute inset-x-0 top-0 h-full origin-top" />
+          </div>
 
           {/* Mascot companion — same approved standing/pointing artwork
               reused across the page, walking the rail alongside the

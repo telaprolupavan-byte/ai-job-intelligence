@@ -773,6 +773,18 @@ body {
   filter: blur(4px);
 }
 
+/* Literal "line progression": grows from 0 height (scaleY 0) to full
+   as --scene-progress advances, written each frame by
+   ParallaxController onto the parent rail line via data-scroll-progress
+   (see nero-journey-section.tsx). Inherits the custom property from its
+   parent rather than needing its own — plain CSS inheritance, no extra
+   JS wiring. Falls back to scaleY(0) — invisible, not broken — if the
+   variable is ever unset (pre-hydration, reduced motion). */
+.journey-rail-fill {
+  transform: scaleY(var(--scene-progress, 0));
+  background: linear-gradient(to bottom, var(--color-app-red), var(--color-app-blue));
+}
+
 /* ---------------------------------------------------------------- */
 /* Landing "For Students" section — personal, single-workspace tone.   */
 /* ---------------------------------------------------------------- */
@@ -827,6 +839,21 @@ body {
 :root {
   --scroll-progress-page: 0;
   --scroll-velocity: 0;
+}
+
+/*
+ * Header — LOW motion tier. A restrained surface transition driven by
+ * --scroll-progress-page (already 0->1 over the first viewport height):
+ * the hairline border and drop shadow firm up slightly once the user
+ * has left the hero, so the header reads as "settling into its
+ * instrument-bar role" rather than a static bar. calc() resolves this
+ * every frame as the variable updates, no JS/transition needed here —
+ * and it degrades to the flat baseline look if the variable is ever
+ * unset (pre-hydration, reduced motion).
+ */
+.site-header {
+  border-bottom-color: rgba(255, 255, 255, calc(0.05 + var(--scroll-progress-page, 0) * 0.06));
+  box-shadow: 0 12px 28px -20px rgba(0, 0, 0, calc(var(--scroll-progress-page, 0) * 0.55));
 }
 
 /* Default-hidden, JS reveals via .is-revealed once the element enters

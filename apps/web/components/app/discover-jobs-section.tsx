@@ -215,7 +215,14 @@ export default function DiscoverJobsSection() {
               </div>
             </div>
 
-            <div className="w-full max-w-[320px] pt-12 sm:pt-14 lg:pt-4">
+            {/* MEDIUM tier: NERO gets restrained local depth. Job cards
+                below stay motion-free — must remain fully readable and
+                usable, per the cinematic-pass rule. */}
+            <div
+              data-parallax-speed="0.06"
+              data-parallax-local
+              className="w-full max-w-[320px] pt-12 sm:pt-14 lg:pt-4"
+            >
               <NeroHeroVisual />
             </div>
 

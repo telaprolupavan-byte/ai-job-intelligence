@@ -114,7 +114,7 @@ export default function Home() {
       {/* Navigation — same links/functionality as before, restyled to
           read as NERO's own instrument bar (mono system-status label,
           crimson hairline) instead of a generic SaaS navbar. */}
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-app-bg/85 backdrop-blur-md relative">
+      <header className="site-header sticky top-0 z-50 border-b border-white/5 bg-app-bg/85 backdrop-blur-md relative">
         <div
           className="hero-hairline pointer-events-none absolute inset-x-0 bottom-0 h-px"
           aria-hidden="true"
@@ -175,8 +175,18 @@ export default function Home() {
 
         <div className="relative mx-auto max-w-[1536px] px-6 pb-10 pt-10 sm:px-10 lg:px-20 lg:pt-14">
           <div className="hero-grid-layout">
-            {/* LEFT — copy + CTAs */}
-            <div className="hero-area-content flex flex-col justify-center">
+            {/* LEFT — copy + CTAs. Parallax goes on this wrapper (not on
+                the reveal-up children directly) — a CSS @keyframes
+                animation's fill-forwards value always wins over a JS
+                inline transform on the same element, so it has to sit
+                one level up from anything carrying reveal-up/nero-float/
+                system-card-reveal. Very small speed: "typography,
+                controlled movement" per the cinematic-pass spec, not a
+                layer that should compete with legibility. */}
+            <div
+              data-parallax-speed="0.02"
+              className="hero-area-content flex flex-col justify-center"
+            >
               <div
                 className="reveal-up flex items-center gap-3"
                 style={{ animationDelay: "0ms" }}
@@ -256,7 +266,11 @@ export default function Home() {
 
             {/* RIGHT — NERO stage */}
             <div className="hero-area-nero relative flex flex-col items-center pt-4 lg:pt-0">
-              <div className="pointer-events-none absolute right-0 top-0 z-20 max-w-[220px] -rotate-2 text-right sm:right-4 sm:top-6">
+              <div
+                data-parallax-speed="0.2"
+                data-parallax-x="0.015"
+                className="pointer-events-none absolute right-0 top-0 z-20 max-w-[220px] -rotate-2 text-right sm:right-4 sm:top-6"
+              >
                 <p className="font-[family-name:var(--font-caveat)] text-xl leading-[1.1] text-app-text/90 sm:text-2xl">
                   Better
                   <br />
@@ -296,7 +310,7 @@ export default function Home() {
               </div>
 
               <div
-                data-parallax-speed="0.12"
+                data-parallax-speed="0.18"
                 className="relative z-20 mx-auto mt-6 max-w-[280px] sm:absolute sm:right-0 sm:top-36 sm:mx-0 sm:mt-0 sm:max-w-[240px] lg:right-2"
               >
                 <span className="absolute -left-2.5 top-3 hidden h-4 w-[3px] rounded-full bg-app-red sm:block" />
@@ -386,8 +400,18 @@ export default function Home() {
         className="relative overflow-hidden border-t border-white/10 bg-[#090c11]"
       >
         <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
-        <div className="nero-atmosphere absolute inset-0" aria-hidden="true" />
+        {/* MEDIUM tier: atmosphere + decorative ring get restrained local
+            parallax, consistent with the rest of the page's atmosphere
+            layers (Hero's is the one exception, by design). */}
         <div
+          data-parallax-speed="0.05"
+          data-parallax-local
+          className="nero-atmosphere absolute inset-0"
+          aria-hidden="true"
+        />
+        <div
+          data-parallax-speed="0.06"
+          data-parallax-local
           className="pointer-events-none absolute -right-32 -top-32 hidden h-[520px] w-[520px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_38%_38%,rgba(10,132,255,0.1),transparent_62%)] lg:block"
           aria-hidden="true"
         />
@@ -503,7 +527,11 @@ export default function Home() {
                 />
               </div>
 
-              <div className="relative mx-auto mt-8 w-full max-w-[280px] sm:max-w-[320px] lg:mt-8 lg:max-w-[360px]">
+              <div
+                data-parallax-speed="0.07"
+                data-parallax-local
+                className="relative mx-auto mt-8 w-full max-w-[280px] sm:max-w-[320px] lg:mt-8 lg:max-w-[360px]"
+              >
                 <NeroSystemVisual />
 
                 <div

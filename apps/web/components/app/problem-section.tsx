@@ -34,7 +34,16 @@ export default function ProblemSection() {
       className="relative overflow-hidden border-t border-white/10 bg-[#0a0d13]"
     >
       <div className="technical-grid absolute inset-0 opacity-20" aria-hidden="true" />
-      <div className="problem-atmosphere absolute inset-0" aria-hidden="true" />
+      {/* Whisper-subtle local parallax — LOW tier by design (contrast
+          after the cinematic Hero), but every other section's
+          atmosphere layer already drifts a hair on scroll; this keeps
+          Problem from being the one flat exception. */}
+      <div
+        data-parallax-speed="0.03"
+        data-parallax-local
+        className="problem-atmosphere absolute inset-0"
+        aria-hidden="true"
+      />
 
       <div className="relative mx-auto max-w-[1100px] px-6 py-20 sm:px-10 sm:py-24 lg:px-20 lg:py-28">
         <div className="flex flex-col items-center text-center">

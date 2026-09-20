@@ -48,7 +48,11 @@ export default function NeroFinaleSection() {
               <span className="hidden h-px w-10 bg-app-red/50 sm:block" aria-hidden="true" />
             </div>
 
-            <h2 className="mt-6 font-[family-name:var(--font-display)] text-[clamp(2.75rem,7vw,5.5rem)] font-bold leading-[1.1] tracking-[-0.03em] text-app-text">
+            <h2
+              data-parallax-speed="0.03"
+              data-parallax-local
+              className="mt-6 font-[family-name:var(--font-display)] text-[clamp(2.75rem,7vw,5.5rem)] font-bold leading-[1.1] tracking-[-0.03em] text-app-text"
+            >
               SAME YOU.
               <br />
               <span className="bg-gradient-to-r from-app-red via-[#ff6a52] to-[#ff9166] bg-clip-text text-transparent">
