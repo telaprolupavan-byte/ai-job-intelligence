@@ -368,6 +368,98 @@ body {
   animation: scroll-dot 1.8s ease-in-out infinite;
 }
 
+/* ---------------------------------------------------------------- */
+/* Landing "System" section — four-card grid + NERO hub              */
+/* ---------------------------------------------------------------- */
+
+/* Places the 01–04 system cards on a 2x2 grid with a dedicated middle
+   row/column reserved for the NERO Intelligence Hub and its connector
+   lines, instead of copying Figma's absolute coordinates. */
+.system-hub-grid {
+  grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+  grid-template-rows: auto 56px auto;
+  column-gap: 1.25rem;
+  row-gap: 1.5rem;
+}
+
+.system-hub-grid > .system-card-1 {
+  grid-area: 1 / 1;
+}
+.system-hub-grid > .system-card-2 {
+  grid-area: 1 / 3;
+}
+.system-hub-grid > .system-card-3 {
+  grid-area: 3 / 1;
+}
+.system-hub-grid > .system-card-4 {
+  grid-area: 3 / 3;
+}
+.system-hub-grid > .system-hub {
+  grid-area: 2 / 2;
+}
+.system-hub-grid > .system-line-top {
+  grid-area: 1 / 2;
+  align-self: end;
+  justify-self: center;
+}
+.system-hub-grid > .system-line-bottom {
+  grid-area: 3 / 2;
+  align-self: start;
+  justify-self: center;
+}
+.system-hub-grid > .system-line-left {
+  grid-area: 2 / 1;
+  align-self: center;
+  justify-self: end;
+}
+.system-hub-grid > .system-line-right {
+  grid-area: 2 / 3;
+  align-self: center;
+  justify-self: start;
+}
+
+@media (min-width: 1024px) {
+  .system-hub-grid {
+    grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr);
+    grid-template-rows: auto 72px auto;
+    column-gap: 2rem;
+    row-gap: 2rem;
+  }
+}
+
+@keyframes system-card-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.system-card-reveal {
+  animation: system-card-reveal 0.6s ease-out both;
+}
+
+@keyframes system-hub-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(10, 132, 255, 0.35),
+      0 0 24px rgba(255, 59, 48, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(10, 132, 255, 0),
+      0 0 32px rgba(255, 59, 48, 0.22);
+  }
+}
+
+.system-hub-pulse {
+  animation: system-hub-pulse 3.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

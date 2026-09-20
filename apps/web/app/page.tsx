@@ -6,35 +6,50 @@ import {
   Target,
   Mouse,
   ChevronDown,
+  ListChecks,
+  FileCheck2,
+  Settings2,
+  type LucideIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import NeroBrand from "@/components/app/nero-brand";
 import LandingNav from "@/components/app/landing-nav";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
+import NeroSystemVisual from "@/components/app/nero-system-visual";
 
-const capabilities = [
+const systemBlocks: {
+  number: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}[] = [
   {
     number: "01",
     title: "DISCOVER",
     description:
       "Search across U.S. opportunities and surface jobs that actually fit your profile.",
+    icon: Search,
   },
   {
     number: "02",
     title: "MATCH",
     description:
       "Measure your fit against the role using skills, experience, requirements, and preferences.",
+    icon: ListChecks,
   },
   {
     number: "03",
     title: "ATS",
     description:
       "Analyze how ready your resume is for the specific opportunity before you apply.",
+    icon: FileCheck2,
   },
   {
     number: "04",
     title: "OPTIMIZE",
     description:
       "Improve your resume truthfully around the requirements that matter most.",
+    icon: Settings2,
   },
 ];
 
@@ -267,51 +282,164 @@ export default function Home() {
       </section>
 
       {/* System */}
-      <section id="system" className="border-t border-white/10">
-        <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-          <div className="grid gap-16 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-                02 / THE SYSTEM
+      <section
+        id="system"
+        className="relative overflow-hidden border-t border-white/10 bg-[#090c11]"
+      >
+        <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
+        <div className="nero-atmosphere absolute inset-0" aria-hidden="true" />
+
+        <div className="pointer-events-none absolute right-6 top-8 z-10 hidden items-center gap-2.5 sm:right-10 lg:right-20 lg:flex">
+          <span className="h-px w-12 bg-app-red/60" />
+          <div className="mono text-right text-[9px] leading-5 tracking-[0.2em] text-app-muted">
+            POWERED BY AI
+            <br />
+            GUIDED BY NERO
+          </div>
+        </div>
+
+        <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
+          <div className="grid gap-14 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 xl:grid-cols-[minmax(0,520px)_1fr]">
+            {/* LEFT — copy + NERO */}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-3">
+                <span className="mono text-[10px] tracking-[0.3em] text-app-red">
+                  02 / THE SYSTEM
+                </span>
+                <span className="h-px w-12 bg-app-border-strong" />
               </div>
 
-              <h2 className="font-[family-name:var(--font-display)] mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5vw,3.75rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
                 YOUR SEARCH.
                 <br />
                 <span className="text-app-muted">INTELLIGENTLY.</span>
               </h2>
 
-              <p className="mt-6 max-w-md leading-7 text-app-muted">
+              <p className="mt-6 max-w-[470px] text-base leading-7 text-app-muted sm:text-lg">
                 One workflow for discovering opportunities and understanding
                 exactly where you stand before you apply.
               </p>
+
+              <div className="mt-8 flex items-start gap-3">
+                <span
+                  className="mt-0.5 h-12 w-[3px] shrink-0 rounded-full bg-app-red"
+                  aria-hidden="true"
+                />
+                <div className="mono text-[11px] leading-5 tracking-[0.2em] text-app-body">
+                  MORE THAN JOBS
+                  <br />
+                  A BRIGHTER YOU
+                </div>
+              </div>
+
+              <div className="relative mt-6 w-fit">
+                <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-blue sm:text-[26px]">
+                  Smarter
+                  <br />
+                  Search
+                  <br />
+                  Brighter Future!
+                </p>
+                <span
+                  className="absolute -bottom-1 left-0 h-0.5 w-24 -rotate-6 bg-app-red/80"
+                  aria-hidden="true"
+                />
+              </div>
+
+              <div className="mt-10 lg:mt-12">
+                <NeroSystemVisual />
+              </div>
             </div>
 
-            <div className="grid gap-px overflow-hidden border border-white/10 bg-white/10 sm:grid-cols-2">
-              {capabilities.map((item) => (
+            {/* RIGHT — four system blocks + NERO Intelligence Hub */}
+            <div>
+              {/* Desktop / tablet: 2x2 grid with the hub connecting all four */}
+              <div className="system-hub-grid hidden md:grid">
+                <SystemCard {...systemBlocks[0]} index={0} className="system-card-1" />
                 <div
-                  key={item.number}
-                  className="group bg-app-panel p-7 transition hover:bg-app-panel-strong"
-                >
-                  <div className="flex items-start justify-between">
-                    <span className="mono text-[10px] text-app-red">
-                      {item.number}
-                    </span>
+                  className="system-line-top h-10 w-px bg-app-blue/40 lg:h-12"
+                  aria-hidden="true"
+                />
+                <SystemCard {...systemBlocks[1]} index={1} className="system-card-2" />
 
-                    <span className="text-app-muted transition group-hover:translate-x-1 group-hover:text-app-red">
-                      →
-                    </span>
-                  </div>
-
-                  <h3 className="mt-12 text-lg font-semibold tracking-tight">
-                    {item.title}
-                  </h3>
-
-                  <p className="mt-3 text-sm leading-6 text-app-muted">
-                    {item.description}
-                  </p>
+                <div
+                  className="system-line-left h-px w-10 bg-app-blue/40 lg:w-12"
+                  aria-hidden="true"
+                />
+                <div className="system-hub flex items-center justify-center">
+                  <SystemHub />
                 </div>
-              ))}
+                <div
+                  className="system-line-right h-px w-10 bg-app-blue/40 lg:w-12"
+                  aria-hidden="true"
+                />
+
+                <SystemCard {...systemBlocks[2]} index={2} className="system-card-3" />
+                <div
+                  className="system-line-bottom h-10 w-px bg-app-blue/40 lg:h-12"
+                  aria-hidden="true"
+                />
+                <SystemCard {...systemBlocks[3]} index={3} className="system-card-4" />
+              </div>
+
+              {/* Mobile: single-column stack with a simplified hub divider */}
+              <div className="flex flex-col gap-4 md:hidden">
+                <SystemCard {...systemBlocks[0]} index={0} />
+                <SystemCard {...systemBlocks[1]} index={1} />
+
+                <div className="flex items-center justify-center gap-3 py-1">
+                  <span className="h-px max-w-16 flex-1 bg-app-blue/40" aria-hidden="true" />
+                  <SystemHub size="sm" />
+                  <span className="h-px max-w-16 flex-1 bg-app-blue/40" aria-hidden="true" />
+                </div>
+
+                <SystemCard {...systemBlocks[2]} index={2} />
+                <SystemCard {...systemBlocks[3]} index={3} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom utility bar */}
+        <div className="relative border-t border-white/5">
+          <div className="mx-auto flex max-w-[1536px] flex-col items-center gap-5 px-6 py-6 text-center sm:px-10 lg:flex-row lg:justify-between lg:px-20 lg:text-left">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-app-blue/70 bg-app-bg text-sm font-semibold text-app-text"
+                aria-hidden="true"
+              >
+                N
+              </div>
+              <span className="hidden h-0.5 w-8 bg-app-red sm:block" aria-hidden="true" />
+              <div className="mono text-[9px] leading-5 tracking-[0.2em] text-app-muted">
+                BUILT FOR
+                <br />
+                A BRIGHTER TOMORROW
+              </div>
+              <span
+                className="hidden text-app-text/70 lg:inline-block"
+                aria-hidden="true"
+              >
+                →
+              </span>
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
+                SCROLL TO EXPLORE
+              </span>
+              <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
+              <ChevronDown
+                className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
+                aria-hidden="true"
+              />
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
+                OPPORTUNITIES AHEAD
+              </span>
+              <span className="hidden h-px w-10 bg-app-red/60 sm:block" aria-hidden="true" />
             </div>
           </div>
         </div>
@@ -450,6 +578,82 @@ export default function Home() {
         </div>
       </footer>
     </main>
+  );
+}
+
+function SystemCard({
+  number,
+  title,
+  description,
+  icon: Icon,
+  index,
+  className,
+}: {
+  number: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  index: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "system-card-reveal group relative rounded-2xl border border-app-blue/40 bg-app-panel/70 p-6 backdrop-blur-[2px] transition hover:border-app-blue/70 hover:bg-app-panel-strong/80 sm:p-7",
+        className,
+      )}
+      style={{ animationDelay: `${index * 110}ms` }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="mono text-xs text-app-red">{number}</span>
+        <span className="h-px w-7 bg-app-body/30" aria-hidden="true" />
+      </div>
+
+      <div className="mt-5 flex h-14 w-14 items-center justify-center rounded-xl border border-app-blue/50 bg-app-surface/80 text-app-blue">
+        <Icon className="h-6 w-6" aria-hidden="true" />
+      </div>
+
+      <h3 className="mt-5 text-lg font-semibold tracking-tight text-app-text sm:text-xl">
+        {title}
+      </h3>
+
+      <p className="mt-3 text-sm leading-6 text-app-muted">{description}</p>
+
+      <span
+        className="pointer-events-none absolute bottom-6 right-6 text-app-text/60 transition group-hover:translate-x-1 group-hover:text-app-red"
+        aria-hidden="true"
+      >
+        →
+      </span>
+    </div>
+  );
+}
+
+function SystemHub({ size = "lg" }: { size?: "sm" | "lg" }) {
+  const outer =
+    size === "lg" ? "h-[104px] w-[104px] lg:h-[120px] lg:w-[120px]" : "h-14 w-14";
+  const label = size === "lg" ? "text-3xl lg:text-4xl" : "text-lg";
+
+  return (
+    <div
+      className={cn(
+        "system-hub-pulse blue-glow relative flex shrink-0 items-center justify-center rounded-full border-2 border-app-blue/80 bg-app-bg/95",
+        outer,
+      )}
+      role="img"
+      aria-label="NERO Intelligence Hub — the AI layer connecting Discover, Match, ATS, and Optimize"
+    >
+      <div className="flex h-[74%] w-[74%] items-center justify-center rounded-full border border-app-red/70 bg-app-surface">
+        <span
+          className={cn(
+            "font-[family-name:var(--font-display)] font-bold text-app-text",
+            label,
+          )}
+        >
+          N
+        </span>
+      </div>
+    </div>
   );
 }
 
