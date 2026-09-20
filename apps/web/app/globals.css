@@ -460,6 +460,44 @@ body {
   animation: system-hub-pulse 3.2s ease-in-out infinite;
 }
 
+/* ---------------------------------------------------------------- */
+/* Landing "Discover Jobs" section — filters / results / insights    */
+/* ---------------------------------------------------------------- */
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: "jobs" "insights";
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .discover-grid {
+    grid-template-columns: 260px minmax(0, 1fr) 320px;
+    grid-template-areas: "filters jobs insights";
+    gap: 2rem;
+    align-items: start;
+  }
+}
+
+.discover-area-filters {
+  grid-area: filters;
+}
+
+.discover-area-jobs {
+  grid-area: jobs;
+}
+
+.discover-area-insights {
+  grid-area: insights;
+}
+
+/* Generic card entrance reveal — reuses the System section's keyframes
+   under a section-agnostic name for the Discover Jobs result cards. */
+.reveal-up {
+  animation: system-card-reveal 0.5s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
