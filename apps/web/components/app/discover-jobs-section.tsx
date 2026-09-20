@@ -66,11 +66,8 @@ export default function DiscoverJobsSection() {
   const [applied, setApplied] = useState<DiscoverFilters>(EMPTY_FILTERS);
 
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
   const [totalJobs, setTotalJobs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
@@ -87,8 +84,6 @@ export default function DiscoverJobsSection() {
         });
 
         setJobs(response.jobs);
-        setPage(response.pagination.page);
-        setTotalPages(response.pagination.total_pages);
         setTotalJobs(response.pagination.total);
         setError(null);
       } catch (err) {
@@ -140,43 +135,12 @@ export default function DiscoverJobsSection() {
     }));
   }
 
-  function loadMore() {
-    if (loadingMore || page >= totalPages) return;
-
-    setLoadingMore(true);
-
-    getJobs({
-      search: applied.search || undefined,
-      employment_type: applied.employmentType || undefined,
-      remote_type: applied.remoteType || undefined,
-      location: applied.location || undefined,
-      page: page + 1,
-      page_size: PAGE_SIZE,
-    })
-      .then((response) => {
-        setJobs((current) => [...current, ...response.jobs]);
-        setPage(response.pagination.page);
-        setTotalPages(response.pagination.total_pages);
-        setTotalJobs(response.pagination.total);
-        setError(null);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Unable to load more jobs right now.");
-      })
-      .finally(() => {
-        setLoadingMore(false);
-      });
-  }
-
   const activeFilterCount = [
     applied.search,
     applied.employmentType,
     applied.remoteType,
     applied.location,
   ].filter(Boolean).length;
-
-  const hasMore = page < totalPages;
 
   // Illustrative-only: how many of the loaded results score >= 85 on the
   // sample match scale below. Real Job Match requires a signed-in
@@ -202,7 +166,7 @@ export default function DiscoverJobsSection() {
       />
       <div className="nero-atmosphere absolute inset-0" aria-hidden="true" />
 
-      <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-24">
+      <div className="relative mx-auto max-w-[1536px] px-6 py-12 sm:px-10 sm:py-16 lg:px-20 lg:py-20">
         <div className="discover-hero-grid">
           {/* HEADLINE — mobile order: 1st */}
           <div className="discover-hero-area-content">
@@ -243,7 +207,7 @@ export default function DiscoverJobsSection() {
               </div>
             </div>
 
-            <div className="w-full max-w-[320px] pt-16 sm:pt-20 lg:pt-4">
+            <div className="w-full max-w-[320px] pt-12 sm:pt-14 lg:pt-4">
               <NeroHeroVisual />
             </div>
 
@@ -396,7 +360,7 @@ export default function DiscoverJobsSection() {
         </div>
 
         {/* MOBILE FILTERS TRIGGER */}
-        <div className="mt-8 lg:hidden">
+        <div className="mt-6 lg:hidden">
           <Dialog.Root
             open={mobileFiltersOpen}
             onOpenChange={setMobileFiltersOpen}
@@ -460,7 +424,7 @@ export default function DiscoverJobsSection() {
         </div>
 
         {/* MAIN DISCOVERY AREA */}
-        <div className="discover-grid mt-8">
+        <div className="discover-grid mt-6">
           {/* FILTER PANEL (desktop) */}
           <aside className="discover-area-filters hidden lg:block">
             <div className="sticky top-6 rounded-2xl border border-app-border bg-app-panel/70 p-5">
@@ -568,38 +532,27 @@ export default function DiscoverJobsSection() {
             )}
 
             {jobs.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {jobs.map((job, index) => (
                   <JobResultCard key={job.id} job={job} index={index} />
                 ))}
               </div>
             )}
 
-            {jobs.length > 0 && hasMore && (
-              <div className="mt-6 flex flex-col items-center gap-2">
-                <AppButton
-                  variant="ghost"
-                  loading={loadingMore}
-                  onClick={loadMore}
-                >
-                  {loadingMore ? "Loading…" : "Load More Jobs"}
-                </AppButton>
-                {error && (
-                  <p className="text-xs text-app-danger-text">{error}</p>
-                )}
-              </div>
+            {jobs.length > 0 && error && (
+              <p className="mt-4 text-xs text-app-danger-text">{error}</p>
             )}
           </div>
 
           {/* NERO INSIGHTS */}
-          <div className="discover-area-insights space-y-5">
+          <div className="discover-area-insights space-y-4">
             <NeroInsightsPanel jobs={jobs} />
             <WhyNeroFoundThese filters={applied} />
           </div>
         </div>
 
         {/* SECTION TRANSITION */}
-        <div className="relative mt-14 flex flex-col items-center gap-6 border-t border-white/5 pt-8 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
+        <div className="relative mt-10 flex flex-col items-center gap-6 border-t border-white/5 pt-6 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
           <div>
             <div className="flex items-center justify-center gap-2 lg:justify-start">
               <span className="mono text-[10px] tracking-[0.3em] text-app-red">
@@ -982,7 +935,7 @@ function JobResultCard({ job, index }: { job: Job; index: number }) {
 
   return (
     <article
-      className="reveal-up group rounded-2xl border border-app-border bg-app-panel p-5 transition-colors hover:border-app-border-strong sm:p-6"
+      className="reveal-up group rounded-2xl border border-app-border bg-app-panel p-4 transition-colors hover:border-app-border-strong sm:p-5"
       style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}
     >
       <div className="flex items-start gap-4">
@@ -1080,7 +1033,7 @@ function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
   const topJobs = jobs.slice(0, 3);
 
   return (
-    <div className="rounded-2xl border border-app-blue/40 bg-app-panel/70 p-5">
+    <div className="rounded-2xl border border-app-blue/40 bg-app-panel/70 p-4">
       <div className="flex items-center gap-2.5">
         <Image
           src="/brand/nero-mascot-logo.png"
@@ -1197,7 +1150,7 @@ function WhyNeroFoundThese({ filters }: { filters: DiscoverFilters }) {
   reasons.push("Full Job Match & ATS Alignment unlock once you sign in");
 
   return (
-    <div className="rounded-2xl border border-app-border bg-app-panel/70 p-5">
+    <div className="rounded-2xl border border-app-border bg-app-panel/70 p-4">
       <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
         Why NERO Found These
       </span>

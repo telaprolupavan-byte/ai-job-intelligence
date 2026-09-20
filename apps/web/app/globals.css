@@ -473,7 +473,7 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   grid-template-areas: "content" "nero" "search";
-  row-gap: 2rem;
+  row-gap: 1.5rem;
 }
 
 @media (min-width: 1024px) {
@@ -481,7 +481,7 @@ body {
     grid-template-columns: minmax(0, 680px) 1fr;
     grid-template-areas: "content nero" "search nero";
     column-gap: 3rem;
-    row-gap: 1.5rem;
+    row-gap: 1.25rem;
     align-items: start;
   }
 }
@@ -502,14 +502,14 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   grid-template-areas: "jobs" "insights";
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 @media (min-width: 1024px) {
   .discover-grid {
     grid-template-columns: 260px minmax(0, 1fr) 320px;
     grid-template-areas: "filters jobs insights";
-    gap: 2rem;
+    gap: 1.5rem;
     align-items: start;
   }
 }
