@@ -766,7 +766,7 @@ function SampleMatchReport() {
       <div className="mt-5 grid grid-cols-3 gap-3">
         <ScoreTile value="94%" tone="success" label="Job Match" />
         <ScoreTile value="91%" tone="blue" label="ATS Readiness" />
-        <ScoreTile value="HIGH" tone="amber" label="App. Signal" />
+        <ScoreTile value="HIGH" tone="success" label="App. Signal" />
       </div>
 
       <div className="mt-6 border-t border-app-border pt-5">
