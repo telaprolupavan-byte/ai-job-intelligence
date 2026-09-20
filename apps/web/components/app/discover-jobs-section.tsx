@@ -7,21 +7,16 @@ import { Dialog } from "@base-ui/react/dialog";
 import {
   Search as SearchIcon,
   MapPin,
-  Bookmark,
   SlidersHorizontal,
   Lock,
   ArrowRight,
   X,
-  Briefcase,
   Mouse,
   ChevronDown,
 } from "lucide-react";
 import { getJobs, type Job } from "@/lib/jobs";
 import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
-import EmptyState from "@/components/app/empty-state";
-import ErrorState from "@/components/app/error-state";
-import { Skeleton } from "@/components/app/skeleton";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import { cn } from "@/lib/utils";
 
@@ -42,9 +37,11 @@ const EMPTY_FILTERS: DiscoverFilters = {
   location: "",
 };
 
-// Kept small — this is a marketing preview of live search, not the full
-// paginated Jobs workspace (that lives at /jobs behind sign-in).
-const PAGE_SIZE = 6;
+// Kept deliberately small — this is a curated product demo on the
+// marketing page, not the full paginated Jobs workspace (that lives at
+// /jobs behind sign-in). Three cards is enough to show what NERO surfaces
+// without the section reading like a job board.
+const PAGE_SIZE = 3;
 
 const EMPLOYMENT_OPTIONS: { value: EmploymentFilter; label: string }[] = [
   { value: "full_time", label: "Full-Time" },
@@ -67,8 +64,7 @@ export default function DiscoverJobsSection() {
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [totalJobs, setTotalJobs] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const runSearch = useCallback((filters: DiscoverFilters) => {
@@ -85,10 +81,8 @@ export default function DiscoverJobsSection() {
 
         setJobs(response.jobs);
         setTotalJobs(response.pagination.total);
-        setError(null);
       } catch (err) {
         console.error(err);
-        setError("Unable to load live opportunities right now.");
       }
     });
   }, [startTransition]);
@@ -424,7 +418,7 @@ export default function DiscoverJobsSection() {
         </div>
 
         {/* MAIN DISCOVERY AREA */}
-        <div className="discover-grid mt-6">
+        <div id="discover-results" className="discover-grid mt-6">
           {/* FILTER PANEL (desktop) */}
           <aside className="discover-area-filters hidden lg:block">
             <div className="sticky top-6 rounded-2xl border border-app-border bg-app-panel/70 p-5">
@@ -460,89 +454,6 @@ export default function DiscoverJobsSection() {
               </button>
             </div>
           </aside>
-
-          {/* JOB RESULTS */}
-          <div className="discover-area-jobs min-w-0">
-            <div
-              id="discover-results"
-              className="mb-2 flex scroll-mt-24 flex-wrap items-center justify-between gap-2"
-            >
-              <span className="text-sm font-semibold text-app-text">
-                {totalJobs === null
-                  ? "Opportunities"
-                  : `${totalJobs.toLocaleString()}${totalJobs > 0 ? "+" : ""} opportunities`}
-              </span>
-              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-                Sorted by Most Recently Posted
-              </span>
-            </div>
-
-            {jobs.length > 0 && (
-              <p className="mb-4 text-[11px] leading-5 text-app-faint">
-                * Match scores below are illustrative examples.{" "}
-                <Link
-                  href="/register"
-                  className="app-focus-ring text-app-blue underline-offset-2 hover:underline"
-                >
-                  Create a free account
-                </Link>{" "}
-                to calculate your real Job Match.
-              </p>
-            )}
-
-            {isPending && jobs.length === 0 && (
-              <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="rounded-2xl border border-app-border bg-app-panel p-5"
-                  >
-                    <Skeleton className="h-5 w-2/3" />
-                    <Skeleton className="mt-3 h-3 w-1/3" />
-                    <div className="mt-4 flex gap-2">
-                      <Skeleton className="h-6 w-20" />
-                      <Skeleton className="h-6 w-24" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!isPending && error && jobs.length === 0 && (
-              <ErrorState
-                title="Live search unavailable"
-                message={error}
-                onRetry={() => runSearch(applied)}
-              />
-            )}
-
-            {!isPending && !error && jobs.length === 0 && (
-              <EmptyState
-                icon={SearchIcon}
-                title="No opportunities match your filters"
-                description="Try a different keyword or clear your filters to see all live opportunities."
-                action={
-                  activeFilterCount > 0 ? (
-                    <AppButton variant="secondary" onClick={clearAll}>
-                      Clear Filters
-                    </AppButton>
-                  ) : undefined
-                }
-              />
-            )}
-
-            {jobs.length > 0 && (
-              <div className="space-y-3">
-                {jobs.map((job, index) => (
-                  <JobResultCard key={job.id} job={job} index={index} />
-                ))}
-              </div>
-            )}
-
-            {jobs.length > 0 && error && (
-              <p className="mt-4 text-xs text-app-danger-text">{error}</p>
-            )}
-          </div>
 
           {/* NERO INSIGHTS */}
           <div className="discover-area-insights space-y-4">
@@ -926,107 +837,6 @@ function deriveHighlights(job: Job): string[] {
   }
 
   return highlights.slice(0, 3);
-}
-
-function JobResultCard({ job, index }: { job: Job; index: number }) {
-  const timestamp = job.posting_date ?? job.first_seen_at;
-  const timestampLabel = job.posting_date ? "Posted" : "Found";
-  const highlights = deriveHighlights(job);
-
-  return (
-    <article
-      className="reveal-up group rounded-2xl border border-app-border bg-app-panel p-4 transition-colors hover:border-app-border-strong sm:p-5"
-      style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}
-    >
-      <div className="flex items-start gap-4">
-        <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-border-strong bg-app-surface text-sm font-bold text-app-blue"
-          aria-hidden="true"
-        >
-          {job.company ? getInitials(job.company) : (
-            <Briefcase className="h-4 w-4" />
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="truncate text-base font-semibold text-app-text sm:text-lg">
-                {job.title}
-              </h3>
-              <p className="mt-0.5 text-sm text-app-muted">
-                {job.company || "Company not disclosed"}
-              </p>
-            </div>
-
-            <MatchBadge score={sampleMatchScore(index)} />
-          </div>
-
-          <p className="mt-2 text-xs text-app-muted">
-            {[
-              job.location,
-              job.employment_type && formatLabel(job.employment_type),
-              job.remote_type && formatLabel(job.remote_type),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-
-          {highlights.length > 0 && (
-            <ul className="mt-3 space-y-1.5">
-              {highlights.map((highlight) => (
-                <li
-                  key={highlight}
-                  className="flex items-start gap-2 text-xs leading-5 text-app-body"
-                >
-                  <span className="mt-0.5 text-app-success" aria-hidden="true">
-                    ✓
-                  </span>
-                  {highlight}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-app-border pt-3">
-            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-              {timestamp
-                ? `${timestampLabel} ${formatRelativeTime(timestamp)}`
-                : job.source}
-            </span>
-
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                aria-label="Sign in to save this job"
-                title="Sign in to save this job"
-                className="app-focus-ring flex h-9 w-9 items-center justify-center rounded-lg border border-app-border text-app-muted transition hover:border-app-border-strong hover:text-app-text"
-              >
-                <Bookmark className="h-4 w-4" aria-hidden="true" />
-              </Link>
-
-              {job.source_url ? (
-                <AppButton
-                  variant="secondary"
-                  size="sm"
-                  href={job.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View Details
-                  <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                </AppButton>
-              ) : (
-                <AppButton variant="secondary" size="sm" disabled>
-                  View Details
-                </AppButton>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
 }
 
 function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
