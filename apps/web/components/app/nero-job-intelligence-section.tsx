@@ -89,7 +89,7 @@ export default function NeroJobIntelligenceSection() {
       <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
       <div className="job-intel-atmosphere absolute inset-0" aria-hidden="true" />
 
-      <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
+      <div className="relative mx-auto max-w-[1536px] px-6 py-12 sm:px-10 sm:py-14 lg:px-20 lg:py-16">
         {/* Foreground detail — top-right handwritten annotation */}
         <div
           className="pointer-events-none absolute right-6 top-10 z-20 hidden max-w-[180px] -rotate-2 text-right sm:right-10 lg:right-20 lg:block"
@@ -136,7 +136,7 @@ export default function NeroJobIntelligenceSection() {
         </div>
 
         {/* Layer 2/3 — input panels + approved reference artwork */}
-        <div className="job-intel-grid mt-16 lg:mt-20">
+        <div className="job-intel-grid mt-8 lg:mt-9">
           <div className="job-intel-area-panels flex flex-col gap-4">
             {inputPanels.map((panel, index) => (
               <InputPanel key={panel.title} {...panel} index={index} />
@@ -148,32 +148,31 @@ export default function NeroJobIntelligenceSection() {
           </div>
         </div>
 
-        {/* Foreground detail — handwritten annotation, own row so it never
-            collides with the input panels or principle cards above/below. */}
-        <div
-          className="mt-16 hidden max-w-[220px] -rotate-2 lg:mt-20 lg:block"
-          aria-hidden="true"
-        >
-          <p className="font-[family-name:var(--font-caveat)] bg-gradient-to-b from-[#c77dff] to-[#5cc6ff] bg-clip-text text-2xl leading-[1.15] text-transparent">
-            Better
-            <br />
-            Decisions
-            <br />
-            Brighter
-            <br />
-            Tomorrows.
-          </p>
-        </div>
-
         {/* Three principles */}
-        <div className="mt-6 grid gap-x-0 gap-y-10 border-t border-white/10 pt-14 sm:grid-cols-3 sm:divide-x sm:divide-white/10 lg:mt-8">
+        <div className="mt-6 grid gap-x-0 gap-y-10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
           {principles.map((principle, index) => (
             <PrincipleCard key={principle.title} {...principle} index={index} />
           ))}
         </div>
 
         {/* Final marketing section */}
-        <div className="relative mt-20 py-4 text-center lg:mt-24">
+        <div className="relative mt-8 py-4 text-center sm:mt-10">
+          {/* Foreground detail — handwritten annotation beside the CTA */}
+          <div
+            className="pointer-events-none absolute left-0 top-1/2 hidden max-w-[190px] -translate-y-1/2 -rotate-2 text-left lg:block"
+            aria-hidden="true"
+          >
+            <p className="font-[family-name:var(--font-caveat)] bg-gradient-to-b from-[#c77dff] to-[#5cc6ff] bg-clip-text text-2xl leading-[1.15] text-transparent">
+              Better
+              <br />
+              Decisions
+              <br />
+              Brighter
+              <br />
+              Tomorrows.
+            </p>
+          </div>
+
           <span className="mono text-[10px] tracking-[0.3em] text-[#bcdfff]">
             IT&apos;S MORE THAN A JOB.
           </span>
@@ -201,7 +200,7 @@ export default function NeroJobIntelligenceSection() {
         </div>
 
         {/* Foreground detail — bottom utility bar */}
-        <div className="relative mt-14 flex flex-col items-center gap-5 border-t border-white/5 pt-6 text-center lg:flex-row lg:justify-between lg:text-left">
+        <div className="relative mt-8 flex flex-col items-center gap-5 border-t border-white/5 pt-6 text-center lg:flex-row lg:justify-between lg:text-left">
           <ProgressRail />
 
           <div className="flex flex-col items-center gap-2">

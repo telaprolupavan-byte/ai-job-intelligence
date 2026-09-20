@@ -479,7 +479,7 @@ body {
 
 @media (min-width: 1024px) {
   .job-intel-grid {
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    grid-template-columns: minmax(200px, 25%) minmax(0, 1fr);
     grid-template-areas: "panels scene";
     column-gap: 0;
     align-items: start;
