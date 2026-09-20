@@ -14,12 +14,27 @@ import Image from "next/image";
 export default function NeroFinaleVisual() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="finale-sky absolute inset-0" aria-hidden="true" />
+      {/* VERY HIGH tier — the page's strongest cinematic scene, and the
+          one section with no motion at all before this pass. Layered
+          local parallax, slowest to fastest: sky (background) <
+          horizon glow (atmosphere) < planet (midground) < NERO below,
+          each restrained enough to stay premium rather than showy. */}
       <div
+        data-parallax-speed="0.04"
+        data-parallax-local
+        className="finale-sky absolute inset-0"
+        aria-hidden="true"
+      />
+      <div
+        data-parallax-speed="0.07"
+        data-parallax-local
         className="finale-horizon-glow absolute inset-x-0 bottom-0 h-2/3"
         aria-hidden="true"
       />
       <div
+        data-parallax-speed="0.1"
+        data-parallax-x="-0.02"
+        data-parallax-local
         className="finale-planet absolute -right-10 -top-10 h-40 w-40 rounded-full sm:h-56 sm:w-56 lg:h-64 lg:w-64"
         aria-hidden="true"
       />
@@ -81,7 +96,12 @@ export default function NeroFinaleVisual() {
 
       <div className="finale-scrim absolute inset-0" aria-hidden="true" />
 
-      <div className="absolute bottom-0 left-[2%] z-10 w-[46%] max-w-[220px] sm:max-w-[260px] lg:max-w-[300px]">
+      <div
+        data-parallax-speed="0.14"
+        data-parallax-scale-to="1.05"
+        data-parallax-local
+        className="absolute bottom-0 left-[2%] z-10 w-[46%] max-w-[220px] sm:max-w-[260px] lg:max-w-[300px]"
+      >
         <Image
           src="/brand/nero-hero-figure.png"
           alt="NERO, the AI Job Intelligence mascot, looking out over the horizon toward what's next"

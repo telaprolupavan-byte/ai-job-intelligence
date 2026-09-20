@@ -80,8 +80,15 @@ export default function ResumeIntelligenceSection() {
           {/* Mascot cameo — same approved standing/pointing artwork used
               throughout the page, sized to sit beside the header on wide
               screens and centered below it on mobile, without taking
-              over the section's existing before/after layout. */}
-          <div className="relative mx-auto w-[130px] shrink-0 sm:mx-0 sm:w-[150px] lg:w-[170px]">
+              over the section's existing before/after layout. A gentle
+              scroll-linked scale-up reads as NERO leaning in to analyze,
+              HIGH-tier per the cinematic-pass motion map. */}
+          <div
+            data-parallax-speed="0.09"
+            data-parallax-scale-to="1.05"
+            data-parallax-local
+            className="relative mx-auto w-[130px] shrink-0 sm:mx-0 sm:w-[150px] lg:w-[170px]"
+          >
             <div className="pointer-events-none absolute -top-8 right-[-8%] z-20 hidden max-w-[170px] rotate-2 sm:block">
               <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-3 shadow-lg backdrop-blur-sm">
                 <p className="font-[family-name:var(--font-caveat)] text-xl leading-5 text-app-text">
@@ -122,6 +129,8 @@ export default function ResumeIntelligenceSection() {
                 key={stage.title}
                 data-reveal
                 data-reveal-delay={index * 110}
+                data-parallax-speed={(0.02 + index * 0.008).toFixed(3)}
+                data-parallax-local
                 className="relative flex flex-col items-center text-center"
               >
                 <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-app-blue/50 bg-app-bg text-app-blue">
@@ -142,6 +151,8 @@ export default function ResumeIntelligenceSection() {
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:mt-20 lg:gap-8">
           <div
             data-reveal
+            data-parallax-speed="0.03"
+            data-parallax-local
             style={{ "--reveal-distance": "18px" } as CSSProperties}
             className="glass-panel relative rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(255,59,48,0.4)]"
           >
@@ -166,6 +177,9 @@ export default function ResumeIntelligenceSection() {
           <div
             data-reveal
             data-reveal-delay="220"
+            data-parallax-speed="0.05"
+            data-parallax-scale-to="1.02"
+            data-parallax-local
             style={{ "--reveal-distance": "18px" } as CSSProperties}
             className="glass-panel relative rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(34,160,107,0.4)]"
           >
