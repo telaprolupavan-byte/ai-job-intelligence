@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
+// "Resources" pointed at the removed "Make Your Next Move" section's
+// id="resources"; repointed to the NERO Journey section, the nearest
+// remaining anchor, so the link isn't left dangling.
 const NAV_LINKS = [
   { href: "#system", label: "Features" },
   { href: "#how-it-works", label: "How It Works" },
   { href: "#pricing", label: "Pricing" },
-  { href: "#resources", label: "Resources" },
+  { href: "#nero-journey", label: "Resources" },
 ];
 
 export default function LandingNav() {

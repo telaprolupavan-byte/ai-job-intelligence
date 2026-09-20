@@ -22,9 +22,7 @@ import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
 import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
-import NeroNextMoveSection, {
-  NeroFinaleSection,
-} from "@/components/app/nero-next-move-section";
+import NeroFinaleSection from "@/components/app/nero-finale-section";
 import ProblemSection from "@/components/app/problem-section";
 import ResumeIntelligenceSection from "@/components/app/resume-intelligence-section";
 import NeroJourneySection from "@/components/app/nero-journey-section";
@@ -613,9 +611,6 @@ export default function Home() {
 
       {/* The NERO Journey */}
       <NeroJourneySection />
-
-      {/* Make Your Next Move (Page 5) */}
-      <NeroNextMoveSection />
 
       {/* For Students */}
       <StudentSection />
