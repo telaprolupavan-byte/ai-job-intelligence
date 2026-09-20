@@ -19,6 +19,7 @@ import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
 import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
+import NeroNextMoveSection from "@/components/app/nero-next-move-section";
 
 const systemBlocks: {
   number: string;
@@ -460,50 +461,8 @@ export default function Home() {
       {/* Job Intelligence (Page 4) */}
       <NeroJobIntelligenceSection />
 
-      {/* Philosophy */}
-      <section id="resources" className="border-t border-white/10">
-        <div className="mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-          <div className="grid gap-16 lg:grid-cols-2">
-            <div>
-              <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-                05 / PRINCIPLES
-              </div>
-
-              <h2 className="font-[family-name:var(--font-display)] mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-                INTELLIGENCE
-                <br />
-                <span className="text-app-muted">WITHOUT NOISE.</span>
-              </h2>
-            </div>
-
-            <div className="space-y-8">
-              <Principle
-                number="01"
-                title="PERSONAL"
-                text="Your resume, experience, skills, titles, and preferences shape the search."
-              />
-
-              <Principle
-                number="02"
-                title="TRUTHFUL"
-                text="Recommendations improve your existing qualifications without fabricating experience."
-              />
-
-              <Principle
-                number="03"
-                title="TRANSPARENT"
-                text="Every match and recommendation should have a reason behind it."
-              />
-
-              <Principle
-                number="04"
-                title="USER CONTROLLED"
-                text="The system helps you decide. It does not blindly apply to jobs for you."
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Make Your Next Move (Page 5) */}
+      <NeroNextMoveSection />
 
       {/* Final CTA */}
       <section id="pricing" className="border-t border-white/10">
@@ -649,29 +608,6 @@ function SystemHub({ size = "lg" }: { size?: "sm" | "lg" }) {
         >
           N
         </span>
-      </div>
-    </div>
-  );
-}
-
-function Principle({
-  number,
-  title,
-  text,
-}: {
-  number: string;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="flex gap-6 border-b border-white/10 pb-8">
-      <div className="mono pt-1 text-[10px] text-app-red">{number}</div>
-
-      <div>
-        <h3 className="text-sm font-semibold tracking-wide">{title}</h3>
-        <p className="mt-2 max-w-lg text-sm leading-6 text-app-muted">
-          {text}
-        </p>
       </div>
     </div>
   );
