@@ -9,6 +9,7 @@ import {
   ListChecks,
   FileCheck2,
   Settings2,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -288,6 +289,14 @@ export default function Home() {
       >
         <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
         <div className="nero-atmosphere absolute inset-0" aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute -right-32 -top-32 hidden h-[520px] w-[520px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_38%_38%,rgba(10,132,255,0.1),transparent_62%)] lg:block"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute left-[18%] top-10 hidden h-px w-28 -rotate-[35deg] bg-gradient-to-r from-app-red/70 to-transparent lg:block"
+          aria-hidden="true"
+        />
 
         <div className="pointer-events-none absolute right-6 top-8 z-10 hidden items-center gap-2.5 sm:right-10 lg:right-20 lg:flex">
           <span className="h-px w-12 bg-app-red/60" />
@@ -346,8 +355,20 @@ export default function Home() {
                 />
               </div>
 
-              <div className="mt-10 lg:mt-12">
+              <div className="relative mx-auto mt-10 w-full max-w-[280px] sm:max-w-[320px] lg:mt-12 lg:max-w-[360px]">
                 <NeroSystemVisual />
+
+                <div
+                  className="absolute right-[-8%] top-[6%] z-20 hidden w-[132px] rounded-xl border border-app-blue/50 bg-app-panel/90 p-3 shadow-[0_0_28px_-8px_rgba(10,132,255,0.45)] backdrop-blur-sm sm:block"
+                  aria-hidden="true"
+                >
+                  <Globe className="h-4 w-4 text-app-blue" />
+                  <p className="mono mt-2 text-[9px] leading-4 tracking-[0.15em] text-app-body">
+                    OPPORTUNITIES
+                    <br />
+                    NATIONWIDE
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -356,29 +377,17 @@ export default function Home() {
               {/* Desktop / tablet: 2x2 grid with the hub connecting all four */}
               <div className="system-hub-grid hidden md:grid">
                 <SystemCard {...systemBlocks[0]} index={0} className="system-card-1" />
-                <div
-                  className="system-line-top h-10 w-px bg-app-blue/40 lg:h-12"
-                  aria-hidden="true"
-                />
+                <SystemConnector orientation="vertical" className="system-line-top h-10 lg:h-12" />
                 <SystemCard {...systemBlocks[1]} index={1} className="system-card-2" />
 
-                <div
-                  className="system-line-left h-px w-10 bg-app-blue/40 lg:w-12"
-                  aria-hidden="true"
-                />
+                <SystemConnector orientation="horizontal" className="system-line-left w-10 lg:w-12" />
                 <div className="system-hub flex items-center justify-center">
                   <SystemHub />
                 </div>
-                <div
-                  className="system-line-right h-px w-10 bg-app-blue/40 lg:w-12"
-                  aria-hidden="true"
-                />
+                <SystemConnector orientation="horizontal" className="system-line-right w-10 lg:w-12" />
 
                 <SystemCard {...systemBlocks[2]} index={2} className="system-card-3" />
-                <div
-                  className="system-line-bottom h-10 w-px bg-app-blue/40 lg:h-12"
-                  aria-hidden="true"
-                />
+                <SystemConnector orientation="vertical" className="system-line-bottom h-10 lg:h-12" />
                 <SystemCard {...systemBlocks[3]} index={3} className="system-card-4" />
               </div>
 
@@ -416,11 +425,9 @@ export default function Home() {
                 <br />
                 A BRIGHTER TOMORROW
               </div>
-              <span
-                className="hidden text-app-text/70 lg:inline-block"
-                aria-hidden="true"
-              >
-                →
+              <span className="hidden items-center lg:flex" aria-hidden="true">
+                <span className="h-px w-16 bg-gradient-to-r from-app-text/40 to-transparent xl:w-24" />
+                <span className="ml-1 text-app-text/70">→</span>
               </span>
             </div>
 
@@ -599,7 +606,7 @@ function SystemCard({
   return (
     <div
       className={cn(
-        "system-card-reveal group relative rounded-2xl border border-app-blue/40 bg-app-panel/70 p-6 backdrop-blur-[2px] transition hover:border-app-blue/70 hover:bg-app-panel-strong/80 sm:p-7",
+        "system-card-reveal group relative rounded-2xl border border-app-blue/50 bg-app-panel/70 p-6 shadow-[0_0_28px_-12px_rgba(10,132,255,0.5)] backdrop-blur-[2px] transition hover:border-app-blue/80 hover:bg-app-panel-strong/80 hover:shadow-[0_0_34px_-8px_rgba(10,132,255,0.6)] sm:p-7",
         className,
       )}
       style={{ animationDelay: `${index * 110}ms` }}
@@ -629,6 +636,29 @@ function SystemCard({
   );
 }
 
+function SystemConnector({
+  orientation,
+  className,
+}: {
+  orientation: "vertical" | "horizontal";
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn("relative", orientation === "vertical" ? "w-6" : "h-6", className)}
+      aria-hidden="true"
+    >
+      <div
+        className={cn(
+          "absolute inset-0 m-auto bg-app-blue/40",
+          orientation === "vertical" ? "h-full w-px" : "h-px w-full",
+        )}
+      />
+      <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]" />
+    </div>
+  );
+}
+
 function SystemHub({ size = "lg" }: { size?: "sm" | "lg" }) {
   const outer =
     size === "lg" ? "h-[104px] w-[104px] lg:h-[120px] lg:w-[120px]" : "h-14 w-14";
@@ -637,13 +667,13 @@ function SystemHub({ size = "lg" }: { size?: "sm" | "lg" }) {
   return (
     <div
       className={cn(
-        "system-hub-pulse blue-glow relative flex shrink-0 items-center justify-center rounded-full border-2 border-app-blue/80 bg-app-bg/95",
+        "system-hub-pulse relative flex shrink-0 items-center justify-center rounded-full border-2 border-app-blue bg-app-bg/95 shadow-[0_0_36px_-6px_rgba(10,132,255,0.6)]",
         outer,
       )}
       role="img"
       aria-label="NERO Intelligence Hub — the AI layer connecting Discover, Match, ATS, and Optimize"
     >
-      <div className="flex h-[74%] w-[74%] items-center justify-center rounded-full border border-app-red/70 bg-app-surface">
+      <div className="flex h-[74%] w-[74%] items-center justify-center rounded-full border border-app-red bg-app-surface">
         <span
           className={cn(
             "font-[family-name:var(--font-display)] font-bold text-app-text",

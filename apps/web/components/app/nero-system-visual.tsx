@@ -7,13 +7,13 @@ import Image from "next/image";
  */
 export default function NeroSystemVisual() {
   return (
-    <div className="relative mx-auto w-full max-w-[280px] sm:max-w-[320px]">
+    <div className="relative mx-auto w-full">
       <Image
         src="/brand/nero-page2-explainer.png"
         alt="NERO, the AI Job Intelligence mascot, in a presenting pose explaining the Discover, Match, ATS, and Optimize system"
         width={780}
         height={936}
-        sizes="(min-width: 640px) 320px, 280px"
+        sizes="(min-width: 1024px) 360px, (min-width: 640px) 320px, 280px"
         quality={95}
         className="nero-float relative z-10 h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
       />
