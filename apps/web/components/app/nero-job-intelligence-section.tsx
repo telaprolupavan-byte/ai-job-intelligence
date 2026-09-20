@@ -63,7 +63,7 @@ const principles: {
   },
 ];
 
-const PROGRESS_STEPS = ["01", "02", "03", "04", "05"];
+const PROGRESS_STEPS = ["01", "02", "03", "04", "05", "06"];
 const ACTIVE_STEP = "04";
 
 /**
@@ -118,7 +118,7 @@ export default function NeroJobIntelligenceSection() {
         <div className="max-w-2xl">
           <div className="flex items-center gap-3">
             <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-              04 / 05 &nbsp; JOB INTELLIGENCE
+              04 / 06 &nbsp; JOB INTELLIGENCE
             </span>
             <span className="h-px w-12 bg-app-red/50" />
           </div>

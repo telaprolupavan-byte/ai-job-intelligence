@@ -503,7 +503,7 @@ export default function Home() {
           <div className="grid gap-16 lg:grid-cols-2">
             <div>
               <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-                04 / PRINCIPLES
+                05 / PRINCIPLES
               </div>
 
               <h2 className="font-[family-name:var(--font-display)] mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -549,7 +549,7 @@ export default function Home() {
 
           <div className="relative mx-auto max-w-5xl px-6 py-28 text-center lg:px-8 lg:py-40">
             <div className="mono text-[10px] tracking-[0.3em] text-app-red">
-              05 / BEGIN
+              06 / BEGIN
             </div>
 
             <h2 className="font-[family-name:var(--font-display)] mt-6 text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">
