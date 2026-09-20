@@ -618,6 +618,22 @@ body {
   animation: job-intel-clarity-pulse 4.2s ease-in-out infinite;
 }
 
+/* ---------------------------------------------------------------- */
+/* Landing "Make Your Next Move" section — Page 5 scene              */
+/* Continues Page 4's motion language exactly (technical-grid,       */
+/* reveal animation, NERO companion, progress rail, scroll-continue  */
+/* bar) with the same blue -> purple -> red atmospheric blend, now   */
+/* weighted toward red as the journey approaches the final CTA's     */
+/* red-atmosphere — no new movement values introduced.               */
+/* ---------------------------------------------------------------- */
+.next-move-atmosphere {
+  background:
+    radial-gradient(circle at 76% 22%, rgba(255, 59, 48, 0.2), transparent 44%),
+    radial-gradient(circle at 28% 68%, rgba(122, 92, 255, 0.18), transparent 52%),
+    radial-gradient(circle at 12% 16%, rgba(10, 132, 255, 0.12), transparent 40%);
+  filter: blur(4px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
