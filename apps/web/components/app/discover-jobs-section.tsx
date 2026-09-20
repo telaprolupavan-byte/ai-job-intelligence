@@ -55,6 +55,9 @@ const REMOTE_OPTIONS: { value: RemoteFilter; label: string }[] = [
   { value: "onsite", label: "On-Site" },
 ];
 
+const BLUE_BUTTON_CLASS =
+  "app-focus-ring inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-app-blue px-5 text-xs font-bold uppercase tracking-[0.1em] text-black transition hover:bg-app-blue-hover";
+
 export default function DiscoverJobsSection() {
   const [draft, setDraft] = useState({ search: "", location: "" });
   const [applied, setApplied] = useState<DiscoverFilters>(EMPTY_FILTERS);
@@ -126,6 +129,14 @@ export default function DiscoverJobsSection() {
     setMobileFiltersOpen(false);
   }
 
+  function applyDraft() {
+    setApplied((current) => ({
+      ...current,
+      search: draft.search.trim(),
+      location: draft.location.trim(),
+    }));
+  }
+
   function loadMore() {
     if (loadingMore || page >= totalPages) return;
 
@@ -164,6 +175,19 @@ export default function DiscoverJobsSection() {
 
   const hasMore = page < totalPages;
 
+  // Illustrative-only: how many of the loaded results score >= 85 on the
+  // sample match scale below. Real Job Match requires a signed-in
+  // resume, so this is clearly labeled everywhere it's shown.
+  const sampleStrongMatches = jobs.filter(
+    (_, index) => sampleMatchScore(index) >= 85,
+  ).length;
+
+  // Real: how many of the loaded results were posted/first seen today.
+  const newTodayCount = jobs.filter((job) => {
+    const timestamp = job.posting_date ?? job.first_seen_at;
+    return timestamp && formatRelativeTime(timestamp) === "Today";
+  }).length;
+
   return (
     <section
       id="how-it-works"
@@ -195,9 +219,22 @@ export default function DiscoverJobsSection() {
             </h2>
 
             <p className="mt-5 max-w-xl text-base leading-7 text-app-muted">
-              NERO searches and analyzes live U.S. opportunities from
-              connected sources, then filters them against your skills,
-              experience, and preferences — try it below with a real search.
+              Search U.S. opportunities with intelligent filters and discover
+              roles that align with your experience, skills, and
+              preferences.
+            </p>
+          </div>
+
+          <div
+            className="hidden shrink-0 -rotate-2 text-right lg:block"
+            aria-hidden="true"
+          >
+            <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-blue">
+              Smarter
+              <br />
+              Searches.
+              <br />
+              Brighter Careers!
             </p>
           </div>
         </div>
@@ -302,18 +339,35 @@ export default function DiscoverJobsSection() {
         </form>
 
         {/* STAT STRIP */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile
-            value={totalJobs === null ? "—" : `${totalJobs.toLocaleString()}${totalJobs > 0 ? "+" : ""}`}
-            label="Matching opportunities"
-          />
-          <StatTile
-            value="—"
-            label="Strong matches"
-            hint="Sign in to calculate"
-          />
-          <StatTile value="—" label="New today" hint="Coming soon" />
-          <StatTile value="Live" label="Job updates" />
+        <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile
+              value={
+                totalJobs === null
+                  ? "—"
+                  : `${totalJobs.toLocaleString()}${totalJobs > 0 ? "+" : ""}`
+              }
+              label="Matching opportunities"
+            />
+            <StatTile
+              value={jobs.length === 0 ? "—" : String(sampleStrongMatches)}
+              label="Strong matches"
+              hint="Example — sign in to calculate"
+            />
+            <StatTile
+              value={jobs.length === 0 ? "—" : String(newTodayCount)}
+              label="New today"
+              hint="In results shown"
+            />
+            <StatTile value="Live" label="Job updates" />
+          </div>
+
+          <div className="hidden shrink-0 text-right lg:block">
+            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
+              MORE THAN JOBS
+              <br />A BRIGHTER YOU
+            </div>
+          </div>
         </div>
 
         {/* MOBILE FILTERS TRIGGER */}
@@ -364,13 +418,16 @@ export default function DiscoverJobsSection() {
                   >
                     Clear All
                   </AppButton>
-                  <AppButton
+                  <button
                     type="button"
-                    className="flex-1"
-                    onClick={() => setMobileFiltersOpen(false)}
+                    className={cn(BLUE_BUTTON_CLASS, "flex-1")}
+                    onClick={() => {
+                      applyDraft();
+                      setMobileFiltersOpen(false);
+                    }}
                   >
                     Apply Filters
-                  </AppButton>
+                  </button>
                 </div>
               </Dialog.Popup>
             </Dialog.Portal>
@@ -405,24 +462,45 @@ export default function DiscoverJobsSection() {
                 />
               </div>
 
-              <AppButton
+              <button
                 type="button"
-                className="mt-5 w-full"
-                onClick={() =>
-                  setApplied((current) => ({
-                    ...current,
-                    search: draft.search.trim(),
-                    location: draft.location.trim(),
-                  }))
-                }
+                className={cn(BLUE_BUTTON_CLASS, "mt-5")}
+                onClick={applyDraft}
               >
                 Apply Filters
-              </AppButton>
+              </button>
             </div>
           </aside>
 
           {/* JOB RESULTS */}
           <div className="discover-area-jobs min-w-0">
+            <div
+              id="discover-results"
+              className="mb-2 flex scroll-mt-24 flex-wrap items-center justify-between gap-2"
+            >
+              <span className="text-sm font-semibold text-app-text">
+                {totalJobs === null
+                  ? "Opportunities"
+                  : `${totalJobs.toLocaleString()}${totalJobs > 0 ? "+" : ""} opportunities`}
+              </span>
+              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+                Sorted by Most Recently Posted
+              </span>
+            </div>
+
+            {jobs.length > 0 && (
+              <p className="mb-4 text-[11px] leading-5 text-app-faint">
+                * Match scores below are illustrative examples.{" "}
+                <Link
+                  href="/register"
+                  className="app-focus-ring text-app-blue underline-offset-2 hover:underline"
+                >
+                  Create a free account
+                </Link>{" "}
+                to calculate your real Job Match.
+              </p>
+            )}
+
             {isPending && jobs.length === 0 && (
               <div className="space-y-4">
                 {Array.from({ length: 3 }).map((_, index) => (
@@ -490,8 +568,33 @@ export default function DiscoverJobsSection() {
 
           {/* NERO INSIGHTS */}
           <div className="discover-area-insights space-y-5">
-            <NeroInsightsPanel />
+            <NeroInsightsPanel jobs={jobs} />
             <WhyNeroFoundThese filters={applied} />
+          </div>
+        </div>
+
+        {/* BOTTOM STRIP */}
+        <div className="relative mt-14 flex flex-col items-center gap-4 border-t border-white/5 pt-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+          <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
+            REAL JOBS
+            <br />
+            REAL RESULTS
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="font-[family-name:var(--font-caveat)] text-xl leading-none text-app-text/90">
+              Better
+              <br />
+              Jobs Ahead!
+            </span>
+            <Image
+              src="/brand/nero-hero-figure.png"
+              alt=""
+              aria-hidden="true"
+              width={1098}
+              height={1334}
+              className="h-16 w-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+            />
           </div>
         </div>
       </div>
@@ -587,9 +690,19 @@ function FilterPanelBody({
       </FilterGroup>
 
       <FilterGroup title="Location">
-        <p className="text-xs text-app-muted">
-          United States — enter a city or state in the search bar above.
-        </p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs text-app-body">
+            United States
+            <Lock
+              className="h-3 w-3 text-app-faint"
+              aria-hidden="true"
+            />
+          </div>
+          <p className="text-[11px] leading-4 text-app-faint">
+            More countries coming soon — enter a city or state in the search
+            bar above to narrow results.
+          </p>
+        </div>
       </FilterGroup>
 
       <FilterGroup title="Experience Level" locked>
@@ -601,7 +714,13 @@ function FilterPanelBody({
       </FilterGroup>
 
       <FilterGroup title="Salary Range" locked>
-        <div className="h-1.5 w-full rounded-full bg-app-border opacity-50" />
+        <div className="opacity-50">
+          <div className="h-1.5 w-full rounded-full bg-app-border" />
+          <div className="mt-2 flex justify-between font-mono text-[9px] text-app-faint">
+            <span>$0</span>
+            <span>$300K+</span>
+          </div>
+        </div>
       </FilterGroup>
 
       <FilterGroup title="Skills" locked>
@@ -616,6 +735,14 @@ function FilterPanelBody({
           ))}
         </div>
       </FilterGroup>
+
+      <button
+        type="button"
+        disabled
+        className="flex items-center gap-1.5 text-xs font-medium text-app-faint opacity-60"
+      >
+        <Lock className="h-3 w-3" aria-hidden="true" />+ Add more filters
+      </button>
     </div>
   );
 }
@@ -691,6 +818,21 @@ function formatLabel(value: string): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function formatSalary(job: Job): string {
+  const currency = job.salary_currency || "USD";
+
+  if (job.salary_min !== null && job.salary_max !== null) {
+    return `${currency} ${Math.round(job.salary_min).toLocaleString()}–${Math.round(job.salary_max).toLocaleString()}`;
+  }
+  if (job.salary_min !== null) {
+    return `From ${currency} ${Math.round(job.salary_min).toLocaleString()}`;
+  }
+  if (job.salary_max !== null) {
+    return `Up to ${currency} ${Math.round(job.salary_max).toLocaleString()}`;
+  }
+  return "";
+}
+
 function formatRelativeTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -706,9 +848,83 @@ function formatRelativeTime(iso: string): string {
   return `${diffMonths} month${diffMonths > 1 ? "s" : ""} ago`;
 }
 
+// Illustrative-only descending scale (95, 91, 87, ...) so the sample
+// cards read like a "best match first" list, exactly like the reference.
+// Never presented without the "example" disclosure alongside it — the
+// real Job Match score requires a signed-in user's resume.
+function sampleMatchScore(index: number): number {
+  return Math.max(65, 95 - index * 4);
+}
+
+function matchTone(score: number): "success" | "blue" | "amber" {
+  if (score >= 85) return "success";
+  if (score >= 70) return "blue";
+  return "amber";
+}
+
+const MATCH_TONE_CLASS: Record<string, string> = {
+  success: "bg-app-success text-black",
+  blue: "bg-app-blue text-black",
+  amber: "bg-app-amber text-black",
+};
+
+function MatchBadge({ score, small }: { score: number; small?: boolean }) {
+  const tone = matchTone(score);
+
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full font-bold",
+        small ? "px-2.5 py-0.5 text-[10px]" : "px-3 py-1 text-xs",
+        MATCH_TONE_CLASS[tone],
+      )}
+      title="Example score — sign in and add your resume to calculate your real Job Match."
+    >
+      {score}% Match*
+    </span>
+  );
+}
+
+// Real, derived from the job's own fields — never fabricated. Only the
+// numeric score above is illustrative; these lines describe the actual
+// listing.
+function deriveHighlights(job: Job): string[] {
+  const highlights: string[] = [];
+
+  if (job.remote_type) {
+    highlights.push(
+      job.remote_type === "remote"
+        ? "Remote-friendly role"
+        : job.remote_type === "hybrid"
+          ? "Hybrid work model"
+          : "On-site collaboration",
+    );
+  }
+
+  const salary = formatSalary(job);
+  if (salary) {
+    highlights.push(`Compensation listed: ${salary}`);
+  } else if (job.employment_type) {
+    highlights.push(`${formatLabel(job.employment_type)} position`);
+  }
+
+  const timestamp = job.posting_date ?? job.first_seen_at;
+  if (timestamp) {
+    const relative = formatRelativeTime(timestamp);
+    highlights.push(
+      relative === "Today" || relative === "1 day ago"
+        ? "Freshly posted"
+        : "Actively hiring",
+    );
+  }
+
+  return highlights.slice(0, 3);
+}
+
 function JobResultCard({ job, index }: { job: Job; index: number }) {
   const timestamp = job.posting_date ?? job.first_seen_at;
   const timestampLabel = job.posting_date ? "Posted" : "Found";
+  const highlights = deriveHighlights(job);
 
   return (
     <article
@@ -736,24 +952,36 @@ function JobResultCard({ job, index }: { job: Job; index: number }) {
               </p>
             </div>
 
-            <span
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-app-border px-3 py-1 font-mono text-[9px] uppercase tracking-[0.08em] text-app-faint"
-              title="Sign in and add your resume to see your personalized match score."
-            >
-              <Lock className="h-2.5 w-2.5" aria-hidden="true" />
-              Match after sign-in
-            </span>
+            <MatchBadge score={sampleMatchScore(index)} />
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            {job.location && <Badge>{job.location}</Badge>}
-            {job.remote_type && <Badge>{formatLabel(job.remote_type)}</Badge>}
-            {job.employment_type && (
-              <Badge>{formatLabel(job.employment_type)}</Badge>
-            )}
-          </div>
+          <p className="mt-2 text-xs text-app-muted">
+            {[
+              job.location,
+              job.employment_type && formatLabel(job.employment_type),
+              job.remote_type && formatLabel(job.remote_type),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          {highlights.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {highlights.map((highlight) => (
+                <li
+                  key={highlight}
+                  className="flex items-start gap-2 text-xs leading-5 text-app-body"
+                >
+                  <span className="mt-0.5 text-app-success" aria-hidden="true">
+                    ✓
+                  </span>
+                  {highlight}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-app-border pt-3">
             <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
               {timestamp
                 ? `${timestampLabel} ${formatRelativeTime(timestamp)}`
@@ -794,7 +1022,9 @@ function JobResultCard({ job, index }: { job: Job; index: number }) {
   );
 }
 
-function NeroInsightsPanel() {
+function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
+  const topJobs = jobs.slice(0, 3);
+
   return (
     <div className="rounded-2xl border border-app-blue/40 bg-app-panel/70 p-5">
       <div className="flex items-center gap-2.5">
@@ -811,15 +1041,70 @@ function NeroInsightsPanel() {
         </span>
       </div>
 
-      <h3 className="mt-3 text-lg font-semibold text-app-text">
-        See why a job fits you.
-      </h3>
+      {topJobs.length > 0 ? (
+        <>
+          <h3 className="mt-3 text-lg font-semibold text-app-text">
+            {topJobs.length} role{topJobs.length > 1 ? "s" : ""} stand out
+            for you.*
+          </h3>
 
-      <p className="mt-2 text-sm leading-6 text-app-muted">
-        Connect your resume and NERO explains exactly why a role matches —
-        skills, experience, and requirements, side by side. No fabricated
-        scores, just your real Job Match and ATS Alignment results.
-      </p>
+          <div className="mt-4 space-y-3">
+            {topJobs.map((job, index) => {
+              const highlight = deriveHighlights(job)[0] ?? "Strong opportunity";
+
+              return (
+                <div
+                  key={job.id}
+                  className="flex items-start gap-3 border-t border-app-border pt-3 first:border-t-0 first:pt-0"
+                >
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-app-border-strong bg-app-surface text-xs font-bold text-app-blue"
+                    aria-hidden="true"
+                  >
+                    {getInitials(job.company)}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold text-app-text">
+                        {job.title}
+                      </span>
+                      <MatchBadge score={sampleMatchScore(index)} small />
+                    </div>
+                    <p className="mt-0.5 text-xs leading-5 text-app-muted">
+                      {highlight}.
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="mt-4 text-[10px] leading-4 text-app-faint">
+            * Illustrative example — sign in and add your resume to generate
+            your real insights.
+          </p>
+
+          <a
+            href="#discover-results"
+            className="app-focus-ring mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-app-blue hover:text-app-blue-hover"
+          >
+            View All Insights
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        </>
+      ) : (
+        <>
+          <h3 className="mt-3 text-lg font-semibold text-app-text">
+            See why a job fits you.
+          </h3>
+
+          <p className="mt-2 text-sm leading-6 text-app-muted">
+            Connect your resume and NERO explains exactly why a role
+            matches — skills, experience, and requirements, side by side.
+          </p>
+        </>
+      )}
 
       <Link
         href="/register"
