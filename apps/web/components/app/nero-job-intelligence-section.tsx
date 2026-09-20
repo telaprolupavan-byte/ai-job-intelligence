@@ -18,6 +18,7 @@ const inputPanels: {
   icon: LucideIcon;
   title: string;
   lines: string[];
+  iconClassName?: string;
 }[] = [
   {
     icon: FileText,
@@ -33,6 +34,7 @@ const inputPanels: {
     icon: BarChart3,
     title: "Your Skills",
     lines: ["Technical Skills", "Tools & Technologies", "Domain Knowledge"],
+    iconClassName: "text-[#b46bff]",
   },
   {
     icon: User,
@@ -64,18 +66,18 @@ const principles: {
 ];
 
 const PROGRESS_STEPS = ["01", "02", "03", "04", "05"];
-const ACTIVE_STEP = "04";
+const ACTIVE_INDEX = 3;
 
 /**
  * Page 4 — "Know Before You Apply." (Job Intelligence).
  *
  * Same world as the hero/system sections above it: the same
- * background, technical grid, atmospheric lighting, NERO figure,
- * type scale, and micro-labels, just the next scene in the scroll —
- * four conceptual inputs resolving into a single clearer
- * understanding. Built in distinct layers (background / environment /
- * inputs / streams / NERO / clarity object / foreground details) so a
- * future scroll-driven parallax can target each one independently.
+ * background, technical grid, type scale, and micro-labels, just the
+ * next scene in the scroll. The NERO/streams/crystal/environment
+ * artwork is the approved reference image reproduced exactly (see
+ * NeroJobIntelligenceVisual); everything else — panels, headline,
+ * principles, CTA — stays real, accessible HTML positioned to match
+ * it, so the page is still responsive and the CTA still works.
  */
 export default function NeroJobIntelligenceSection() {
   return (
@@ -87,23 +89,13 @@ export default function NeroJobIntelligenceSection() {
       <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
       <div className="job-intel-atmosphere absolute inset-0" aria-hidden="true" />
 
-      {/* Layer 2 — environment (subtle architectural shapes) */}
-      <div
-        className="pointer-events-none absolute -left-40 top-24 hidden h-[440px] w-[440px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_60%_40%,rgba(122,92,255,0.08),transparent_62%)] lg:block"
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute right-[8%] top-16 hidden h-px w-32 rotate-[28deg] bg-gradient-to-r from-transparent via-app-red/50 to-transparent lg:block"
-        aria-hidden="true"
-      />
-
       <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
         {/* Foreground detail — top-right handwritten annotation */}
         <div
           className="pointer-events-none absolute right-6 top-10 z-20 hidden max-w-[180px] -rotate-2 text-right sm:right-10 lg:right-20 lg:block"
           aria-hidden="true"
         >
-          <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-text/90">
+          <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-[#bcdfff]">
             More
             <br />
             Clarity.
@@ -112,15 +104,20 @@ export default function NeroJobIntelligenceSection() {
             <br />
             Careers.
           </p>
+          <span
+            className="ml-auto mt-1 block h-0.5 w-16 -rotate-6 bg-gradient-to-r from-[#b46bff] to-app-blue"
+            aria-hidden="true"
+          />
         </div>
 
         {/* Header */}
         <div className="max-w-2xl">
           <div className="flex items-center gap-3">
-            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-              04 / 05 &nbsp; JOB INTELLIGENCE
+            <span className="mono text-[10px] tracking-[0.3em]">
+              <span className="text-[#b46bff]">04 / 05</span>{" "}
+              <span className="text-app-body">JOB INTELLIGENCE</span>
             </span>
-            <span className="h-px w-12 bg-app-red/50" />
+            <span className="h-px w-12 bg-white/15" />
           </div>
 
           <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5.5vw,4rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
@@ -138,7 +135,7 @@ export default function NeroJobIntelligenceSection() {
           </p>
         </div>
 
-        {/* Layer 3/4/5 — input panels, data streams, NERO */}
+        {/* Layer 2/3 — input panels + approved reference artwork */}
         <div className="job-intel-grid mt-16 lg:mt-20">
           <div className="job-intel-area-panels flex flex-col gap-4">
             {inputPanels.map((panel, index) => (
@@ -146,13 +143,8 @@ export default function NeroJobIntelligenceSection() {
             ))}
           </div>
 
-          <div className="job-intel-area-nero relative flex items-center justify-center py-4 lg:py-0">
-            <DataStreams />
+          <div className="job-intel-area-scene flex items-center justify-center">
             <NeroJobIntelligenceVisual />
-          </div>
-
-          <div className="job-intel-area-clarity flex justify-center lg:justify-end">
-            <ClarityObject />
           </div>
         </div>
 
@@ -162,48 +154,50 @@ export default function NeroJobIntelligenceSection() {
           className="mt-16 hidden max-w-[220px] -rotate-2 lg:mt-20 lg:block"
           aria-hidden="true"
         >
-          <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-blue">
-            Better Decisions, Brighter Tomorrows.
+          <p className="font-[family-name:var(--font-caveat)] bg-gradient-to-b from-[#c77dff] to-[#5cc6ff] bg-clip-text text-2xl leading-[1.15] text-transparent">
+            Better
+            <br />
+            Decisions
+            <br />
+            Brighter
+            <br />
+            Tomorrows.
           </p>
         </div>
 
         {/* Three principles */}
-        <div className="mt-6 grid gap-6 border-t border-white/10 pt-14 sm:grid-cols-3 lg:mt-8">
+        <div className="mt-6 grid gap-x-0 gap-y-10 border-t border-white/10 pt-14 sm:grid-cols-3 sm:divide-x sm:divide-white/10 lg:mt-8">
           {principles.map((principle, index) => (
             <PrincipleCard key={principle.title} {...principle} index={index} />
           ))}
         </div>
 
         {/* Final marketing section */}
-        <div className="relative mt-20 overflow-hidden rounded-3xl border border-white/10 lg:mt-24">
-          <div className="red-atmosphere absolute inset-0" aria-hidden="true" />
+        <div className="relative mt-20 py-4 text-center lg:mt-24">
+          <span className="mono text-[10px] tracking-[0.3em] text-[#bcdfff]">
+            IT&apos;S MORE THAN A JOB.
+          </span>
 
-          <div className="relative px-6 py-16 text-center sm:px-10 sm:py-20">
-            <span className="mono text-[10px] tracking-[0.3em] text-app-blue">
-              IT&apos;S MORE THAN A JOB.
+          <h3 className="mx-auto mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[clamp(2rem,5vw,3.25rem)] font-bold leading-[0.95] tracking-[-0.03em] text-app-text">
+            DON&apos;T APPLY{" "}
+            <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+              BLIND.
             </span>
+          </h3>
 
-            <h3 className="mx-auto mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[clamp(2rem,5vw,3.25rem)] font-bold leading-[0.95] tracking-[-0.03em] text-app-text">
-              DON&apos;T APPLY{" "}
-              <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
-                BLIND.
-              </span>
-            </h3>
+          <p className="mx-auto mt-4 max-w-md text-base leading-7 text-app-body">
+            Understand first. Decide with confidence.
+          </p>
 
-            <p className="mx-auto mt-4 max-w-md text-base leading-7 text-app-muted">
-              Understand first. Decide with confidence.
-            </p>
-
-            <Link
-              href="/register"
-              className="app-focus-ring group mt-8 inline-flex items-center justify-center gap-2 rounded-lg bg-crimson-fill px-6 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_rgba(217,40,31,0.4)] transition hover:bg-crimson-fill-hover"
-            >
-              See What NERO Can Do
-              <span className="transition-transform group-hover:translate-x-1">
-                →
-              </span>
-            </Link>
-          </div>
+          <Link
+            href="/register"
+            className="app-focus-ring group mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-app-blue to-[#8f5cff] px-6 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_-4px_rgba(122,92,255,0.55)] transition hover:brightness-110"
+          >
+            See What NERO Can Do
+            <span className="transition-transform group-hover:translate-x-1">
+              →
+            </span>
+          </Link>
         </div>
 
         {/* Foreground detail — bottom utility bar */}
@@ -221,10 +215,18 @@ export default function NeroJobIntelligenceSection() {
             />
           </div>
 
-          <div className="mono text-[9px] leading-5 tracking-[0.2em] text-app-muted">
-            SAME YOU.
-            <br />
-            A BRIGHTER TOMORROW.
+          <div className="flex items-center gap-2.5">
+            <span
+              className="hidden h-px w-10 bg-gradient-to-r from-app-blue/60 to-transparent lg:block"
+              aria-hidden="true"
+            />
+            <div className="mono text-[9px] leading-5 tracking-[0.2em] text-app-muted">
+              SAME YOU.
+              <br />
+              A BRIGHTER
+              <br />
+              TOMORROW.
+            </div>
           </div>
         </div>
       </div>
@@ -237,11 +239,13 @@ function InputPanel({
   title,
   lines,
   index,
+  iconClassName,
 }: {
   icon: LucideIcon;
   title: string;
   lines: string[];
   index: number;
+  iconClassName?: string;
 }) {
   return (
     <div
@@ -249,7 +253,12 @@ function InputPanel({
       style={{ animationDelay: `${index * 100}ms` }}
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-app-blue/50 bg-app-surface/80 text-app-blue">
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-app-blue/50 bg-app-surface/80",
+            iconClassName ?? "text-app-blue",
+          )}
+        >
           <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
 
@@ -271,73 +280,6 @@ function InputPanel({
   );
 }
 
-function DataStreams() {
-  return (
-    <svg
-      className="pointer-events-none absolute inset-0 hidden h-full w-full lg:block"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="job-intel-stream-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#0a84ff" stopOpacity="0.7" />
-          <stop offset="55%" stopColor="#7a5cff" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#ff3b30" stopOpacity="0.3" />
-        </linearGradient>
-      </defs>
-
-      <path
-        className="job-intel-streams job-intel-streams-animated"
-        d="M -8 12 C 25 12, 30 48, 50 50"
-        vectorEffect="non-scaling-stroke"
-      />
-      <path
-        className="job-intel-streams job-intel-streams-animated"
-        d="M -8 38 C 20 38, 35 49, 50 50"
-        vectorEffect="non-scaling-stroke"
-      />
-      <path
-        className="job-intel-streams job-intel-streams-animated"
-        d="M -8 62 C 20 62, 35 51, 50 50"
-        vectorEffect="non-scaling-stroke"
-      />
-      <path
-        className="job-intel-streams job-intel-streams-animated"
-        d="M -8 88 C 25 88, 30 52, 50 50"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-function ClarityObject() {
-  return (
-    <div className="relative flex h-52 w-52 shrink-0 items-center justify-center sm:h-56 sm:w-56">
-      <div
-        className="job-intel-clarity-pulse absolute inset-0 rotate-45 rounded-[2.5rem] border border-app-blue/40 bg-gradient-to-br from-app-blue/10 via-transparent to-[#7a5cff]/15 backdrop-blur-sm"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute inset-8 rotate-45 rounded-[1.75rem] border border-white/10"
-        aria-hidden="true"
-      />
-
-      <p
-        className="relative z-10 max-w-[150px] text-center font-[family-name:var(--font-display)] text-base font-semibold leading-tight text-app-text"
-        role="img"
-        aria-label="A clearer understanding — NERO's abstract representation of resolved job intelligence"
-      >
-        A Clearer
-        <br />
-        <span className="bg-gradient-to-r from-[#5cc6ff] to-[#b46bff] bg-clip-text text-transparent">
-          Understanding
-        </span>
-      </p>
-    </div>
-  );
-}
-
 function PrincipleCard({
   icon: Icon,
   title,
@@ -351,10 +293,10 @@ function PrincipleCard({
 }) {
   return (
     <div
-      className="system-card-reveal flex flex-col items-center text-center sm:items-start sm:text-left"
+      className="system-card-reveal flex flex-col items-center px-6 text-center"
       style={{ animationDelay: `${index * 110}ms` }}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-app-border-soft text-app-blue">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-app-blue/60 text-app-blue">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
 
@@ -362,7 +304,7 @@ function PrincipleCard({
         {title}
       </h3>
 
-      <p className="mt-2 max-w-[280px] text-sm leading-6 text-app-muted">
+      <p className="mt-2 max-w-[280px] text-sm leading-6 text-app-body">
         {text}
       </p>
     </div>
@@ -370,12 +312,16 @@ function PrincipleCard({
 }
 
 function ProgressRail() {
-  const activeIndex = PROGRESS_STEPS.indexOf(ACTIVE_STEP);
-  const activePercent = (activeIndex / (PROGRESS_STEPS.length - 1)) * 100;
+  const activePercent = (ACTIVE_INDEX / (PROGRESS_STEPS.length - 1)) * 100;
 
   return (
     <div className="flex flex-col items-center gap-2.5 lg:items-start" aria-hidden="true">
-      <div className="relative h-px w-40 bg-app-border-soft">
+      <div
+        className="relative h-px w-40"
+        style={{
+          background: `linear-gradient(to right, #cbb6ff 0%, #cbb6ff ${activePercent}%, #2a3245 ${activePercent}%, #2a3245 100%)`,
+        }}
+      >
         <span
           className="absolute -top-[3px] h-[7px] w-[7px] -translate-x-1/2 rounded-full bg-gradient-to-r from-app-blue to-[#8f5cff] shadow-[0_0_10px_rgba(143,92,255,0.7)]"
           style={{ left: `${activePercent}%` }}
@@ -383,12 +329,16 @@ function ProgressRail() {
       </div>
 
       <div className="flex items-center gap-3">
-        {PROGRESS_STEPS.map((step) => (
+        {PROGRESS_STEPS.map((step, index) => (
           <span
             key={step}
             className={cn(
               "mono text-[10px] tracking-[0.1em]",
-              step === ACTIVE_STEP ? "text-app-text" : "text-app-muted/50",
+              index === ACTIVE_INDEX
+                ? "font-bold text-app-text"
+                : index < ACTIVE_INDEX
+                  ? "text-app-text/80"
+                  : "text-app-muted/50",
             )}
           >
             {step}
