@@ -17,6 +17,7 @@ import NeroBrand from "@/components/app/nero-brand";
 import LandingNav from "@/components/app/landing-nav";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
+import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
 
 const systemBlocks: {
   number: string;
@@ -492,6 +493,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Job Intelligence (Page 4) */}
+      <NeroJobIntelligenceSection />
 
       {/* Philosophy */}
       <section id="resources" className="border-t border-white/10">
