@@ -607,22 +607,23 @@ export default function DiscoverJobsSection() {
               </span>
             </div>
             <div className="mono mt-1 text-[10px] tracking-[0.3em] text-app-blue">
-              JOB INTELLIGENCE
+              PRINCIPLES
             </div>
 
             <div className="mt-4 flex items-center justify-center gap-3 lg:justify-start">
               <h3 className="font-[family-name:var(--font-display)] text-2xl font-bold leading-[1.05] tracking-[-0.02em] text-app-text sm:text-3xl">
-                GO BEYOND
+                INTELLIGENCE
                 <br />
-                THE JOB DESCRIPTION.
+                WITHOUT NOISE.
               </h3>
 
-              <span
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-app-border-strong text-app-text"
-                aria-hidden="true"
+              <a
+                href="#resources"
+                aria-label="Continue to Principles"
+                className="app-focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-app-border-strong text-app-text transition hover:border-app-blue hover:text-app-blue"
               >
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </span>
+              </a>
             </div>
           </div>
 
