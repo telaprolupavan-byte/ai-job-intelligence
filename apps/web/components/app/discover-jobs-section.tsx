@@ -172,7 +172,12 @@ export default function DiscoverJobsSection() {
         className="technical-grid absolute inset-0 opacity-30"
         aria-hidden="true"
       />
-      <div className="nero-atmosphere absolute inset-0" aria-hidden="true" />
+      <div
+        data-parallax-speed="0.07"
+        data-parallax-local
+        className="nero-atmosphere absolute inset-0"
+        aria-hidden="true"
+      />
 
       <div className="relative mx-auto max-w-[1536px] px-6 py-12 sm:px-10 sm:py-16 lg:px-20 lg:py-20">
         <div className="discover-hero-grid">
@@ -217,9 +222,11 @@ export default function DiscoverJobsSection() {
 
             {/* MEDIUM tier: NERO gets restrained local depth. Job cards
                 below stay motion-free — must remain fully readable and
-                usable, per the cinematic-pass rule. */}
+                usable, per the cinematic-pass rule ("avoid excessive
+                movement" for this scene specifically). */}
             <div
-              data-parallax-speed="0.06"
+              data-parallax-speed="0.09"
+              data-parallax-scale-to="1.04"
               data-parallax-local
               className="w-full max-w-[320px] pt-12 sm:pt-14 lg:pt-4"
             >
@@ -227,6 +234,8 @@ export default function DiscoverJobsSection() {
             </div>
 
             <div
+              data-parallax-speed="0.1"
+              data-parallax-local
               className="pointer-events-none absolute -left-4 top-10 hidden -rotate-2 text-left lg:block"
               aria-hidden="true"
             >
@@ -443,7 +452,13 @@ export default function DiscoverJobsSection() {
             full 1536px canvas, so it reads as a composed scene instead
             of a dashboard widget dropped onto the page. */}
         <div className="relative mx-auto mt-10 max-w-[760px] overflow-hidden rounded-3xl border border-white/10 bg-app-panel/30 p-5 sm:p-7">
-          <div className="technical-grid absolute inset-0 opacity-20" aria-hidden="true" />
+          <div
+            data-parallax-speed="0.05"
+            data-parallax-scale-to="1.03"
+            data-parallax-local
+            className="technical-grid absolute inset-0 opacity-20"
+            aria-hidden="true"
+          />
 
           <div id="discover-results" className="discover-grid relative">
             {/* FILTER PANEL (desktop) */}

@@ -34,7 +34,7 @@ export default function StudentSection() {
     >
       <div className="technical-grid absolute inset-0 opacity-25" aria-hidden="true" />
       <div
-        data-parallax-speed="0.06"
+        data-parallax-speed="0.08"
         data-parallax-local
         className="student-atmosphere absolute inset-0"
         aria-hidden="true"
@@ -101,7 +101,8 @@ export default function StudentSection() {
           </div>
 
           <div
-            data-parallax-speed="0.08"
+            data-parallax-speed="0.1"
+            data-parallax-scale-to="1.03"
             data-parallax-local
             className="relative mx-auto w-full max-w-[300px] lg:max-w-none"
           >

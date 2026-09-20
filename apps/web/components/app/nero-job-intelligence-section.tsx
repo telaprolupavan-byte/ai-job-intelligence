@@ -32,25 +32,25 @@ const inputPanels: {
     icon: FileText,
     title: "Job Description",
     lines: ["Requirements", "Responsibilities", "Company Goals"],
-    parallaxX: 0.045,
+    parallaxX: 0.075,
   },
   {
     icon: FileCheck2,
     title: "Your Resume",
     lines: ["Experience", "Skills", "Achievements"],
-    parallaxX: 0.045,
+    parallaxX: 0.075,
   },
   {
     icon: BarChart3,
     title: "Your Skills",
     lines: ["Technical Skills", "Tools & Technologies", "Domain Knowledge"],
-    parallaxX: 0.02,
+    parallaxX: 0.035,
   },
   {
     icon: User,
     title: "Your Preferences",
     lines: ["Location", "Work Type", "Career Goals"],
-    parallaxX: 0.02,
+    parallaxX: 0.035,
   },
 ];
 
@@ -112,14 +112,23 @@ export default function NeroJobIntelligenceSection() {
     >
       {/* Layer 1 — background */}
       <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
-      <div className="job-intel-atmosphere absolute inset-0" aria-hidden="true" />
+      <div
+        data-parallax-speed="0.06"
+        data-parallax-local
+        className="job-intel-atmosphere absolute inset-0"
+        aria-hidden="true"
+      />
 
       {/* Layer 2 — environment (subtle architectural shapes) */}
       <div
+        data-parallax-speed="0.1"
+        data-parallax-local
         className="pointer-events-none absolute -left-40 top-24 hidden h-[440px] w-[440px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_60%_40%,rgba(122,92,255,0.08),transparent_62%)] lg:block"
         aria-hidden="true"
       />
       <div
+        data-parallax-speed="0.15"
+        data-parallax-local
         className="pointer-events-none absolute right-[8%] top-16 hidden h-px w-32 rotate-[28deg] bg-gradient-to-r from-transparent via-app-red/50 to-transparent lg:block"
         aria-hidden="true"
       />
@@ -127,6 +136,8 @@ export default function NeroJobIntelligenceSection() {
       <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
         {/* Foreground detail — top-right handwritten annotation */}
         <div
+          data-parallax-speed="0.12"
+          data-parallax-local
           className="pointer-events-none absolute right-6 top-10 z-20 hidden max-w-[180px] -rotate-2 text-right sm:right-10 lg:right-20 lg:block"
           aria-hidden="true"
         >
@@ -174,7 +185,8 @@ export default function NeroJobIntelligenceSection() {
           </div>
 
           <div
-            data-parallax-speed="0.1"
+            data-parallax-speed="0.14"
+            data-parallax-scale-to="1.05"
             data-parallax-local
             className="job-intel-area-nero relative flex items-center justify-center py-4 lg:py-0"
           >
@@ -183,8 +195,8 @@ export default function NeroJobIntelligenceSection() {
           </div>
 
           <div
-            data-parallax-speed="0.08"
-            data-parallax-scale-to="1.03"
+            data-parallax-speed="0.11"
+            data-parallax-scale-to="1.08"
             data-parallax-local
             className="job-intel-area-clarity flex justify-center lg:justify-end"
           >
@@ -371,7 +383,10 @@ function DataStreams() {
 
 function ClarityObject() {
   return (
-    <div className="relative flex h-52 w-52 shrink-0 items-center justify-center sm:h-56 sm:w-56">
+    <div
+      data-scroll-progress
+      className="cine-focal relative flex h-52 w-52 shrink-0 items-center justify-center sm:h-56 sm:w-56"
+    >
       <div
         className="job-intel-clarity-pulse absolute inset-0 rotate-45 rounded-[2.5rem] border border-app-blue/40 bg-gradient-to-br from-app-blue/10 via-transparent to-[#7a5cff]/15 backdrop-blur-sm"
         aria-hidden="true"

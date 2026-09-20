@@ -51,7 +51,12 @@ export default function ResumeIntelligenceSection() {
       className="relative overflow-hidden border-t border-white/10 bg-[#0c0f16]"
     >
       <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
-      <div className="resume-intel-atmosphere absolute inset-0" aria-hidden="true" />
+      <div
+        data-parallax-speed="0.08"
+        data-parallax-local
+        className="resume-intel-atmosphere absolute inset-0"
+        aria-hidden="true"
+      />
 
       <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
         <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
@@ -120,6 +125,8 @@ export default function ResumeIntelligenceSection() {
         {/* Stage rail */}
         <div className="relative mt-16 lg:mt-20">
           <div
+            data-parallax-speed="0.04"
+            data-parallax-local
             className="pointer-events-none absolute left-0 right-0 top-6 hidden h-px bg-gradient-to-r from-transparent via-app-border-strong to-transparent sm:block"
             aria-hidden="true"
           />
@@ -147,15 +154,31 @@ export default function ResumeIntelligenceSection() {
           </div>
         </div>
 
-        {/* Before / after resume mock */}
+        {/* Before / after resume mock. data-reveal uses a plain CSS
+            transition (not a @keyframes ...forwards animation), so —
+            unlike reveal-up/nero-float/system-card-reveal elsewhere on
+            the page — it's safe to combine directly with
+            data-parallax-speed on the same element: a transition just
+            interpolates computed-value changes rather than locking out
+            inline-style updates for the property, so the JS parallax
+            write and the reveal's opacity/transform settle coexist
+            (same convention already used on the stage-rail icons
+            above). data-scroll-progress only ever writes the
+            --scene-progress custom property, never transform, so it
+            never has this conflict at all. */}
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:mt-20 lg:gap-8">
           <div
             data-reveal
             data-parallax-speed="0.03"
             data-parallax-local
+            data-scroll-progress
             style={{ "--reveal-distance": "18px" } as CSSProperties}
-            className="glass-panel relative rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(255,59,48,0.4)]"
+            className="glass-panel relative overflow-hidden rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(255,59,48,0.4)]"
           >
+            {/* Reads as NERO actively scanning the resume — a thin
+                line traveling down the card, tied to this panel's own
+                scroll transit rather than a fixed-duration loop. */}
+            <div className="resume-scan-line" aria-hidden="true" />
             <div className="flex items-center justify-between">
               <span className="mono text-[9px] tracking-[0.2em] text-app-faint">
                 BEFORE
@@ -189,7 +212,14 @@ export default function ResumeIntelligenceSection() {
               </span>
               <Badge tone="success-soft">Strengthened</Badge>
             </div>
-            <div className="mt-5 space-y-3">
+            {/* Staged reveal — the resolved lines sweep into view top
+                to bottom as this card transits the viewport, reading
+                as the resume being rewritten rather than the two
+                cards simply trading places. */}
+            <div
+              data-scroll-progress
+              className="resume-recheck-reveal mt-5 space-y-3"
+            >
               {improvedLines.map((line) => (
                 <p
                   key={line}
