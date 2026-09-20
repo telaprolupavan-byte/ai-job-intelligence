@@ -501,14 +501,14 @@ body {
 .discover-grid {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-areas: "jobs" "insights";
+  grid-template-areas: "insights";
   gap: 1.25rem;
 }
 
 @media (min-width: 1024px) {
   .discover-grid {
-    grid-template-columns: 260px minmax(0, 1fr) 320px;
-    grid-template-areas: "filters jobs insights";
+    grid-template-columns: 260px minmax(0, 420px);
+    grid-template-areas: "filters insights";
     gap: 1.5rem;
     align-items: start;
   }
@@ -516,10 +516,6 @@ body {
 
 .discover-area-filters {
   grid-area: filters;
-}
-
-.discover-area-jobs {
-  grid-area: jobs;
 }
 
 .discover-area-insights {
