@@ -43,6 +43,15 @@ const EMPTY_FILTERS: DiscoverFilters = {
 // without the section reading like a job board.
 const PAGE_SIZE = 3;
 
+// Excluded from this landing-page preview only — the real /jobs API,
+// the Jobs page, and the underlying job-discovery data are untouched.
+// Matched by exact title against whatever the live search returns.
+const LANDING_PREVIEW_EXCLUDED_TITLES = new Set([
+  "Boston ML Engineer",
+  "Remote AI Engineer",
+  "Contract ML Engineer",
+]);
+
 const EMPLOYMENT_OPTIONS: { value: EmploymentFilter; label: string }[] = [
   { value: "full_time", label: "Full-Time" },
   { value: "contract", label: "Contract" },
@@ -79,7 +88,11 @@ export default function DiscoverJobsSection() {
           page_size: PAGE_SIZE,
         });
 
-        setJobs(response.jobs);
+        setJobs(
+          response.jobs.filter(
+            (job) => !LANDING_PREVIEW_EXCLUDED_TITLES.has(job.title),
+          ),
+        );
         setTotalJobs(response.pagination.total);
       } catch (err) {
         console.error(err);
