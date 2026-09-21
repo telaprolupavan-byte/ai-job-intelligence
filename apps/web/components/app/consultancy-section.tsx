@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, Eye, Lock, Users, type LucideIcon } from "lucide-react";
 import SectionHeading from "@/components/app/section-heading";
@@ -42,6 +43,17 @@ const sequence: { icon: LucideIcon; title: string }[] = [
  * standing in for "many students organizing into a structured view."
  *
  * RESTRAINED motion tier, matching the Student section it pairs with.
+ *
+ * Character pass: this was the one landing section with no NERO at all.
+ * He is here now, but deliberately as the PROFESSIONAL beat and at the
+ * smallest scale on the page — standing at the cohort board with the
+ * approved explainer panel, reading out what the view means, rather
+ * than the companion figure the Student section gets. The "many small
+ * entities, not one companion" contrast this section was built on is
+ * the point of the composition, so he annotates the grid instead of
+ * competing with it: he shares a row with the legend, and his idle
+ * float is the slowest and shallowest anywhere on the page (7.8s /
+ * 7px against the 6s / 14px default) — composed, not animated.
  */
 export default function ConsultancySection() {
   return (
@@ -147,9 +159,37 @@ export default function ConsultancySection() {
               ))}
             </div>
 
-            <p className="mono mt-5 text-center text-[9px] leading-5 tracking-[0.15em] text-app-faint">
-              ILLUSTRATIVE — PROGRESS SIGNALS ONLY, NOT PERSONAL DATA
-            </p>
+            <div
+              data-parallax-speed="0.04"
+              data-parallax-local
+              className="mt-5 flex items-center justify-center gap-4"
+            >
+              <div className="relative w-[92px] shrink-0 sm:w-[104px]">
+                <Image
+                  src="/brand/nero-page2-explainer.png"
+                  alt="NERO, the AI Job Intelligence mascot, presenting a consultancy's cohort view from a status panel"
+                  width={780}
+                  height={936}
+                  sizes="104px"
+                  quality={95}
+                  style={
+                    {
+                      "--nero-float-duration": "7.8s",
+                      "--nero-float-distance": "7px",
+                    } as CSSProperties
+                  }
+                  className="nero-float relative z-10 h-auto w-full drop-shadow-[0_18px_36px_rgba(0,0,0,0.5)]"
+                />
+                <div
+                  className="nero-floor-glow pointer-events-none absolute -bottom-2 left-1/2 h-10 w-[75%] -translate-x-1/2"
+                  aria-hidden="true"
+                />
+              </div>
+
+              <p className="mono max-w-[240px] text-[9px] leading-5 tracking-[0.15em] text-app-faint">
+                ILLUSTRATIVE — PROGRESS SIGNALS ONLY, NOT PERSONAL DATA
+              </p>
+            </div>
           </div>
         </div>
       </div>

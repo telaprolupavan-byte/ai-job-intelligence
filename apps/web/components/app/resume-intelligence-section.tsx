@@ -84,17 +84,23 @@ export default function ResumeIntelligenceSection() {
             className="max-w-2xl"
           />
 
-          {/* Mascot cameo — same approved standing/pointing artwork used
-              throughout the page, sized to sit beside the header on wide
-              screens and centered below it on mobile, without taking
-              over the section's existing before/after layout. A gentle
-              scroll-linked scale-up reads as NERO leaning in to analyze,
+          {/* Mascot cameo — the approved Page 2 Explainer artwork rather
+              than the Page 1 standing/pointing pose used elsewhere: this
+              is the ANALYZING beat, and the explainer export is the one
+              approved pose where NERO is actually holding a lit readout
+              and pointing at something in it. That is the section's job
+              (reading a document and reporting findings) and it is what
+              the "Here's what I found." note above him is answering.
+              Sized up a step so the figure reads as working rather than
+              decorating, and given the page's calmest idle float (7s /
+              8px vs the 6s / 14px default) — concentration, not bounce.
+              The scroll-linked scale-up still reads as NERO leaning in,
               STRONG-tier per the cinematic-pass motion map. */}
           <div
             data-parallax-speed="0.08"
             data-parallax-scale-to="1.05"
             data-parallax-local
-            className="relative mx-auto w-[150px] shrink-0 sm:w-[170px] lg:mx-0 lg:mr-6 lg:w-[190px]"
+            className="relative mx-auto w-[168px] shrink-0 sm:w-[188px] lg:mx-0 lg:mr-6 lg:w-[210px]"
           >
             <div className="pointer-events-none absolute left-1/2 top-2 z-20 w-[168px] -translate-x-1/2 rotate-2 sm:left-auto sm:right-[74%] sm:top-6 sm:translate-x-0">
               <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-2.5 shadow-lg backdrop-blur-sm">
@@ -109,12 +115,18 @@ export default function ResumeIntelligenceSection() {
             </div>
 
             <Image
-              src="/brand/nero-hero-figure.png"
-              alt="NERO, the AI Job Intelligence mascot, reviewing a resume"
-              width={1098}
-              height={1334}
-              sizes="190px"
+              src="/brand/nero-page2-explainer.png"
+              alt="NERO, the AI Job Intelligence mascot, reading a resume off a lit panel and pointing out what he found"
+              width={780}
+              height={936}
+              sizes="210px"
               quality={95}
+              style={
+                {
+                  "--nero-float-duration": "7s",
+                  "--nero-float-distance": "8px",
+                } as CSSProperties
+              }
               className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
             />
             <div

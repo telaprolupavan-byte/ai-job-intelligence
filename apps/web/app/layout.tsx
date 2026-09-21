@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, Syne, JetBrains_Mono, Caveat } from "next/font/google";
+import {
+  Inter,
+  Syne,
+  JetBrains_Mono,
+  Caveat,
+  Instrument_Sans,
+} from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -13,6 +19,14 @@ const caveat = Caveat({
   variable: "--font-caveat",
   subsets: ["latin"],
   weight: ["600", "700"],
+});
+
+// NERO's own speaking voice. Used only where NERO addresses the visitor
+// directly in the first person, so his lines read as him talking rather
+// than as more interface copy set in the UI face.
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
+  subsets: ["latin"],
 });
 
 // Geometric display face used sparingly for hero/page headings — the
@@ -45,7 +59,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${syne.variable} ${jetbrainsMono.variable} ${caveat.variable}`}
+        className={`${inter.variable} ${syne.variable} ${jetbrainsMono.variable} ${caveat.variable} ${instrumentSans.variable}`}
       >
         {children}
       </body>

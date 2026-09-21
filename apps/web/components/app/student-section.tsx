@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -104,13 +105,24 @@ export default function StudentSection() {
             data-parallax-local
             className="relative mx-auto w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[340px]"
           >
+            {/* Encouraging beat: the thumbs-up in this pose is doing the
+                work here, so the size stays as approved and only the
+                cadence changes — 5.6s / 16px against the 6s / 14px
+                default, a little livelier and warmer than the sections
+                either side of it. */}
             <Image
               src="/brand/nero-hero-figure.png"
-              alt="NERO, the AI Job Intelligence mascot, alongside a student's own workspace"
+              alt="NERO, the AI Job Intelligence mascot, giving a student a thumbs up alongside their own workspace"
               width={1098}
               height={1334}
               sizes="(min-width: 1024px) 340px, (min-width: 640px) 300px, 260px"
               quality={95}
+              style={
+                {
+                  "--nero-float-duration": "5.6s",
+                  "--nero-float-distance": "16px",
+                } as CSSProperties
+              }
               className="nero-float relative z-10 h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
             />
             <div

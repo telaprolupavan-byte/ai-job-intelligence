@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Image from "next/image";
 
 /**
@@ -6,10 +7,18 @@ import Image from "next/image";
  * generated), restyled with atmosphere/glow and a speech-bubble
  * annotation so it reads as NERO "connecting the dots" between the
  * surrounding input panels.
+ *
+ * Character pass: the MATCHING beat. The pointing arm in this pose aims
+ * at the input panels stacked to his left while the clarity object
+ * resolves on his right, so he sits at the junction doing the joining —
+ * the figure is sized up a step so he reads as the mechanism between
+ * the two columns rather than a decoration parked between them. Idle
+ * float is a touch quicker and deeper than the default (5.4s / 16px):
+ * actively working the two sides together.
  */
 export default function NeroJobIntelligenceVisual() {
   return (
-    <div className="relative mx-auto w-full max-w-[250px] sm:max-w-[320px] lg:max-w-[380px]">
+    <div className="relative mx-auto w-full max-w-[270px] sm:max-w-[340px] lg:max-w-[400px]">
       <div
         className="pointer-events-none absolute -top-8 right-[-10%] z-20 hidden max-w-[190px] rotate-2 sm:block"
         aria-hidden="true"
@@ -30,8 +39,14 @@ export default function NeroJobIntelligenceVisual() {
         alt="NERO, the AI Job Intelligence mascot, connecting the pieces of an opportunity together"
         width={1098}
         height={1334}
-        sizes="(min-width: 1024px) 340px, (min-width: 640px) 300px, 230px"
+        sizes="(min-width: 1024px) 400px, (min-width: 640px) 340px, 270px"
         quality={95}
+        style={
+          {
+            "--nero-float-duration": "5.4s",
+            "--nero-float-distance": "16px",
+          } as CSSProperties
+        }
         className="nero-float relative z-10 h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
       />
 

@@ -118,7 +118,7 @@ export default function ProblemSection() {
           <div
             data-parallax-speed="0.07"
             data-parallax-local
-            className="relative w-28 shrink-0 sm:w-32 lg:w-40"
+            className="relative w-32 shrink-0 sm:w-40 lg:w-48"
           >
             <div
               data-reveal
@@ -126,13 +126,25 @@ export default function ProblemSection() {
               style={{ "--reveal-distance": "14px" } as CSSProperties}
               className="relative"
             >
+              {/* Attention / empathetic beat: he arrives at the end of a
+                  run of anxious questions, so he is bigger than he was
+                  (he was the smallest figure on the page, which read as
+                  a sticker rather than someone stepping in) but moves
+                  the least — a slow, shallow hover, 7.4s / 9px against
+                  the 6s / 14px default. Listening, not performing. */}
               <Image
                 src="/brand/nero-hero-figure.png"
                 alt="NERO, the AI Job Intelligence mascot, arriving to make sense of the questions above"
                 width={1098}
                 height={1334}
-                sizes="150px"
+                sizes="190px"
                 quality={95}
+                style={
+                  {
+                    "--nero-float-duration": "7.4s",
+                    "--nero-float-distance": "9px",
+                  } as CSSProperties
+                }
                 className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
               />
               <div

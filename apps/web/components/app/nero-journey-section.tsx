@@ -136,7 +136,7 @@ export default function NeroJourneySection() {
               data-parallax-speed="0.06"
               data-parallax-scale-to="1.04"
               data-parallax-local
-              className="pointer-events-none relative mx-auto w-[128px] sm:w-[150px] lg:mx-0 lg:w-full"
+              className="pointer-events-none relative mx-auto w-[150px] sm:w-[178px] lg:mx-0 lg:w-full"
             >
               <div className="relative mx-auto hidden max-w-[190px] -rotate-2 rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-2.5 shadow-lg backdrop-blur-sm lg:block">
                 <p className="nero-note text-app-text">
@@ -144,13 +144,25 @@ export default function NeroJourneySection() {
                 </p>
               </div>
 
+              {/* Guidance beat: his pointing arm runs back along the
+                  rail he is walking, so he reads as leading the visitor
+                  down it. Slow and even — 6.8s / 12px against the 6s /
+                  14px default — a steady pace rather than a bounce,
+                  matching "I'll walk this with you." above him. Still
+                  decorative (alt=""): the note carries the meaning. */}
               <Image
                 src="/brand/nero-hero-figure.png"
                 alt=""
                 width={1098}
                 height={1334}
-                sizes="(min-width: 1024px) 260px, 150px"
+                sizes="(min-width: 1024px) 260px, 178px"
                 quality={95}
+                style={
+                  {
+                    "--nero-float-duration": "6.8s",
+                    "--nero-float-distance": "12px",
+                  } as CSSProperties
+                }
                 className="nero-float relative z-10 mt-3 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
               />
               <div
