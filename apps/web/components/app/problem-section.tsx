@@ -26,6 +26,14 @@ const questions: { text: string; rotate: number }[] = [
  * small and quieter than its later full-scale appearances so the
  * section's dimmer mood still reads as "guesswork resolving," not a
  * bright hero entrance.
+ *
+ * Depth pass: each question chip drifts on its own independent
+ * parallax layer (a wrapper carries data-parallax-speed/local so the
+ * JS-driven drift never fights the chip's own data-reveal settle
+ * transition on the same element) so the cluster reads as scattered
+ * cards at slightly different depths, not one block moving together.
+ * The atmosphere gets its own slower background layer for the same
+ * reason.
  */
 export default function ProblemSection() {
   return (
@@ -63,20 +71,25 @@ export default function ProblemSection() {
 
         <div className="mt-16 flex flex-wrap items-center justify-center gap-3 sm:mt-20 sm:gap-4">
           {questions.map((question, index) => (
-            <span
+            <div
               key={question.text}
-              data-reveal
-              data-reveal-delay={index * 90}
-              style={
-                {
-                  "--reveal-distance": "14px",
-                  "--reveal-rotate": `${question.rotate}deg`,
-                } as CSSProperties
-              }
-              className="glass-panel rounded-full border border-app-border-soft px-5 py-2.5 text-sm text-app-body sm:text-base"
+              data-parallax-speed={(0.03 + (index % 3) * 0.025).toFixed(3)}
+              data-parallax-local
             >
-              {question.text}
-            </span>
+              <span
+                data-reveal
+                data-reveal-delay={index * 90}
+                style={
+                  {
+                    "--reveal-distance": "14px",
+                    "--reveal-rotate": `${question.rotate}deg`,
+                  } as CSSProperties
+                }
+                className="glass-panel block rounded-full border border-app-border-soft px-5 py-2.5 text-sm text-app-body sm:text-base"
+              >
+                {question.text}
+              </span>
+            </div>
           ))}
         </div>
 
@@ -97,24 +110,30 @@ export default function ProblemSection() {
           </div>
 
           <div
-            data-reveal
-            data-reveal-delay="560"
-            style={{ "--reveal-distance": "14px" } as CSSProperties}
-            className="relative w-28 shrink-0 opacity-90 sm:w-32"
+            data-parallax-speed="0.09"
+            data-parallax-local
+            className="relative w-28 shrink-0 sm:w-32"
           >
-            <Image
-              src="/brand/nero-hero-figure.png"
-              alt="NERO, the AI Job Intelligence mascot, arriving to make sense of the questions above"
-              width={1098}
-              height={1334}
-              sizes="130px"
-              quality={95}
-              className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
-            />
             <div
-              className="nero-floor-glow pointer-events-none absolute -bottom-3 left-1/2 h-12 w-[85%] -translate-x-1/2"
-              aria-hidden="true"
-            />
+              data-reveal
+              data-reveal-delay="560"
+              style={{ "--reveal-distance": "14px" } as CSSProperties}
+              className="relative opacity-90"
+            >
+              <Image
+                src="/brand/nero-hero-figure.png"
+                alt="NERO, the AI Job Intelligence mascot, arriving to make sense of the questions above"
+                width={1098}
+                height={1334}
+                sizes="130px"
+                quality={95}
+                className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
+              />
+              <div
+                className="nero-floor-glow pointer-events-none absolute -bottom-3 left-1/2 h-12 w-[85%] -translate-x-1/2"
+                aria-hidden="true"
+              />
+            </div>
           </div>
         </div>
       </div>

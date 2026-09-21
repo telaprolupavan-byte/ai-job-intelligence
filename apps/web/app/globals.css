@@ -779,10 +779,13 @@ body {
    (see nero-journey-section.tsx). Inherits the custom property from its
    parent rather than needing its own — plain CSS inheritance, no extra
    JS wiring. Falls back to scaleY(0) — invisible, not broken — if the
-   variable is ever unset (pre-hydration, reduced motion). */
+   variable is ever unset (pre-hydration, reduced motion). A soft glow
+   is layered on top so the 1px fill still reads clearly against the
+   rail's dark surface. */
 .journey-rail-fill {
   transform: scaleY(var(--scene-progress, 0));
   background: linear-gradient(to bottom, var(--color-app-red), var(--color-app-blue));
+  box-shadow: 0 0 10px rgba(10, 132, 255, 0.5);
 }
 
 /* ---------------------------------------------------------------- */
@@ -875,6 +878,103 @@ body {
 [data-reveal].is-revealed {
   opacity: 1;
   transform: translateY(0) rotate(0deg);
+}
+
+/* ---------------------------------------------------------------- */
+/* Cinematic scene-progress consumers (visual QA + enhancement pass) */
+/*                                                                    */
+/* Pure-CSS transforms/opacity driven by --scene-progress, the value  */
+/* ParallaxController already writes per-element on anything opting  */
+/* in via data-scroll-progress (see that file's doc comment — this   */
+/* is the "future cinematic scenes" consumer it anticipated). Applied*/
+/* only to elements that do NOT also carry data-parallax-speed/x/    */
+/* scale-to: the controller writes el.style.transform directly on    */
+/* those every frame, which would silently clobber a CSS transform   */
+/* on the same element. The layering pattern used throughout the     */
+/* landing sections is: an outer wrapper carries the JS-driven        */
+/* parallax drift (background/mid-ground), while an inner child       */
+/* carries one of these classes for a CSS-driven focal reveal          */
+/* (foreground) — two independently moving layers without conflict.  */
+/* ---------------------------------------------------------------- */
+
+/* Rises + settles into place as its own scroll transit crosses the
+   first ~40% of the viewport, then holds — a scroll-linked entrance
+   for a scene's focal subject (NERO figures, clarity objects, hub)
+   rather than a fixed-duration keyframe. */
+.cine-rise {
+  --cp: clamp(0, calc(var(--scene-progress, 0) * 2.6), 1);
+  opacity: var(--cp);
+  transform: translateY(calc((1 - var(--cp)) * 34px))
+    scale(calc(0.94 + var(--cp) * 0.06));
+  will-change: transform, opacity;
+}
+
+/* Same entrance, weighted toward scale/focus rather than position —
+   for elements that should feel like they're sharpening into view
+   (Job Intelligence's clarity object, System's hub) instead of rising. */
+.cine-focal {
+  --cp: clamp(0, calc(var(--scene-progress, 0) * 2.2), 1);
+  opacity: calc(0.55 + var(--cp) * 0.45);
+  transform: scale(calc(0.9 + var(--cp) * 0.1));
+  filter: saturate(calc(0.7 + var(--cp) * 0.3));
+  will-change: transform, opacity, filter;
+}
+
+/* Resume Intelligence — a thin scan line traveling down the "before"
+   card as its own scroll transit progresses, reading as NERO actively
+   reading the resume rather than the card just sitting there before
+   being swapped for the "after" card next to it. */
+.resume-scan-line {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  height: 2px;
+  top: calc(clamp(0, calc(var(--scene-progress, 0) * 1.6), 1) * 82% + 8%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(10, 132, 255, 0.85),
+    transparent
+  );
+  box-shadow: 0 0 8px rgba(10, 132, 255, 0.6);
+  opacity: calc(clamp(0, calc(var(--scene-progress, 0) * 1.6), 1) * 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resume-scan-line {
+    display: none;
+  }
+}
+
+/* Resume Intelligence — the "after" card's content sweeps in top to
+   bottom as the section transits, standing in for NERO actively
+   rewriting/analyzing the resume rather than the two cards simply
+   trading places. Clips the content, not the card chrome (border/
+   badge stay put), so the panel reads as "being filled in." */
+.resume-recheck-reveal {
+  --rp: clamp(0, calc(var(--scene-progress, 0) * 1.6), 1);
+  clip-path: inset(0 0 calc((1 - var(--rp)) * 100%) 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-rise,
+  .cine-focal {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  /* Without this, the rail fill would sit at scaleY(0) forever under
+     reduced motion — ParallaxController never runs, so --scene-progress
+     is never written, and the fill's own default (0) reads as "no
+     progress made" rather than "motion disabled." */
+  .journey-rail-fill {
+    transform: scaleY(1) !important;
+  }
+
+  .resume-recheck-reveal {
+    clip-path: inset(0) !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

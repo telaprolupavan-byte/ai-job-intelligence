@@ -43,7 +43,7 @@ export default function ConsultancySection() {
     >
       <div className="technical-grid absolute inset-0 opacity-25" aria-hidden="true" />
       <div
-        data-parallax-speed="0.05"
+        data-parallax-speed="0.07"
         data-parallax-local
         className="consultancy-atmosphere absolute inset-0"
         aria-hidden="true"
@@ -116,7 +116,8 @@ export default function ConsultancySection() {
 
           <div>
             <div
-              data-parallax-speed="0.04"
+              data-parallax-speed="0.05"
+              data-parallax-scale-to="1.02"
               data-parallax-local
               className="grid grid-cols-6 gap-2.5 sm:grid-cols-8"
             >

@@ -10,6 +10,15 @@ import Image from "next/image";
  * Same layering technique as the Job Intelligence data streams
  * (gradient-stroked SVG path, dash-offset flow) and the same
  * nero-float / nero-floor-glow treatment used throughout the site.
+ *
+ * Depth pass: the finale had zero scroll-linked motion of its own
+ * (every other scene has at least atmosphere parallax) — every layer
+ * now carries its own independent speed, slowest to fastest: sky
+ * (background) < horizon glow < ridge-back < ridge-mid < city <
+ * planet < ridge-front < NERO (foreground), so the scene reads as
+ * genuine receding depth rather than one flat backdrop image. Kept
+ * gentle relative to earlier scenes per the brief's "slow the visual
+ * rhythm" — this is the closing moment, not another burst of motion.
  */
 export default function NeroFinaleVisual() {
   return (
@@ -34,6 +43,7 @@ export default function NeroFinaleVisual() {
       <div
         data-parallax-speed="0.1"
         data-parallax-x="-0.02"
+        data-parallax-scale-to="1.06"
         data-parallax-local
         className="finale-planet absolute -right-10 -top-10 h-40 w-40 rounded-full sm:h-56 sm:w-56 lg:h-64 lg:w-64"
         aria-hidden="true"
@@ -54,15 +64,23 @@ export default function NeroFinaleVisual() {
         </defs>
 
         <path
+          data-parallax-speed="0.015"
+          data-parallax-local
           className="finale-ridge-back"
           d="M0,140 L20,120 L45,132 L70,110 L95,128 L120,105 L150,125 L180,115 L210,130 L240,112 L270,128 L300,118 L330,132 L360,122 L400,135 L400,200 L0,200 Z"
         />
         <path
+          data-parallax-speed="0.028"
+          data-parallax-local
           className="finale-ridge-mid"
           d="M0,160 L30,150 L60,165 L90,145 L130,162 L170,148 L210,166 L250,150 L290,168 L330,155 L360,170 L400,160 L400,200 L0,200 Z"
         />
 
-        <g className="finale-city">
+        <g
+          data-parallax-speed="0.035"
+          data-parallax-local
+          className="finale-city"
+        >
           <rect x="228" y="150" width="10" height="22" />
           <rect x="242" y="140" width="8" height="32" />
           <rect x="254" y="152" width="12" height="20" />
@@ -84,6 +102,8 @@ export default function NeroFinaleVisual() {
         </g>
 
         <path
+          data-parallax-speed="0.045"
+          data-parallax-local
           className="finale-ridge-front"
           d="M0,92 C40,82 72,96 102,122 C142,152 202,176 262,186 C312,193 362,197 400,199 L400,200 L0,200 Z"
         />
@@ -98,7 +118,7 @@ export default function NeroFinaleVisual() {
 
       <div
         data-parallax-speed="0.14"
-        data-parallax-scale-to="1.05"
+        data-parallax-scale-to="1.06"
         data-parallax-local
         className="absolute bottom-0 left-[2%] z-10 w-[46%] max-w-[220px] sm:max-w-[260px] lg:max-w-[300px]"
       >

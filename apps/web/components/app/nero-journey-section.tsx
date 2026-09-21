@@ -46,13 +46,13 @@ export default function NeroJourneySection() {
     >
       <div className="technical-grid absolute inset-0 opacity-25" aria-hidden="true" />
       <div
-        data-parallax-speed="0.05"
+        data-parallax-speed="0.09"
         data-parallax-local
         className="journey-atmosphere-a absolute inset-0"
         aria-hidden="true"
       />
       <div
-        data-parallax-speed="0.03"
+        data-parallax-speed="0.06"
         data-parallax-local
         className="journey-atmosphere-b absolute inset-0"
         aria-hidden="true"
@@ -122,7 +122,8 @@ export default function NeroJourneySection() {
               reused across the page, walking the rail alongside the
               visitor rather than acting as a new character. */}
           <div
-            data-parallax-speed="0.05"
+            data-parallax-speed="0.09"
+            data-parallax-scale-to="1.05"
             data-parallax-local
             className="pointer-events-none absolute -right-8 top-16 hidden w-[150px] xl:block"
             aria-hidden="true"
@@ -157,7 +158,7 @@ export default function NeroJourneySection() {
                 className="relative flex items-start gap-5 pl-16"
               >
                 <span
-                  data-parallax-speed={(0.01 + index * 0.006).toFixed(3)}
+                  data-parallax-speed={(0.02 + index * 0.016).toFixed(3)}
                   data-parallax-local
                   className="absolute left-0 z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-blue/50 bg-app-bg text-app-blue shadow-[0_0_20px_-6px_rgba(10,132,255,0.5)]"
                 >

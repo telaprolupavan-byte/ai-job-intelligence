@@ -155,23 +155,29 @@ export default function Home() {
       {/* Hero */}
       <section className="relative">
         <div
-          data-parallax-speed="0.04"
+          data-parallax-speed="0.05"
           className="technical-grid absolute inset-0 opacity-40"
           aria-hidden="true"
         />
         <div
-          data-parallax-speed="0.08"
+          data-parallax-speed="0.16"
           className="hero-atmosphere-blue absolute inset-0"
           aria-hidden="true"
         />
         <div
-          data-parallax-speed="0.06"
+          data-parallax-speed="0.11"
           className="hero-atmosphere-red absolute inset-0"
           aria-hidden="true"
         />
 
-        <div className="pointer-events-none absolute left-0 top-[34%] hidden h-px w-24 bg-gradient-to-r from-app-red/50 to-transparent lg:block" />
-        <div className="pointer-events-none absolute left-0 top-[34%] hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-app-red/70 lg:block" />
+        <div
+          data-parallax-speed="0.09"
+          className="pointer-events-none absolute left-0 top-[34%] hidden h-px w-24 bg-gradient-to-r from-app-red/50 to-transparent lg:block"
+        />
+        <div
+          data-parallax-speed="0.09"
+          className="pointer-events-none absolute left-0 top-[34%] hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-app-red/70 lg:block"
+        />
 
         <div className="relative mx-auto max-w-[1536px] px-6 pb-10 pt-10 sm:px-10 lg:px-20 lg:pt-14">
           <div className="hero-grid-layout">
@@ -180,9 +186,11 @@ export default function Home() {
                 animation's fill-forwards value always wins over a JS
                 inline transform on the same element, so it has to sit
                 one level up from anything carrying reveal-up/nero-float/
-                system-card-reveal. Very small speed: "typography,
-                controlled movement" per the cinematic-pass spec, not a
-                layer that should compete with legibility. */}
+                system-card-reveal. Very small speed by design: a
+                near-fixed depth anchor, the slowest-moving readable
+                layer in the scene, so the atmosphere/NERO drifting past
+                it behind and beside it reads as depth rather than the
+                whole hero panning. */}
             <div
               data-parallax-speed="0.02"
               className="hero-area-content flex flex-col justify-center"
@@ -302,8 +310,8 @@ export default function Home() {
               </div>
 
               <div
-                data-parallax-speed="0.16"
-                data-parallax-scale-to="1.04"
+                data-parallax-speed="0.22"
+                data-parallax-scale-to="1.09"
                 className="w-full pt-14 sm:pt-20 lg:pt-4"
               >
                 <NeroHeroVisual />
@@ -400,22 +408,26 @@ export default function Home() {
         className="relative overflow-hidden border-t border-white/10 bg-[#090c11]"
       >
         <div className="technical-grid absolute inset-0 opacity-30" aria-hidden="true" />
-        {/* MEDIUM tier: atmosphere + decorative ring get restrained local
-            parallax, consistent with the rest of the page's atmosphere
-            layers (Hero's is the one exception, by design). */}
+        {/* MEDIUM tier: atmosphere + decorative ring get local parallax,
+            consistent with the rest of the page's atmosphere layers
+            (Hero's is the one exception, by design). The ring carries
+            more of the section's depth budget than the atmosphere wash
+            so NERO reads as the clear focal point between the two. */}
         <div
-          data-parallax-speed="0.05"
+          data-parallax-speed="0.06"
           data-parallax-local
           className="nero-atmosphere absolute inset-0"
           aria-hidden="true"
         />
         <div
-          data-parallax-speed="0.06"
+          data-parallax-speed="0.12"
           data-parallax-local
           className="pointer-events-none absolute -right-32 -top-32 hidden h-[520px] w-[520px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_38%_38%,rgba(10,132,255,0.1),transparent_62%)] lg:block"
           aria-hidden="true"
         />
         <div
+          data-parallax-speed="0.16"
+          data-parallax-local
           className="pointer-events-none absolute left-[18%] top-10 hidden h-px w-28 -rotate-[35deg] bg-gradient-to-r from-app-red/70 to-transparent lg:block"
           aria-hidden="true"
         />
@@ -528,13 +540,16 @@ export default function Home() {
               </div>
 
               <div
-                data-parallax-speed="0.07"
+                data-parallax-speed="0.14"
+                data-parallax-scale-to="1.06"
                 data-parallax-local
                 className="relative mx-auto mt-8 w-full max-w-[280px] sm:max-w-[320px] lg:mt-8 lg:max-w-[360px]"
               >
                 <NeroSystemVisual />
 
                 <div
+                  data-parallax-speed="0.05"
+                  data-parallax-local
                   className="absolute right-[-8%] top-[6%] z-20 hidden w-[132px] rounded-xl border border-app-blue/50 bg-app-panel/90 p-3 shadow-[0_0_28px_-8px_rgba(10,132,255,0.45)] backdrop-blur-sm sm:block"
                   aria-hidden="true"
                 >
