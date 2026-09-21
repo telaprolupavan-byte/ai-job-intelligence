@@ -718,7 +718,7 @@ function FilterGroup({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted">
           {title}
         </span>
