@@ -114,7 +114,14 @@ export default function Home() {
       {/* Navigation — same links/functionality as before, restyled to
           read as NERO's own instrument bar (mono system-status label,
           crimson hairline) instead of a generic SaaS navbar. */}
-      <header className="site-header sticky top-0 z-50 border-b border-white/5 bg-app-bg/85 backdrop-blur-md relative">
+      {/* data-scroll-progress-page: the header is the only consumer of
+          page-level scroll progress, so the controller writes the
+          variable here instead of on :root — see the note in
+          globals.css for why that distinction is worth ~100ms a frame. */}
+      <header
+        data-scroll-progress-page
+        className="site-header sticky top-0 z-50 border-b border-white/5 bg-app-bg/85 backdrop-blur-md relative"
+      >
         <div
           className="hero-hairline pointer-events-none absolute inset-x-0 bottom-0 h-px"
           aria-hidden="true"
@@ -323,7 +330,7 @@ export default function Home() {
                   data-parallax-scale-to="1.06"
                   className="w-full px-8 pt-14 sm:px-10 sm:pt-16 lg:px-0 lg:pt-6"
                 >
-                  <NeroHeroVisual />
+                  <NeroHeroVisual priority />
                 </div>
 
                 <div
@@ -723,7 +730,7 @@ function SystemCard({
       data-reveal-delay={index * 90}
       style={{ "--reveal-distance": "18px" } as CSSProperties}
       className={cn(
-        "group relative flex h-full flex-col rounded-2xl border border-app-blue/40 bg-app-panel/70 p-6 shadow-[0_0_28px_-14px_rgba(10,132,255,0.5)] backdrop-blur-[2px] transition hover:border-app-blue/80 hover:bg-app-panel-strong/80 hover:shadow-[0_0_34px_-8px_rgba(10,132,255,0.6)]",
+        "group relative flex h-full flex-col rounded-2xl border border-app-blue/40 bg-app-panel/70 p-6 shadow-[0_0_28px_-14px_rgba(10,132,255,0.5)] transition hover:border-app-blue/80 hover:bg-app-panel-strong/80 hover:shadow-[0_0_34px_-8px_rgba(10,132,255,0.6)]",
         className,
       )}
     >

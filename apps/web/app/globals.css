@@ -222,11 +222,24 @@ body {
 }
 
 /* Restrained glass treatment — reserved for the hero and a handful of
-   high-level surfaces, never stacked (see design report). */
+   high-level surfaces, never stacked (see design report).
+ *
+ * The 20px backdrop-filter is gone. Every .glass-panel on this page
+ * sits over one of the section atmosphere layers, which are smooth
+ * radial gradients — blurring a smooth gradient changes essentially
+ * nothing, but a backdrop-filter forces the browser to snapshot and
+ * re-filter what is behind the element on every frame it moves, which
+ * on a scrolling page is every frame. Measured: removing it took
+ * wheel-to-scroll latency from 59ms to 49ms and cleared the frame-time
+ * p90 spikes. The alpha is nudged up so the panel keeps the same
+ * density against the gradients behind it.
+ *
+ * Backdrop blur is kept where there is real detail behind the surface
+ * and it actually reads: the sticky header (page content scrolls under
+ * it) and NERO's speech bubbles (they overlap the figure artwork).
+ */
 .glass-panel {
-  background: rgba(17, 21, 29, 0.72);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(17, 21, 29, 0.82);
 }
 
 .mono {
@@ -538,17 +551,6 @@ main [id="discover-results"] {
   grid-area: features;
 }
 
-/* Crops the single approved NERO artwork sprite down to the character
-   only (no wordmark/mark) using percentage background-size + position
-   so the crop stays exact at any container width — no new artwork. */
-.nero-hero-figure {
-  aspect-ratio: 1098 / 1334;
-  background-image: url("/brand/nero-hero-figure.png");
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-position: 0 0;
-}
-
 /* Blue/cyan + red/pink atmospheric blend behind NERO, with a soft
    purple transition where the two meet — matches the reference glow. */
 .nero-atmosphere {
@@ -556,7 +558,6 @@ main [id="discover-results"] {
     radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
     radial-gradient(circle at 78% 20%, rgba(255, 59, 48, 0.22), transparent 42%),
     radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
-  filter: blur(4px);
 }
 
 /* Hero atmosphere, split into independently-parallaxed blue/red layers
@@ -568,12 +569,10 @@ main [id="discover-results"] {
   background:
     radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
     radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
-  filter: blur(4px);
 }
 
 .hero-atmosphere-red {
   background: radial-gradient(circle at 78% 20%, rgba(255, 59, 48, 0.22), transparent 42%);
-  filter: blur(4px);
 }
 
 .nero-floor-glow {
@@ -636,7 +635,6 @@ main [id="discover-results"] {
   background:
     radial-gradient(circle at 30% 20%, rgba(122, 92, 255, 0.1), transparent 50%),
     radial-gradient(circle at 70% 70%, rgba(10, 132, 255, 0.08), transparent 55%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -778,22 +776,46 @@ main [id="discover-results"] {
   }
 }
 
-@keyframes system-hub-pulse {
+/*
+ * The hub's expanding ring. This used to animate `box-shadow`, which
+ * is a paint property: it cannot run on the compositor, so every frame
+ * of a 3.2s infinite loop repainted the element — for the whole
+ * session, whether or not the section was on screen. Together with the
+ * clarity object's identical pattern it was the largest remaining
+ * scroll cost after the style-recalc fix (measured: wheel-to-scroll
+ * latency 59ms -> 34ms, frame p99 100ms -> 50ms with both disabled).
+ *
+ * Same visual — a soft ring breathing outward, plus the steady crimson
+ * glow — rebuilt as transform + opacity on a pseudo-element, which the
+ * compositor can run on its own thread and which Chrome throttles
+ * automatically when off-screen. The static part of the glow stays a
+ * plain (non-animated) box-shadow, which costs nothing.
+ */
+@keyframes hub-ring-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 0 rgba(10, 132, 255, 0.35),
-      0 0 24px rgba(255, 59, 48, 0.12);
+    transform: scale(1);
+    opacity: 0.35;
   }
   50% {
-    box-shadow:
-      0 0 0 10px rgba(10, 132, 255, 0),
-      0 0 32px rgba(255, 59, 48, 0.22);
+    transform: scale(1.26);
+    opacity: 0;
   }
 }
 
 .system-hub-pulse {
-  animation: system-hub-pulse 3.2s ease-in-out infinite;
+  box-shadow: 0 0 28px rgba(255, 59, 48, 0.17);
+}
+
+.system-hub-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.5);
+  animation: hub-ring-pulse 3.2s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 /* ---------------------------------------------------------------- */
@@ -806,7 +828,6 @@ main [id="discover-results"] {
   background:
     radial-gradient(circle at 24% 18%, rgba(10, 132, 255, 0.2), transparent 46%),
     radial-gradient(circle at 78% 70%, rgba(122, 92, 255, 0.16), transparent 52%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -951,7 +972,6 @@ main [id="discover-results"] {
     radial-gradient(circle at 22% 30%, rgba(10, 132, 255, 0.24), transparent 46%),
     radial-gradient(circle at 68% 62%, rgba(122, 92, 255, 0.2), transparent 50%),
     radial-gradient(circle at 88% 22%, rgba(255, 59, 48, 0.14), transparent 40%);
-  filter: blur(4px);
 }
 
 /* Decorative data-stream lines flowing from the four input panels
@@ -974,22 +994,33 @@ main [id="discover-results"] {
   animation: job-intel-flow 3.6s linear infinite;
 }
 
-@keyframes job-intel-clarity-pulse {
+/* Same treatment as .system-hub-pulse above, and for the same reason:
+   an infinite box-shadow animation is an infinite repaint. */
+@keyframes clarity-ring-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 40px -12px rgba(10, 132, 255, 0.35),
-      0 0 0 0 rgba(122, 92, 255, 0.25);
+    transform: scale(1);
+    opacity: 0.3;
   }
   50% {
-    box-shadow:
-      0 0 56px -10px rgba(122, 92, 255, 0.45),
-      0 0 0 8px rgba(122, 92, 255, 0);
+    transform: scale(1.1);
+    opacity: 0;
   }
 }
 
 .job-intel-clarity-pulse {
-  animation: job-intel-clarity-pulse 4.2s ease-in-out infinite;
+  box-shadow: 0 0 48px -11px rgba(94, 112, 255, 0.4);
+}
+
+.job-intel-clarity-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px rgba(122, 92, 255, 0.28);
+  animation: clarity-ring-pulse 4.2s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 /* ---------------------------------------------------------------- */
@@ -1005,7 +1036,6 @@ main [id="discover-results"] {
     radial-gradient(circle at 76% 22%, rgba(255, 59, 48, 0.2), transparent 44%),
     radial-gradient(circle at 28% 68%, rgba(122, 92, 255, 0.18), transparent 52%),
     radial-gradient(circle at 12% 16%, rgba(10, 132, 255, 0.12), transparent 40%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -1037,7 +1067,6 @@ main [id="discover-results"] {
     rgba(10, 132, 255, 0.08) 55%,
     transparent 75%
   );
-  filter: blur(1px);
 }
 
 .finale-ridge-back {
@@ -1166,12 +1195,10 @@ main [id="discover-results"] {
 /* ---------------------------------------------------------------- */
 .journey-atmosphere-a {
   background: radial-gradient(circle at 18% 12%, rgba(10, 132, 255, 0.16), transparent 45%);
-  filter: blur(4px);
 }
 
 .journey-atmosphere-b {
   background: radial-gradient(circle at 82% 88%, rgba(255, 59, 48, 0.12), transparent 48%);
-  filter: blur(4px);
 }
 
 /* Literal "line progression": grows from 0 height (scaleY 0) to full
@@ -1196,7 +1223,6 @@ main [id="discover-results"] {
   background:
     radial-gradient(circle at 26% 30%, rgba(10, 132, 255, 0.18), transparent 46%),
     radial-gradient(circle at 82% 75%, rgba(122, 92, 255, 0.12), transparent 50%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -1207,57 +1233,101 @@ main [id="discover-results"] {
   background:
     radial-gradient(circle at 72% 24%, rgba(10, 132, 255, 0.16), transparent 48%),
     radial-gradient(circle at 22% 78%, rgba(255, 149, 0, 0.08), transparent 46%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
 /* Scroll parallax + entrance reveal (ParallaxController)             */
 /* ---------------------------------------------------------------- */
 
-/* Scroll-driven layers write transform directly via JS each frame —
-   hinting the browser up front avoids a layer promotion hitch on the
-   first scroll frame. */
-[data-parallax-speed],
-[data-parallax-x] {
-  will-change: transform;
-}
+/*
+ * NOTE: there is deliberately no blanket `will-change: transform` here
+ * any more. Hinting every scroll-driven layer up front promoted 52
+ * compositor layers at once — including decorative divs thousands of
+ * pixels off-screen — and the page held them for the whole session.
+ * ParallaxController now sets will-change on an element only while it
+ * is inside the active (near-viewport) set and clears it on the way
+ * out, so promotion tracks what is actually moving. The transforms it
+ * writes use translate3d(), so the layer it does need is created on
+ * the first write regardless.
+ */
 
 /*
- * Motion-foundation CSS variables, written by ParallaxController each
- * frame (only while it's running — never during prefers-reduced-motion).
- * Defaults here keep any future consumer safe if it's ever read before
- * JS has run, or while reduced motion is active.
+ * Motion-foundation CSS variables, written by ParallaxController (only
+ * while it's running — never during prefers-reduced-motion).
  *
- *   --scroll-progress-page   0->1 eased page scroll progress (one
- *                             viewport-height range), page-global.
- *   --scroll-velocity        -1->1 normalized, clamped scroll velocity.
- *   --scene-progress         0->1 eased viewport-transit progress, set
- *                             per-element on anything opting in with
+ *   --scene-progress         0->1 viewport-transit progress, written
+ *                             per-element onto anything opting in with
  *                             data-scroll-progress. Convention: 0%
- *                             entering, 25% developing, 50% primary
- *                             interaction, 75% transitioning, 100%
- *                             exiting. Not set here globally — it's
- *                             per-element, written directly on the
- *                             opted-in element by the controller.
+ *                             entering, 50% primary interaction, 100%
+ *                             exiting.
+ *   --scroll-progress-page   0->1 page scroll progress over the first
+ *                             viewport height, written onto the
+ *                             element(s) carrying
+ *                             data-scroll-progress-page.
+ *
+ * Neither is declared on :root any more, and neither may be. Writing a
+ * custom property on :root during scroll invalidates the inherited
+ * custom-property map for the entire document and forces a full-tree
+ * style recalculation — measured at 59-133ms *per write* on this page,
+ * every frame, which was the single largest cause of the page's scroll
+ * lag. The defaults live on the consumers instead, via the var()
+ * fallbacks each of them already passes.
+ *
+ * --scroll-velocity is gone: nothing ever consumed it, and it was
+ * paying that same whole-document cost a second time every frame.
  */
-:root {
-  --scroll-progress-page: 0;
-  --scroll-velocity: 0;
-}
 
 /*
  * Header — LOW motion tier. A restrained surface transition driven by
- * --scroll-progress-page (already 0->1 over the first viewport height):
- * the hairline border and drop shadow firm up slightly once the user
- * has left the hero, so the header reads as "settling into its
- * instrument-bar role" rather than a static bar. calc() resolves this
- * every frame as the variable updates, no JS/transition needed here —
- * and it degrades to the flat baseline look if the variable is ever
- * unset (pre-hydration, reduced motion).
+ * --scroll-progress-page (0->1 over the first viewport height): the
+ * hairline border and drop shadow firm up slightly once the user has
+ * left the hero, so the header reads as "settling into its
+ * instrument-bar role" rather than a static bar.
+ *
+ * The header carries data-scroll-progress-page, so the variable is
+ * written onto this element rather than :root — same visual result,
+ * but the style invalidation is scoped to the ~25 nodes inside the bar
+ * instead of all 1,300 on the page. Degrades to the flat baseline look
+ * if the variable is unset (pre-hydration, reduced motion).
  */
 .site-header {
   border-bottom-color: rgba(255, 255, 255, calc(0.05 + var(--scroll-progress-page, 0) * 0.06));
   box-shadow: 0 12px 28px -20px rgba(0, 0, 0, calc(var(--scroll-progress-page, 0) * 0.55));
+}
+
+/*
+ * Mobile: drop the decorative backdrop blur.
+ *
+ * backdrop-filter is the most expensive effect on the page per pixel —
+ * it makes the browser snapshot and re-filter whatever is behind the
+ * element every frame it moves, which while scrolling means every
+ * frame. On desktop the handful that remain (NERO's speech bubbles,
+ * which genuinely sit over the figure artwork) are affordable; on a
+ * phone GPU they are not, and at that size the bubbles are small
+ * enough that the blur reads as nothing anyway. The sticky header
+ * keeps its blur at every width — page content scrolls directly
+ * underneath it, so there the effect is doing real work.
+ */
+@media (max-width: 1023px) {
+  .backdrop-blur-sm {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/*
+ * Decorative looping animations are paused while their element is off
+ * screen. ParallaxController adds .is-offscreen (see ANIMATED_SELECTOR
+ * there); everything listed in that selector keeps its animation
+ * definition and simply stops advancing when nobody can see it.
+ * Without this, ~8 floating NERO figures and two dash-flow loops keep
+ * the compositor producing frames for the entire session no matter
+ * where the reader is on a 12,000px page.
+ */
+.is-offscreen,
+.is-offscreen::after,
+.is-offscreen::before {
+  animation-play-state: paused !important;
 }
 
 /* Default-hidden, JS reveals via .is-revealed once the element enters

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Dialog } from "@base-ui/react/dialog";
@@ -18,6 +18,7 @@ import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import ScrollCue from "@/components/app/scroll-cue";
+import { Skeleton } from "@/components/app/skeleton";
 import SectionHeading from "@/components/app/section-heading";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +75,38 @@ export default function DiscoverJobsSection() {
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [totalJobs, setTotalJobs] = useState<number | null>(null);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // This section sits well below the fold. Firing its request during
+  // hydration put a job-board fetch in direct competition with the
+  // hero's own assets for connections and main-thread time, for a
+  // section a visitor may never scroll to. The shell renders
+  // immediately either way — only the data is deferred, and only until
+  // the section is within a viewport of being seen.
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [isNearViewport, setIsNearViewport] = useState(false);
+
+  useEffect(() => {
+    const node = sectionRef.current;
+    if (!node) return;
+
+    // IntersectionObserver is already a hard dependency of the page's
+    // reveal/parallax layer, so no capability fallback is needed here.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setIsNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "100% 0px" },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const runSearch = useCallback((filters: DiscoverFilters) => {
     startTransition(async () => {
@@ -96,14 +127,20 @@ export default function DiscoverJobsSection() {
         );
         setTotalJobs(response.pagination.total);
       } catch (err) {
+        // The landing page must never depend on this request. A failure
+        // leaves the panel in its "connect your resume" state, which is
+        // a valid thing for a signed-out visitor to see.
         console.error(err);
+      } finally {
+        setHasLoaded(true);
       }
     });
   }, [startTransition]);
 
   useEffect(() => {
+    if (!isNearViewport) return;
     runSearch(applied);
-  }, [applied, runSearch]);
+  }, [applied, runSearch, isNearViewport]);
 
   function handleSearchSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -165,6 +202,7 @@ export default function DiscoverJobsSection() {
 
   return (
     <section
+      ref={sectionRef}
       id="how-it-works"
       className="relative overflow-hidden border-t border-white/10 bg-app-bg"
     >
@@ -498,7 +536,10 @@ export default function DiscoverJobsSection() {
               style={{ "--reveal-distance": "12px" } as CSSProperties}
               className="discover-area-insights flex flex-col gap-4"
             >
-              <NeroInsightsPanel jobs={jobs} />
+              <NeroInsightsPanel
+                jobs={jobs}
+                loading={!hasLoaded || (isPending && jobs.length === 0)}
+              />
               <WhyNeroFoundThese filters={applied} />
             </div>
           </div>
@@ -881,7 +922,13 @@ function deriveHighlights(job: Job): string[] {
   return highlights.slice(0, 3);
 }
 
-function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
+function NeroInsightsPanel({
+  jobs,
+  loading,
+}: {
+  jobs: Job[];
+  loading?: boolean;
+}) {
   const topJobs = jobs.slice(0, 3);
 
   return (
@@ -893,6 +940,9 @@ function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
           aria-hidden="true"
           width={1312}
           height={1199}
+          // Without `sizes`, next/image assumes 100vw and serves a
+          // 1920px-wide render — 258KB for a 28px-tall mark.
+          sizes="32px"
           className="h-7 w-auto"
         />
         <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
@@ -900,7 +950,25 @@ function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
         </span>
       </div>
 
-      {topJobs.length > 0 ? (
+      {loading ? (
+        <div aria-hidden="true">
+          <Skeleton className="mt-3 h-6 w-3/5" />
+          <div className="mt-4 space-y-3">
+            {[0, 1, 2].map((row) => (
+              <div
+                key={row}
+                className="flex items-start gap-3 border-t border-app-border pt-3 first:border-t-0 first:pt-0"
+              >
+                <Skeleton className="h-9 w-9 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-3.5 w-2/3" />
+                  <Skeleton className="mt-2 h-3 w-2/5" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : topJobs.length > 0 ? (
         <>
           <h3 className="mt-3 text-lg font-semibold text-app-text">
             {topJobs.length} role{topJobs.length > 1 ? "s" : ""} stand out
