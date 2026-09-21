@@ -30,6 +30,19 @@ import { useEffect } from "react";
  *                                      omits this attribute on purpose: its
  *                                      already-verified motion is scrollY-based
  *                                      and is left exactly as it was.
+ *   data-parallax-desktop-only        opt-in: this element's transform is
+ *                                      skipped entirely below 1024px. For
+ *                                      motion whose *meaning* is tied to the
+ *                                      desktop composition — the Job
+ *                                      Intelligence panels sliding toward a
+ *                                      NERO that only sits beside them at lg
+ *                                      — where the same drift on a stacked
+ *                                      phone layout is just a few pixels of
+ *                                      horizontal jitter under the page
+ *                                      gutter. Any --scene-progress the
+ *                                      element also opts into is still
+ *                                      written; only the transform is
+ *                                      suppressed.
  *   data-scroll-progress               opt-in, foundation for future cinematic
  *                                      scenes: writes this element's own 0->1
  *                                      transit progress to the CSS custom
@@ -159,12 +172,14 @@ export default function ParallaxController() {
           ? parseFloat(el.dataset.parallaxScaleTo)
           : null,
         local,
+        desktopOnly: el.dataset.parallaxDesktopOnly !== undefined,
         writeProgressVar: el.dataset.scrollProgress !== undefined,
         renderedProgress: initialProgress,
       };
     });
 
     let mobileFactor = window.innerWidth < 768 ? 0.5 : 1;
+    let isDesktop = window.innerWidth >= 1024;
     let scaleRange = window.innerHeight;
 
     let rafId: number | null = null;
@@ -223,7 +238,8 @@ export default function ParallaxController() {
       let maxDelta = Math.abs(rawScrollY - renderedGlobalScrollY) / scaleRange;
 
       for (const { entry, targetProgress } of reads) {
-        const { el, speed, speedX, scaleTo, local, writeProgressVar } = entry;
+        const { el, speed, speedX, scaleTo, local, desktopOnly, writeProgressVar } =
+          entry;
 
         if (local) {
           entry.renderedProgress +=
@@ -240,6 +256,13 @@ export default function ParallaxController() {
         }
 
         if (!speed && !speedX && !scaleTo) continue;
+
+        if (desktopOnly && !isDesktop) {
+          // Clear once rather than every frame, so a resize down to a
+          // phone width doesn't leave a stale offset baked in.
+          if (el.style.transform) el.style.transform = "";
+          continue;
+        }
 
         // Same signal shape the original hero motion was verified
         // against: a roughly-linear ramp centered on zero. For the hero
@@ -295,6 +318,7 @@ export default function ParallaxController() {
 
     const onResize = () => {
       mobileFactor = window.innerWidth < 768 ? 0.5 : 1;
+      isDesktop = window.innerWidth >= 1024;
       scaleRange = window.innerHeight;
     };
 

@@ -11,6 +11,7 @@ import {
   Target,
   type LucideIcon,
 } from "lucide-react";
+import SectionHeading from "@/components/app/section-heading";
 
 const stages: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: FileText, title: "Resume", text: "Start with where you stand today." },
@@ -30,13 +31,19 @@ const stages: { icon: LucideIcon; title: string; text: string }[] = [
  * via the same IntersectionObserver-driven data-reveal used everywhere
  * else on the page, so the user visually progresses through the
  * journey exactly as fast as they scroll — no separate scroll-spy
- * logic, no per-frame state. The strongest parallax section on the
- * page: the rail's background glow and connecting line carry their
- * own depth layers, and each stage's icon drifts a hair independently
- * of its text for a subtle layered feel without ever competing with
- * legibility. A small NERO companion (same approved artwork used
- * everywhere else) floats beside the rail on wide screens, reinforcing
- * that this is a path walked together rather than an automated report.
+ * logic, no per-frame state.
+ *
+ * STRONG storytelling tier: the rail's crimson->blue fill grows with
+ * the section's own scroll transit, and the atmosphere carries two
+ * independent depth layers. What it no longer does is drift each of
+ * the eight stage icons at its own speed — the icons sit ON the rail
+ * line, so giving each a different offset pulled them off the very
+ * line that is the section's whole visual argument.
+ *
+ * Layout: a two-column shell on wide screens. The rail used to sit in
+ * a 900px centered container with the NERO companion floating off its
+ * right edge, which left the right half of a 1600px-tall section
+ * completely empty. NERO now occupies a real second column.
  */
 export default function NeroJourneySection() {
   return (
@@ -58,139 +65,109 @@ export default function NeroJourneySection() {
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-[900px] px-6 py-20 sm:px-10 sm:py-24 lg:px-20 lg:py-28">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-3">
-            <span className="h-px w-10 bg-app-red/50" />
-            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-              THE NERO JOURNEY
-            </span>
-            <span className="h-px w-10 bg-app-red/50" />
-          </div>
+      <div className="landing-shell landing-shell-narrow landing-band">
+        <SectionHeading
+          align="center"
+          eyebrow="THE NERO JOURNEY"
+          title={
+            <>
+              ONE PATH.{" "}
+              <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+                EIGHT STEPS.
+              </span>
+            </>
+          }
+          lede="From your resume to a tracked application — the same system, the whole way."
+          className="mx-auto max-w-2xl"
+        />
 
-          <h2 className="mx-auto mt-5 max-w-lg font-[family-name:var(--font-display)] text-[clamp(2.25rem,5vw,3.5rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
-            ONE PATH.{" "}
-            <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
-              EIGHT STEPS.
-            </span>
-          </h2>
-
-          <p className="mx-auto mt-5 max-w-md text-base leading-7 text-app-muted">
-            From your resume to a tracked application — the same
-            system, the whole way.
-          </p>
-
-          {/* Compact mascot cameo for narrower screens, where the
-              desktop companion beside the rail (below) has no room —
-              same approved artwork, just repositioned. */}
-          <div className="relative mx-auto mt-8 w-16 xl:hidden">
-            <Image
-              src="/brand/nero-hero-figure.png"
-              alt="NERO, the AI Job Intelligence mascot"
-              width={1098}
-              height={1334}
-              sizes="64px"
-              quality={95}
-              className="nero-float relative z-10 h-auto w-full drop-shadow-[0_16px_28px_rgba(0,0,0,0.5)]"
-            />
+        <div className="stack-xl grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:items-center lg:gap-16">
+          <div className="relative">
+            {/* Rail line doubles as the section's literal "line
+                progression": data-scroll-progress writes this element's
+                own 0->1 viewport-transit progress to --scene-progress,
+                which the nested .journey-rail-fill reads via CSS
+                inheritance to grow a crimson->blue fill down from the
+                top — "the path walked so far" — over the static line. */}
             <div
-              className="nero-floor-glow pointer-events-none absolute -bottom-2 left-1/2 h-8 w-[85%] -translate-x-1/2"
+              data-scroll-progress
+              className="pointer-events-none absolute bottom-3 left-6 top-3 w-px bg-gradient-to-b from-transparent via-app-border-strong to-transparent"
               aria-hidden="true"
-            />
-          </div>
-        </div>
+            >
+              <div className="journey-rail-fill absolute inset-x-0 top-0 h-full origin-top" />
+            </div>
 
-        <div className="relative mt-16 lg:mt-20">
-          {/* Rail line doubles as the section's literal "line
-              progression": data-scroll-progress writes this element's
-              own 0->1 viewport-transit progress to --scene-progress
-              (foundation capability from the motion-foundation pass),
-              which the nested .journey-rail-fill reads via CSS
-              inheritance to grow a crimson->blue fill down from the
-              top — "the path walked so far" — over the static line. */}
-          <div
-            data-parallax-speed="0.04"
-            data-parallax-local
-            data-scroll-progress
-            className="pointer-events-none absolute left-6 top-2 bottom-2 w-px bg-gradient-to-b from-transparent via-app-border-strong to-transparent"
-            aria-hidden="true"
-          >
-            <div className="journey-rail-fill absolute inset-x-0 top-0 h-full origin-top" />
+            <ol className="relative flex flex-col gap-8 sm:gap-9">
+              {stages.map((stage, index) => (
+                <li
+                  key={stage.title}
+                  data-reveal
+                  data-reveal-delay={(index % 4) * 80}
+                  style={{ "--reveal-distance": "18px" } as CSSProperties}
+                  className="relative flex items-start gap-5 pl-16"
+                >
+                  <span className="absolute left-0 top-0 z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-blue/50 bg-app-bg text-app-blue shadow-[0_0_20px_-6px_rgba(10,132,255,0.5)]">
+                    <stage.icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+
+                  <div className="min-w-0 pt-0.5">
+                    <span className="mono text-[9px] tracking-[0.2em] text-app-faint">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <h3 className="mt-1 text-base font-semibold text-app-text">
+                      {stage.title}
+                    </h3>
+                    <p className="mt-1 max-w-[420px] text-sm leading-6 text-app-muted">
+                      {stage.text}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
 
           {/* Mascot companion — same approved standing/pointing artwork
               reused across the page, walking the rail alongside the
-              visitor rather than acting as a new character. */}
-          <div
-            data-parallax-speed="0.09"
-            data-parallax-scale-to="1.05"
-            data-parallax-local
-            className="pointer-events-none absolute -right-8 top-16 hidden w-[150px] xl:block"
-            aria-hidden="true"
-          >
-            <div className="relative -left-4 -top-4 max-w-[160px] -rotate-2 rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-3 shadow-lg backdrop-blur-sm">
-              <p className="font-[family-name:var(--font-caveat)] text-lg leading-5 text-app-text">
-                I&apos;ll walk this with you.
-              </p>
-            </div>
-            <Image
-              src="/brand/nero-hero-figure.png"
-              alt=""
-              width={1098}
-              height={1334}
-              sizes="150px"
-              quality={95}
-              className="nero-float relative z-10 mt-2 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
-            />
+              visitor rather than acting as a new character. On wide
+              screens it sits centred against the full height of the
+              rail rather than floating off its top-right corner. */}
+          <div className="order-first lg:order-none">
             <div
-              className="nero-floor-glow absolute -bottom-3 left-1/2 h-14 w-[85%] -translate-x-1/2"
-              aria-hidden="true"
-            />
+              data-parallax-speed="0.06"
+              data-parallax-scale-to="1.04"
+              data-parallax-local
+              className="pointer-events-none relative mx-auto w-[128px] sm:w-[150px] lg:mx-0 lg:w-full"
+            >
+              <div className="relative mx-auto hidden max-w-[190px] -rotate-2 rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-2.5 shadow-lg backdrop-blur-sm lg:block">
+                <p className="nero-note text-app-text">
+                  I&apos;ll walk this with you.
+                </p>
+              </div>
+
+              <Image
+                src="/brand/nero-hero-figure.png"
+                alt=""
+                width={1098}
+                height={1334}
+                sizes="(min-width: 1024px) 260px, 150px"
+                quality={95}
+                className="nero-float relative z-10 mt-3 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
+              />
+              <div
+                className="nero-floor-glow absolute -bottom-3 left-1/2 h-14 w-[85%] -translate-x-1/2"
+                aria-hidden="true"
+              />
+            </div>
           </div>
-
-          <ol className="relative flex flex-col gap-10 sm:gap-12">
-            {stages.map((stage, index) => (
-              <li
-                key={stage.title}
-                data-reveal
-                data-reveal-delay={(index % 4) * 90}
-                style={{ "--reveal-distance": "20px" } as CSSProperties}
-                className="relative flex items-start gap-5 pl-16"
-              >
-                <span
-                  data-parallax-speed={(0.02 + index * 0.016).toFixed(3)}
-                  data-parallax-local
-                  className="absolute left-0 z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-blue/50 bg-app-bg text-app-blue shadow-[0_0_20px_-6px_rgba(10,132,255,0.5)]"
-                >
-                  <stage.icon className="h-5 w-5" aria-hidden="true" />
-                </span>
-
-                <div className="min-w-0">
-                  <span className="mono text-[9px] tracking-[0.2em] text-app-faint">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <h3 className="mt-1 text-lg font-semibold text-app-text">
-                    {stage.title}
-                  </h3>
-                  <p className="mt-1 max-w-[420px] text-sm leading-6 text-app-muted">
-                    {stage.text}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
         </div>
 
-        <div
-          data-reveal
-          className="mx-auto mt-16 flex max-w-md justify-center lg:mt-20"
-        >
+        <div data-reveal className="stack-lg flex justify-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-app-border-soft bg-app-panel/70 px-5 py-2.5">
             <span
               className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]"
               aria-hidden="true"
             />
-            <span className="mono text-[10px] tracking-[0.25em] text-app-text">
+            <span className="mono text-center text-[10px] leading-5 tracking-[0.25em] text-app-text">
               YOU&apos;RE IN CONTROL, START TO FINISH
             </span>
           </span>

@@ -12,13 +12,13 @@ import {
   Lock,
   ArrowRight,
   X,
-  Mouse,
-  ChevronDown,
 } from "lucide-react";
 import { getJobs, type Job } from "@/lib/jobs";
 import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
+import ScrollCue from "@/components/app/scroll-cue";
+import SectionHeading from "@/components/app/section-heading";
 import { cn } from "@/lib/utils";
 
 type EmploymentFilter = "" | "full_time" | "contract" | "internship";
@@ -179,73 +179,63 @@ export default function DiscoverJobsSection() {
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-[1536px] px-6 py-12 sm:px-10 sm:py-16 lg:px-20 lg:py-20">
+      <div className="landing-shell landing-band">
         <div className="discover-hero-grid">
           {/* HEADLINE — mobile order: 1st */}
           <div className="discover-hero-area-content">
-            {/* SECTION HEADER */}
-            <div className="flex items-center gap-3">
-              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                03 / 06
-              </span>
-              <span className="h-px w-12 bg-app-red/50" />
-              <span className="mono text-[10px] tracking-[0.3em] text-app-muted">
-                DISCOVER JOBS
-              </span>
-            </div>
-
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.25rem,5vw,3.75rem)] font-bold leading-[0.98] tracking-[-0.03em] text-app-text">
-              REAL JOBS.
-              <br />
-              <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
-                REAL OPPORTUNITIES.
-              </span>
-            </h2>
-
-            <p className="mt-5 max-w-xl text-base leading-7 text-app-muted">
-              Search U.S. opportunities with intelligent filters and discover
-              roles that align with your experience, skills, and
-              preferences.
-            </p>
+            <SectionHeading
+              eyebrow="03 / 06 · DISCOVER JOBS"
+              title={
+                <>
+                  REAL JOBS.
+                  <br />
+                  <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
+                    REAL OPPORTUNITIES.
+                  </span>
+                </>
+              }
+              lede="Search U.S. opportunities with intelligent filters and discover roles that align with your experience, skills, and preferences."
+            />
           </div>
 
-          {/* MASCOT — mobile order: 2nd */}
-          <div className="discover-hero-area-nero relative flex flex-col items-center pt-6 lg:pt-0">
-            <div className="pointer-events-none absolute right-0 top-0 z-20 max-w-[220px] text-right sm:right-2 sm:top-2">
-              <div className="rounded-xl border border-app-border-soft bg-app-panel/80 px-4 py-3.5 text-left shadow-lg backdrop-blur-sm">
-                <p className="text-xs leading-5 text-app-body">
-                  I&apos;ll help you find the best opportunities based on
-                  your skills, goals, and preferences.
+          {/* MASCOT — mobile order: 2nd. MEDIUM motion tier: NERO gets
+              restrained local depth; the search card and job data below
+              stay motion-free so they remain readable and usable while
+              scrolling. */}
+          <div className="discover-hero-area-nero relative flex justify-center lg:justify-end">
+            <div className="relative w-full max-w-[360px]">
+              <div
+                data-parallax-speed="0.09"
+                data-parallax-local
+                className="pointer-events-none absolute -left-6 bottom-8 z-20 hidden -rotate-2 text-left xl:block"
+                aria-hidden="true"
+              >
+                <p className="nero-note text-app-blue">
+                  Smarter
+                  <br />
+                  Searches.
+                  <br />
+                  Brighter Careers!
                 </p>
               </div>
-            </div>
 
-            {/* MEDIUM tier: NERO gets restrained local depth. Job cards
-                below stay motion-free — must remain fully readable and
-                usable, per the cinematic-pass rule ("avoid excessive
-                movement" for this scene specifically). */}
-            <div
-              data-parallax-speed="0.09"
-              data-parallax-scale-to="1.04"
-              data-parallax-local
-              className="w-full max-w-[320px] pt-12 sm:pt-14 lg:pt-4"
-            >
-              <NeroHeroVisual />
-            </div>
+              <div className="pointer-events-none absolute right-0 top-0 z-20 max-w-[210px]">
+                <div className="rounded-xl border border-app-border-soft bg-app-panel/85 px-4 py-3 text-left shadow-lg backdrop-blur-sm">
+                  <p className="text-xs leading-5 text-app-body">
+                    I&apos;ll help you find the best opportunities based on
+                    your skills, goals, and preferences.
+                  </p>
+                </div>
+              </div>
 
-            <div
-              data-parallax-speed="0.1"
-              data-parallax-local
-              className="pointer-events-none absolute -left-4 top-10 hidden -rotate-2 text-left lg:block"
-              aria-hidden="true"
-            >
-              <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-blue">
-                Smarter
-                <br />
-                Searches.
-                <br />
-                Brighter Careers!
-              </p>
+              <div
+                data-parallax-speed="0.09"
+                data-parallax-scale-to="1.04"
+                data-parallax-local
+                className="w-full px-10 pt-16 sm:px-12 lg:px-4 lg:pt-12"
+              >
+                <NeroHeroVisual />
+              </div>
             </div>
           </div>
 
@@ -255,203 +245,197 @@ export default function DiscoverJobsSection() {
               onSubmit={handleSearchSubmit}
               className="glass-panel rounded-2xl border border-app-border-soft p-4 sm:p-5"
             >
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label htmlFor="discover-search" className="sr-only">
-              Search job title, skill, company, or keyword
-            </label>
-            <div className="relative flex-1">
-              <SearchIcon
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-app-faint"
-                aria-hidden="true"
-              />
-              <input
-                id="discover-search"
-                type="text"
-                value={draft.search}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    search: event.target.value,
-                  }))
-                }
-                placeholder="Search job title, skill, company, or keyword"
-                className="w-full rounded-lg border border-app-border bg-app-surface py-3.5 pl-11 pr-4 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
-              />
-            </div>
-
-            <div className="relative sm:w-56">
-              <label htmlFor="discover-location" className="sr-only">
-                City or state
-              </label>
-              <MapPin
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-app-faint"
-                aria-hidden="true"
-              />
-              <input
-                id="discover-location"
-                type="text"
-                value={draft.location}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    location: event.target.value,
-                  }))
-                }
-                placeholder="City or state"
-                className="w-full rounded-lg border border-app-border bg-app-surface py-3.5 pl-11 pr-4 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
-              />
-            </div>
-
-            <AppButton type="submit" className="sm:w-auto">
-              <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              Search
-            </AppButton>
-          </div>
-
-          {/* QUICK FILTERS */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {EMPLOYMENT_OPTIONS.map((option) => (
-              <FilterChip
-                key={option.value}
-                label={option.label}
-                active={applied.employmentType === option.value}
-                onClick={() => toggleEmployment(option.value)}
-              />
-            ))}
-
-            {REMOTE_OPTIONS.map((option) => (
-              <FilterChip
-                key={option.value}
-                label={option.label}
-                active={applied.remoteType === option.value}
-                onClick={() => toggleRemote(option.value)}
-              />
-            ))}
-
-            <span
-              className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-app-border/60 bg-app-surface/60 px-4 py-2 text-xs font-medium uppercase tracking-wider text-app-faint"
-              title="NERO currently sources U.S. opportunities only."
-            >
-              <Lock className="h-3 w-3" aria-hidden="true" />
-              US Only
-            </span>
-
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={clearAll}
-                className="app-focus-ring ml-1 inline-flex items-center gap-1 rounded-full px-2 py-2 text-xs font-medium text-app-faint transition hover:text-app-text"
-              >
-                <X className="h-3 w-3" aria-hidden="true" />
-                Clear
-              </button>
-            )}
-          </div>
-            </form>
-          </div>
-        </div>
-
-        {/* STAT STRIP */}
-        <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile
-              value={
-                totalJobs === null
-                  ? "—"
-                  : `${totalJobs.toLocaleString()}${totalJobs > 0 ? "+" : ""}`
-              }
-              label="Matching opportunities"
-            />
-            <StatTile
-              value={jobs.length === 0 ? "—" : String(sampleStrongMatches)}
-              label="Strong matches"
-              hint="Example — sign in to calculate"
-            />
-            <StatTile
-              value={jobs.length === 0 ? "—" : String(newTodayCount)}
-              label="New today"
-              hint="In results shown"
-            />
-            <StatTile value="Live" label="Job updates" />
-          </div>
-
-          <div className="hidden shrink-0 text-right lg:block">
-            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
-              MORE THAN JOBS
-              <br />A BRIGHTER YOU
-            </div>
-          </div>
-        </div>
-
-        {/* MOBILE FILTERS TRIGGER */}
-        <div className="mt-6 lg:hidden">
-          <Dialog.Root
-            open={mobileFiltersOpen}
-            onOpenChange={setMobileFiltersOpen}
-          >
-            <Dialog.Trigger className="app-focus-ring inline-flex w-full items-center justify-center gap-2 rounded-lg border border-app-border-strong bg-app-panel px-4 py-3 text-xs font-bold uppercase tracking-[0.1em] text-app-text transition hover:border-app-blue">
-              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge tone="blue-soft">{activeFilterCount}</Badge>
-              )}
-            </Dialog.Trigger>
-
-            <Dialog.Portal>
-              <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-
-              <Dialog.Popup
-                aria-label="Job filters"
-                className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-app-border bg-app-bg p-5 outline-none transition-transform duration-200 data-[starting-style]:translate-y-full data-[ending-style]:translate-y-full"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
-                    Filters
-                  </span>
-                  <Dialog.Close
-                    className="app-focus-ring flex h-8 w-8 items-center justify-center rounded-lg text-app-muted hover:text-app-text"
-                    aria-label="Close filters"
-                  >
-                    <X className="h-4 w-4" aria-hidden="true" />
-                  </Dialog.Close>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <label htmlFor="discover-search" className="sr-only">
+                  Search job title, skill, company, or keyword
+                </label>
+                <div className="relative flex-1">
+                  <SearchIcon
+                    className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-app-faint"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="discover-search"
+                    type="text"
+                    value={draft.search}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        search: event.target.value,
+                      }))
+                    }
+                    placeholder="Search job title, skill, company, or keyword"
+                    className="app-focus-ring w-full rounded-lg border border-app-border bg-app-surface py-3.5 pl-11 pr-4 text-sm text-app-text placeholder:text-app-faint focus:border-app-blue"
+                  />
                 </div>
 
-                <FilterPanelBody
-                  applied={applied}
-                  toggleEmployment={toggleEmployment}
-                  toggleRemote={toggleRemote}
-                />
+                <div className="relative sm:w-56">
+                  <label htmlFor="discover-location" className="sr-only">
+                    City or state
+                  </label>
+                  <MapPin
+                    className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-app-faint"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="discover-location"
+                    type="text"
+                    value={draft.location}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        location: event.target.value,
+                      }))
+                    }
+                    placeholder="City or state"
+                    className="app-focus-ring w-full rounded-lg border border-app-border bg-app-surface py-3.5 pl-11 pr-4 text-sm text-app-text placeholder:text-app-faint focus:border-app-blue"
+                  />
+                </div>
 
-                <div className="mt-6 flex gap-3">
-                  <AppButton
-                    type="button"
-                    variant="ghost"
-                    className="flex-1"
-                    onClick={clearAll}
-                  >
-                    Clear All
-                  </AppButton>
+                <AppButton type="submit" className="sm:w-auto">
+                  <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                  Search
+                </AppButton>
+              </div>
+
+              {/* QUICK FILTERS */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {EMPLOYMENT_OPTIONS.map((option) => (
+                  <FilterChip
+                    key={option.value}
+                    label={option.label}
+                    active={applied.employmentType === option.value}
+                    onClick={() => toggleEmployment(option.value)}
+                  />
+                ))}
+
+                {REMOTE_OPTIONS.map((option) => (
+                  <FilterChip
+                    key={option.value}
+                    label={option.label}
+                    active={applied.remoteType === option.value}
+                    onClick={() => toggleRemote(option.value)}
+                  />
+                ))}
+
+                <span
+                  className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-app-border/60 bg-app-surface/60 px-4 py-2 text-xs font-medium uppercase tracking-wider text-app-faint"
+                  title="NERO currently sources U.S. opportunities only."
+                >
+                  <Lock className="h-3 w-3" aria-hidden="true" />
+                  US Only
+                </span>
+
+                {activeFilterCount > 0 && (
                   <button
                     type="button"
-                    className={cn(BLUE_BUTTON_CLASS, "flex-1")}
-                    onClick={() => {
-                      applyDraft();
-                      setMobileFiltersOpen(false);
-                    }}
+                    onClick={clearAll}
+                    className="app-focus-ring ml-1 inline-flex items-center gap-1 rounded-full px-2 py-2 text-xs font-medium text-app-faint transition hover:text-app-text"
                   >
-                    Apply Filters
+                    <X className="h-3 w-3" aria-hidden="true" />
+                    Clear
                   </button>
-                </div>
-              </Dialog.Popup>
-            </Dialog.Portal>
-          </Dialog.Root>
+                )}
+              </div>
+            </form>
+
+            {/* STAT STRIP — moved inside the search column so the
+                section reads as one instrument (copy | NERO over
+                search + stats) instead of four stacked blocks each at
+                a different width. */}
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatTile
+                value={
+                  totalJobs === null
+                    ? "—"
+                    : `${totalJobs.toLocaleString()}${totalJobs > 0 ? "+" : ""}`
+                }
+                label="Matching opportunities"
+              />
+              <StatTile
+                value={jobs.length === 0 ? "—" : String(sampleStrongMatches)}
+                label="Strong matches"
+                hint="Example — sign in to calculate"
+              />
+              <StatTile
+                value={jobs.length === 0 ? "—" : String(newTodayCount)}
+                label="New today"
+                hint="In results shown"
+              />
+              <StatTile value="Live" label="Job updates" />
+            </div>
+
+            {/* MOBILE FILTERS TRIGGER */}
+            <div className="mt-4 lg:hidden">
+              <Dialog.Root
+                open={mobileFiltersOpen}
+                onOpenChange={setMobileFiltersOpen}
+              >
+                <Dialog.Trigger className="app-focus-ring inline-flex w-full items-center justify-center gap-2 rounded-lg border border-app-border-strong bg-app-panel px-4 py-3 text-xs font-bold uppercase tracking-[0.1em] text-app-text transition hover:border-app-blue">
+                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <Badge tone="blue-soft">{activeFilterCount}</Badge>
+                  )}
+                </Dialog.Trigger>
+
+                <Dialog.Portal>
+                  <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+
+                  <Dialog.Popup
+                    aria-label="Job filters"
+                    className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-app-border bg-app-bg p-5 outline-none transition-transform duration-200 data-[starting-style]:translate-y-full data-[ending-style]:translate-y-full"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-blue">
+                        Filters
+                      </span>
+                      <Dialog.Close
+                        className="app-focus-ring flex h-8 w-8 items-center justify-center rounded-lg text-app-muted hover:text-app-text"
+                        aria-label="Close filters"
+                      >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </Dialog.Close>
+                    </div>
+
+                    <FilterPanelBody
+                      applied={applied}
+                      toggleEmployment={toggleEmployment}
+                      toggleRemote={toggleRemote}
+                    />
+
+                    <div className="mt-6 flex gap-3">
+                      <AppButton
+                        type="button"
+                        variant="ghost"
+                        className="flex-1"
+                        onClick={clearAll}
+                      >
+                        Clear All
+                      </AppButton>
+                      <button
+                        type="button"
+                        className={cn(BLUE_BUTTON_CLASS, "flex-1")}
+                        onClick={() => {
+                          applyDraft();
+                          setMobileFiltersOpen(false);
+                        }}
+                      >
+                        Apply Filters
+                      </button>
+                    </div>
+                  </Dialog.Popup>
+                </Dialog.Portal>
+              </Dialog.Root>
+            </div>
+          </div>
         </div>
 
         {/* MAIN DISCOVERY AREA — framed as one console-like instrument
             rather than a raw two-column grid loose inside the section's
-            full 1536px canvas, so it reads as a composed scene instead
-            of a dashboard widget dropped onto the page. */}
-        <div className="relative mx-auto mt-10 max-w-[760px] overflow-hidden rounded-3xl border border-white/10 bg-app-panel/30 p-5 sm:p-7">
+            full canvas, so it reads as a composed scene instead of a
+            dashboard widget dropped onto the page. */}
+        <div className="stack-xl relative mx-auto max-w-[1060px] overflow-hidden rounded-3xl border border-white/10 bg-app-panel/30 p-5 sm:p-6">
           <div
             data-parallax-speed="0.05"
             data-parallax-scale-to="1.03"
@@ -467,7 +451,7 @@ export default function DiscoverJobsSection() {
               style={{ "--reveal-distance": "12px" } as CSSProperties}
               className="discover-area-filters hidden lg:block"
             >
-              <div className="sticky top-6 rounded-2xl border border-app-border bg-app-panel/70 p-5">
+              <div className="rounded-2xl border border-app-border bg-app-panel/70 p-5">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
                     Filters
@@ -483,11 +467,17 @@ export default function DiscoverJobsSection() {
                   )}
                 </div>
 
+                {/* Two inner columns on the desktop console only. In
+                    one column the six filter groups made this panel
+                    ~860px tall against a ~540px insights column, so
+                    the console's own border enclosed 300px of nothing.
+                    Same filters, same order, half the height. */}
                 <div className="mt-4">
                   <FilterPanelBody
                     applied={applied}
                     toggleEmployment={toggleEmployment}
                     toggleRemote={toggleRemote}
+                    columns
                   />
                 </div>
 
@@ -501,36 +491,35 @@ export default function DiscoverJobsSection() {
               </div>
             </aside>
 
-            {/* NERO INSIGHTS — stretched to the filter column's height
-                (align-items: stretch on .discover-grid) so the console
-                panel's border doesn't enclose a large empty gap under a
-                naturally shorter column. */}
+            {/* NERO INSIGHTS */}
             <div
               data-reveal
               data-reveal-delay="100"
               style={{ "--reveal-distance": "12px" } as CSSProperties}
-              className="discover-area-insights flex h-full flex-col gap-4"
+              className="discover-area-insights flex flex-col gap-4"
             >
               <NeroInsightsPanel jobs={jobs} />
-              <WhyNeroFoundThese filters={applied} className="flex-1" />
+              <WhyNeroFoundThese filters={applied} />
             </div>
           </div>
         </div>
 
-        {/* SECTION TRANSITION */}
-        <div className="relative mt-10 flex flex-col items-center gap-6 border-t border-white/5 pt-6 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
+        {/* SECTION TRANSITION — the one scroll cue outside the hero,
+            because this one is also a real anchor link into the next
+            scene rather than decoration. */}
+        <div className="stack-lg flex flex-col items-center gap-6 border-t border-white/5 pt-6 text-center lg:flex-row lg:items-center lg:justify-between lg:text-left">
           <div>
             <div className="flex items-center justify-center gap-2 lg:justify-start">
               <span className="mono text-[10px] tracking-[0.3em] text-app-red">
                 NEXT 04 / 06
               </span>
-            </div>
-            <div className="mono mt-1 text-[10px] tracking-[0.3em] text-app-blue">
-              JOB INTELLIGENCE
+              <span className="mono text-[10px] tracking-[0.3em] text-app-blue">
+                JOB INTELLIGENCE
+              </span>
             </div>
 
-            <div className="mt-4 flex items-center justify-center gap-3 lg:justify-start">
-              <h3 className="font-[family-name:var(--font-display)] text-2xl font-bold leading-[1.05] tracking-[-0.02em] text-app-text sm:text-3xl">
+            <div className="mt-3 flex items-center justify-center gap-3 lg:justify-start">
+              <h3 className="display-sub">
                 KNOW BEFORE
                 <br />
                 YOU APPLY.
@@ -546,16 +535,7 @@ export default function DiscoverJobsSection() {
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-2">
-            <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
-              SCROLL TO CONTINUE
-            </span>
-            <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
-            <ChevronDown
-              className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
-              aria-hidden="true"
-            />
-          </div>
+          <ScrollCue label="SCROLL TO CONTINUE" />
 
           <div
             className="hidden items-center gap-2.5 lg:flex"
@@ -629,13 +609,20 @@ function FilterPanelBody({
   applied,
   toggleEmployment,
   toggleRemote,
+  columns,
 }: {
   applied: DiscoverFilters;
   toggleEmployment: (value: EmploymentFilter) => void;
   toggleRemote: (value: RemoteFilter) => void;
+  columns?: boolean;
 }) {
   return (
-    <div className="space-y-6">
+    <div
+      className={cn(
+        "space-y-6",
+        columns && "sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-6 sm:space-y-0",
+      )}
+    >
       <FilterGroup title="Job Type">
         <div className="space-y-2">
           {EMPLOYMENT_OPTIONS.map((option) => (
@@ -996,13 +983,7 @@ function NeroInsightsPanel({ jobs }: { jobs: Job[] }) {
   );
 }
 
-function WhyNeroFoundThese({
-  filters,
-  className,
-}: {
-  filters: DiscoverFilters;
-  className?: string;
-}) {
+function WhyNeroFoundThese({ filters }: { filters: DiscoverFilters }) {
   const reasons: string[] = ["Sorted by the most recently posted"];
 
   if (filters.search) {
@@ -1021,12 +1002,7 @@ function WhyNeroFoundThese({
   reasons.push("Full Job Match & ATS Alignment unlock once you sign in");
 
   return (
-    <div
-      className={cn(
-        "flex flex-col justify-center rounded-2xl border border-app-border bg-app-panel/70 p-4",
-        className,
-      )}
-    >
+    <div className="rounded-2xl border border-app-border bg-app-panel/70 p-4">
       <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
         Why NERO Found These
       </span>

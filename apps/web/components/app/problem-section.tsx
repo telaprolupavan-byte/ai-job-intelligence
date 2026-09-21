@@ -1,20 +1,21 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
-import { ArrowDown } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import SectionHeading from "@/components/app/section-heading";
 
 const questions: { text: string; rotate: number }[] = [
-  { text: "Is my resume ready?", rotate: -6 },
-  { text: "Am I applying to the right jobs?", rotate: 4 },
-  { text: "Does my experience actually match?", rotate: -3 },
-  { text: "What should I change?", rotate: 5 },
-  { text: "Am I making progress?", rotate: -5 },
+  { text: "Is my resume ready?", rotate: -5 },
+  { text: "Am I applying to the right jobs?", rotate: 3 },
+  { text: "Does my experience actually match?", rotate: -2 },
+  { text: "What should I change?", rotate: 4 },
+  { text: "Am I making progress?", rotate: -4 },
 ];
 
 /**
  * "The Problem" — the scene between Hero and Meet NERO.
  *
  * Same world as the rest of the page (technical-grid + atmosphere,
- * mono micro-labels, system-card-reveal-era typography), but every
+ * mono micro-labels, shared display/lede type steps), but every
  * question chip starts at its own tilt and un-rotates to flat as it's
  * scrolled into view (data-reveal's --reveal-rotate), so the cluster
  * visually settles from scattered guesswork into a single clear line
@@ -27,13 +28,13 @@ const questions: { text: string; rotate: number }[] = [
  * section's dimmer mood still reads as "guesswork resolving," not a
  * bright hero entrance.
  *
- * Depth pass: each question chip drifts on its own independent
- * parallax layer (a wrapper carries data-parallax-speed/local so the
- * JS-driven drift never fights the chip's own data-reveal settle
- * transition on the same element) so the cluster reads as scattered
- * cards at slightly different depths, not one block moving together.
- * The atmosphere gets its own slower background layer for the same
- * reason.
+ * RESTRAINED motion tier. The chips previously each carried their own
+ * data-parallax-speed, which meant that at any given scroll position
+ * the five of them sat at five different vertical offsets — the
+ * cluster read as a broken flex row rather than a settling cluster.
+ * The drift now lives on one wrapper around the whole cluster, so the
+ * chips keep their row alignment and only the tilt-to-flat settle
+ * communicates "scattered questions resolving."
  */
 export default function ProblemSection() {
   return (
@@ -53,55 +54,60 @@ export default function ProblemSection() {
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-[1100px] px-6 py-20 sm:px-10 sm:py-24 lg:px-20 lg:py-28">
-        <div className="flex flex-col items-center text-center">
-          <div className="flex items-center gap-3">
-            <span className="h-px w-10 bg-app-red/50" />
-            <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-              THE PROBLEM
-            </span>
-            <span className="h-px w-10 bg-app-red/50" />
-          </div>
+      <div className="landing-shell landing-shell-narrow landing-band">
+        <SectionHeading
+          align="center"
+          eyebrow="THE PROBLEM"
+          title={
+            <>
+              Job searching shouldn&apos;t feel like{" "}
+              <span className="text-app-muted">guesswork.</span>
+            </>
+          }
+          titleClassName="leading-[1.14]"
+          className="mx-auto max-w-3xl"
+        />
 
-          <h2 className="mt-6 max-w-2xl font-[family-name:var(--font-display)] text-[clamp(2rem,4.5vw,3.25rem)] font-bold leading-[1.05] tracking-[-0.02em] text-app-text">
-            Job searching shouldn&apos;t feel like{" "}
-            <span className="text-app-muted">guesswork.</span>
-          </h2>
-        </div>
-
-        <div className="mt-16 flex flex-wrap items-center justify-center gap-3 sm:mt-20 sm:gap-4">
+        <div
+          data-parallax-speed="0.035"
+          data-parallax-local
+          className="stack-lg mx-auto flex max-w-[920px] flex-wrap items-center justify-center gap-2.5 sm:gap-3.5"
+        >
           {questions.map((question, index) => (
-            <div
+            <span
               key={question.text}
-              data-parallax-speed={(0.03 + (index % 3) * 0.025).toFixed(3)}
-              data-parallax-local
+              data-reveal
+              data-reveal-delay={index * 90}
+              style={
+                {
+                  "--reveal-distance": "14px",
+                  "--reveal-rotate": `${question.rotate}deg`,
+                } as CSSProperties
+              }
+              className="glass-panel block rounded-full border border-app-border-soft px-5 py-2.5 text-sm text-app-body sm:text-base"
             >
-              <span
-                data-reveal
-                data-reveal-delay={index * 90}
-                style={
-                  {
-                    "--reveal-distance": "14px",
-                    "--reveal-rotate": `${question.rotate}deg`,
-                  } as CSSProperties
-                }
-                className="glass-panel block rounded-full border border-app-border-soft px-5 py-2.5 text-sm text-app-body sm:text-base"
-              >
-                {question.text}
-              </span>
-            </div>
+              {question.text}
+            </span>
           ))}
         </div>
 
-        <div className="mx-auto mt-16 flex max-w-2xl flex-col items-center gap-6 sm:mt-20 lg:flex-row lg:justify-center lg:gap-8">
+        {/* Resolution line — the section's single focal moment. Laid
+            out as one centered row (arrow -> statement -> NERO) rather
+            than a right-aligned block floating under a centered
+            header, which is what made the old composition read as two
+            unrelated alignments stacked on top of each other. */}
+        <div className="stack-lg flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-7">
           <div
             data-reveal
-            data-reveal-delay="480"
+            data-reveal-delay="460"
             style={{ "--reveal-distance": "10px" } as CSSProperties}
-            className="flex max-w-md flex-col items-center gap-4 text-center lg:items-end lg:text-right"
+            className="flex items-center gap-4 text-center sm:text-right"
           >
-            <ArrowDown className="h-5 w-5 text-app-muted" aria-hidden="true" />
-            <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.01em] text-app-text sm:text-2xl">
+            <ArrowRight
+              className="hidden h-5 w-5 shrink-0 text-app-red/70 sm:block"
+              aria-hidden="true"
+            />
+            <p className="display-sub max-w-[420px]">
               NERO turns those questions into{" "}
               <span className="bg-gradient-to-r from-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
                 intelligence.
@@ -110,22 +116,22 @@ export default function ProblemSection() {
           </div>
 
           <div
-            data-parallax-speed="0.09"
+            data-parallax-speed="0.07"
             data-parallax-local
-            className="relative w-28 shrink-0 sm:w-32"
+            className="relative w-28 shrink-0 sm:w-32 lg:w-40"
           >
             <div
               data-reveal
-              data-reveal-delay="560"
+              data-reveal-delay="540"
               style={{ "--reveal-distance": "14px" } as CSSProperties}
-              className="relative opacity-90"
+              className="relative"
             >
               <Image
                 src="/brand/nero-hero-figure.png"
                 alt="NERO, the AI Job Intelligence mascot, arriving to make sense of the questions above"
                 width={1098}
                 height={1334}
-                sizes="130px"
+                sizes="150px"
                 quality={95}
                 className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
               />

@@ -5,8 +5,6 @@ import {
   FileText,
   BarChart3,
   Target,
-  Mouse,
-  ChevronDown,
   ListChecks,
   FileCheck2,
   Send,
@@ -18,6 +16,8 @@ import { cn } from "@/lib/utils";
 import NeroBrand from "@/components/app/nero-brand";
 import LandingNav from "@/components/app/landing-nav";
 import ParallaxController from "@/components/app/parallax-controller";
+import ScrollCue from "@/components/app/scroll-cue";
+import SectionHeading from "@/components/app/section-heading";
 import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import NeroSystemVisual from "@/components/app/nero-system-visual";
 import DiscoverJobsSection from "@/components/app/discover-jobs-section";
@@ -108,7 +108,7 @@ const featureItems = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-app-bg">
+    <main className="min-h-screen overflow-x-clip bg-app-bg">
       <ParallaxController />
 
       {/* Navigation — same links/functionality as before, restyled to
@@ -119,7 +119,7 @@ export default function Home() {
           className="hero-hairline pointer-events-none absolute inset-x-0 bottom-0 h-px"
           aria-hidden="true"
         />
-        <nav className="relative mx-auto flex h-20 max-w-[1536px] items-center justify-between px-6 sm:px-10 lg:px-20">
+        <nav className="landing-shell flex h-20 items-center justify-between">
           <div className="flex items-center gap-4">
             <NeroBrand imgClassName="h-9 w-auto sm:h-10" sizes="140px" />
             <span className="hidden h-6 w-px bg-white/10 lg:block" aria-hidden="true" />
@@ -152,8 +152,12 @@ export default function Home() {
         </nav>
       </header>
 
-      {/* Hero */}
-      <section className="relative">
+      {/* Hero — the page's one STRONG cinematic identity moment. Sized
+          to own the fold (min-height tied to the viewport minus the
+          header) instead of being driven purely by copy length, so the
+          first screen reads as a composed scene rather than a block of
+          text that happens to be at the top. */}
+      <section className="relative overflow-hidden">
         <div
           data-parallax-speed="0.05"
           className="technical-grid absolute inset-0 opacity-40"
@@ -179,7 +183,7 @@ export default function Home() {
           className="pointer-events-none absolute left-0 top-[34%] hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-app-red/70 lg:block"
         />
 
-        <div className="relative mx-auto max-w-[1536px] px-6 pb-10 pt-10 sm:px-10 lg:px-20 lg:pt-14">
+        <div className="landing-shell flex flex-col justify-center pb-12 pt-10 sm:pt-12 lg:min-h-[calc(100svh-8rem)] lg:pb-10 lg:pt-10">
           <div className="hero-grid-layout">
             {/* LEFT — copy + CTAs. Parallax goes on this wrapper (not on
                 the reveal-up children directly) — a CSS @keyframes
@@ -206,7 +210,7 @@ export default function Home() {
               </div>
 
               <h1
-                className="reveal-up mt-5 font-[family-name:var(--font-display)] text-[clamp(2.75rem,6vw,5rem)] font-bold leading-[0.95] tracking-[-0.03em] text-app-text"
+                className="display-hero reveal-up mt-5"
                 style={{ animationDelay: "80ms" }}
               >
                 FIND
@@ -219,7 +223,7 @@ export default function Home() {
               </h1>
 
               <p
-                className="reveal-up mt-6 max-w-[560px] text-base leading-7 text-app-muted sm:text-lg"
+                className="section-lede reveal-up mt-6"
                 style={{ animationDelay: "160ms" }}
               >
                 Discover relevant jobs, understand your match, analyze ATS
@@ -253,7 +257,7 @@ export default function Home() {
                 className="mt-8 border-t border-white/10 pt-5"
               >
                 <div
-                  className="reveal-up flex items-center gap-3"
+                  className="reveal-up flex flex-wrap items-center gap-x-3 gap-y-2"
                   style={{ animationDelay: "280ms" }}
                 >
                   <span className="mono text-[10px] tracking-[0.2em] text-app-muted">
@@ -272,74 +276,77 @@ export default function Home() {
               </div>
             </div>
 
-            {/* RIGHT — NERO stage */}
-            <div className="hero-area-nero relative flex flex-col items-center pt-4 lg:pt-0">
-              <div
-                data-parallax-speed="0.2"
-                data-parallax-x="0.015"
-                className="pointer-events-none absolute right-0 top-0 z-20 max-w-[220px] -rotate-2 text-right sm:right-4 sm:top-6"
-              >
-                <p className="font-[family-name:var(--font-caveat)] text-xl leading-[1.1] text-app-text/90 sm:text-2xl">
-                  Better
-                  <br />
-                  Jobs
-                  <br />
-                  Ahead!
-                </p>
-                <svg
-                  viewBox="0 0 90 16"
-                  className="ml-auto mt-1 h-4 w-20 text-app-red/70"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M2 8c20 8 55 8 76-2"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M68 3l12 3-9 8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-
-              <div
-                data-parallax-speed="0.22"
-                data-parallax-scale-to="1.09"
-                className="w-full pt-14 sm:pt-20 lg:pt-4"
-              >
-                <NeroHeroVisual />
-              </div>
-
-              <div
-                data-parallax-speed="0.18"
-                className="relative z-20 mx-auto mt-6 max-w-[280px] sm:absolute sm:right-0 sm:top-36 sm:mx-0 sm:mt-0 sm:max-w-[240px] lg:right-2"
-              >
-                <span className="absolute -left-2.5 top-3 hidden h-4 w-[3px] rounded-full bg-app-red sm:block" />
+            {/* RIGHT — NERO stage. The figure is capped and centered in
+                its own column rather than sized off the raw grid track:
+                at 1440+ it used to run all the way to the viewport edge
+                while every line of text respected a 64px gutter, which
+                is what made the hero feel like two unrelated halves. */}
+            <div className="hero-area-nero relative flex items-center justify-center">
+              <div className="relative w-full max-w-[440px]">
                 <div
-                  data-reveal
-                  style={{ "--reveal-distance": "16px" } as CSSProperties}
-                  className="rounded-xl border border-app-border-soft bg-app-panel/70 px-4 py-3.5 shadow-lg backdrop-blur-sm"
+                  data-parallax-speed="0.2"
+                  data-parallax-x="0.015"
+                  className="pointer-events-none absolute right-0 top-1 z-20 max-w-[132px] -rotate-2 text-right"
                 >
-                  <p className="text-xs leading-5 text-app-body">
-                    I&apos;ll help you find,
+                  <p className="nero-note text-app-text/90">
+                    Better
                     <br />
-                    match, and prepare
+                    Jobs
                     <br />
-                    for the right opportunities.
+                    Ahead!
                   </p>
+                  <svg
+                    viewBox="0 0 90 16"
+                    className="ml-auto mt-1 h-4 w-16 text-app-red/70"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M2 8c20 8 55 8 76-2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M68 3l12 3-9 8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+
+                <div
+                  data-parallax-speed="0.22"
+                  data-parallax-scale-to="1.06"
+                  className="w-full px-8 pt-14 sm:px-10 sm:pt-16 lg:px-0 lg:pt-6"
+                >
+                  <NeroHeroVisual />
+                </div>
+
+                <div
+                  data-parallax-speed="0.18"
+                  className="relative z-20 mx-auto mt-4 max-w-[280px] sm:absolute sm:right-[-11%] sm:top-[24%] sm:mx-0 sm:mt-0 sm:max-w-[208px]"
+                >
+                  <span className="absolute -left-2.5 top-3 hidden h-4 w-[3px] rounded-full bg-app-red sm:block" />
+                  <div
+                    data-reveal
+                    style={{ "--reveal-distance": "16px" } as CSSProperties}
+                    className="rounded-xl border border-app-border-soft bg-app-panel/80 px-4 py-3.5 shadow-lg backdrop-blur-sm"
+                  >
+                    <p className="text-xs leading-5 text-app-body">
+                      I&apos;ll help you find, match, and prepare for the
+                      right opportunities.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Feature row */}
-            <div className="hero-area-features grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+            <div className="hero-area-features grid grid-cols-2 gap-x-6 gap-y-7 sm:grid-cols-4">
               {featureItems.map((item, index) => (
                 <div
                   key={item.title}
@@ -364,34 +371,30 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Hero bottom bar */}
-        <div className="relative mx-auto flex max-w-[1536px] flex-col items-center gap-4 border-t border-white/5 px-6 py-5 text-center sm:px-10 lg:flex-row lg:justify-between lg:px-20 lg:text-left">
-          <div className="flex items-center gap-2.5">
-            <span className="hidden h-4 w-[3px] rounded-full bg-app-red/70 lg:block" />
-            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
-              MORE THAN JOBS
-              <br />
-              A BRIGHTER YOU
+        {/* Hero bottom bar — the page's only scroll cue. The same
+            mouse/chevron pair used to repeat at the foot of four
+            different sections, which is most of what made the page read
+            as a template rather than one composition. */}
+        <div className="relative border-t border-white/5">
+          <div className="landing-shell flex flex-col items-center gap-4 py-5 text-center sm:flex-row sm:justify-between sm:text-left">
+            <div className="flex items-center gap-2.5">
+              <span className="hidden h-4 w-[3px] rounded-full bg-app-red/70 sm:block" />
+              <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
+                MORE THAN JOBS
+                <br />
+                A BRIGHTER YOU
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col items-center gap-2">
-            <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
-              SCROLL TO EXPLORE
-            </span>
-            <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
-            <ChevronDown
-              className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
-              aria-hidden="true"
-            />
-          </div>
+            <ScrollCue label="SCROLL TO EXPLORE" className="order-last sm:order-none" />
 
-          <div className="flex items-center gap-2.5">
-            <span className="hidden h-px w-8 bg-gradient-to-r from-transparent to-app-red/50 lg:block" />
-            <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted">
-              POWERED BY AI
-              <br />
-              GUIDED BY NERO
+            <div className="flex items-center gap-2.5">
+              <span className="hidden h-px w-8 bg-gradient-to-r from-transparent to-app-red/50 sm:block" />
+              <div className="mono text-[9px] leading-5 tracking-[0.3em] text-app-muted sm:text-right">
+                POWERED BY AI
+                <br />
+                GUIDED BY NERO
+              </div>
             </div>
           </div>
         </div>
@@ -422,7 +425,7 @@ export default function Home() {
         <div
           data-parallax-speed="0.12"
           data-parallax-local
-          className="pointer-events-none absolute -right-32 -top-32 hidden h-[520px] w-[520px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_38%_38%,rgba(10,132,255,0.1),transparent_62%)] lg:block"
+          className="pointer-events-none absolute -right-40 -top-32 hidden h-[520px] w-[520px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_38%_38%,rgba(10,132,255,0.1),transparent_62%)] lg:block"
           aria-hidden="true"
         />
         <div
@@ -432,50 +435,33 @@ export default function Home() {
           aria-hidden="true"
         />
 
-        <div className="pointer-events-none absolute right-6 top-8 z-10 hidden items-center gap-2.5 sm:right-10 lg:right-20 lg:flex">
-          <span className="h-px w-12 bg-app-red/60" />
-          <div className="mono text-right text-[9px] leading-5 tracking-[0.2em] text-app-muted">
-            POWERED BY AI
-            <br />
-            GUIDED BY NERO
-          </div>
-        </div>
-
-        <div className="relative mx-auto max-w-[1536px] px-6 py-14 sm:px-10 sm:py-18 lg:px-20 lg:py-24">
+        <div className="landing-shell landing-band">
           {/* Meet NERO — character intro + the three intelligence
               pillars, framed as the overture for the system below
               rather than a second full-scale hero: a smaller display
               size and a tighter approach into the System content keep
               the two halves reading as one continuous scene. */}
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-3">
-              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                MEET NERO
-              </span>
-              <span className="h-px w-12 bg-app-red/50" />
-            </div>
+          <SectionHeading
+            eyebrow="MEET NERO"
+            size="sub"
+            title={
+              <>
+                MEET{" "}
+                <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
+                  NERO.
+                </span>
+              </>
+            }
+            lede="NERO is your AI job intelligence companion — built to help you understand your position, your opportunities, and your next move."
+          />
 
-            <h2 className="mt-4 font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.75rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
-              MEET{" "}
-              <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
-                NERO.
-              </span>
-            </h2>
-
-            <p className="mt-4 max-w-[520px] text-base leading-7 text-app-muted">
-              NERO is your AI job intelligence companion — built to help
-              you understand your position, your opportunities, and your
-              next move.
-            </p>
-          </div>
-
-          <div className="mt-8 grid gap-5 sm:grid-cols-3">
+          <div className="stack-lg grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
             {neroPillars.map((pillar, index) => (
               <div
                 key={pillar.title}
                 data-reveal
                 data-reveal-delay={index * 100}
-                className="flex items-start gap-3.5 rounded-xl border border-app-border-soft bg-app-panel/50 p-4"
+                className="flex items-start gap-3.5 rounded-xl border border-app-border-soft bg-app-panel/50 p-5"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-app-blue/50 bg-app-surface/80 text-app-blue">
                   <pillar.icon className="h-4 w-4" aria-hidden="true" />
@@ -492,65 +478,77 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-10 grid gap-10 border-t border-white/5 pt-10 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 xl:grid-cols-[minmax(0,520px)_1fr]">
-            {/* LEFT — copy + NERO */}
-            <div className="flex flex-col">
-              <div className="flex items-center gap-3">
-                <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                  02 / THE SYSTEM
-                </span>
-                <span className="h-px w-12 bg-app-border-strong" />
-              </div>
+          <div className="stack-lg border-t border-white/5 pt-[var(--stack-lg)]">
+            {/* The System's own header runs the full measure. It used
+                to live inside the left column, where "INTELLIGENTLY."
+                — the single widest word on the page — was 230px wider
+                than the track holding it, which is what blew the whole
+                section past the viewport on a phone. */}
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
+              <SectionHeading
+                eyebrow="02 / THE SYSTEM"
+                title={
+                  <>
+                    YOUR SEARCH.
+                    <br />
+                    <span className="text-app-muted">INTELLIGENTLY.</span>
+                  </>
+                }
+                className="max-w-2xl"
+              />
 
-              <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5vw,3.75rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
-                YOUR SEARCH.
-                <br />
-                <span className="text-app-muted">INTELLIGENTLY.</span>
-              </h2>
-
-              <p className="mt-5 max-w-[470px] text-base leading-7 text-app-muted sm:text-lg">
-                One workflow for discovering opportunities and understanding
-                exactly where you stand before you apply.
+              <p className="section-lede lg:pb-2">
+                One workflow for discovering opportunities and
+                understanding exactly where you stand before you apply.
               </p>
+            </div>
 
-              <div className="mt-6 flex items-start gap-3">
-                <span
-                  className="mt-0.5 h-12 w-[3px] shrink-0 rounded-full bg-app-red"
-                  aria-hidden="true"
-                />
-                <div className="mono text-[11px] leading-5 tracking-[0.2em] text-app-body">
-                  MORE THAN JOBS
-                  <br />
-                  A BRIGHTER YOU
+            <div className="stack-lg grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,0.68fr)_minmax(0,1fr)] lg:items-center lg:gap-14">
+            {/* LEFT — supporting lines + NERO */}
+            <div className="flex flex-col">
+              {/* Brand line + handwritten note share one row so the
+                  column doesn't grow into a single tall ribbon of
+                  stacked one-liners above the figure. */}
+              <div className="flex flex-wrap items-start gap-x-10 gap-y-6">
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-0.5 h-11 w-[3px] shrink-0 rounded-full bg-app-red"
+                    aria-hidden="true"
+                  />
+                  <div className="mono text-[11px] leading-5 tracking-[0.2em] text-app-body">
+                    MORE THAN JOBS
+                    <br />
+                    A BRIGHTER YOU
+                  </div>
+                </div>
+
+                <div className="relative w-fit">
+                  <p className="nero-note text-app-blue">
+                    Smarter
+                    <br />
+                    Search
+                    <br />
+                    Brighter Future!
+                  </p>
+                  <span
+                    className="absolute -bottom-1 left-0 h-0.5 w-24 -rotate-6 bg-app-red/80"
+                    aria-hidden="true"
+                  />
                 </div>
               </div>
 
-              <div className="relative mt-5 w-fit">
-                <p className="font-[family-name:var(--font-caveat)] text-2xl leading-[1.15] text-app-blue sm:text-[26px]">
-                  Smarter
-                  <br />
-                  Search
-                  <br />
-                  Brighter Future!
-                </p>
-                <span
-                  className="absolute -bottom-1 left-0 h-0.5 w-24 -rotate-6 bg-app-red/80"
-                  aria-hidden="true"
-                />
-              </div>
-
               <div
-                data-parallax-speed="0.14"
-                data-parallax-scale-to="1.06"
+                data-parallax-speed="0.1"
+                data-parallax-scale-to="1.04"
                 data-parallax-local
-                className="relative mx-auto mt-8 w-full max-w-[280px] sm:max-w-[320px] lg:mt-8 lg:max-w-[360px]"
+                className="stack-md relative mx-auto w-full max-w-[270px] sm:max-w-[320px] lg:mx-0"
               >
                 <NeroSystemVisual />
 
                 <div
                   data-parallax-speed="0.05"
                   data-parallax-local
-                  className="absolute right-[-8%] top-[6%] z-20 hidden w-[132px] rounded-xl border border-app-blue/50 bg-app-panel/90 p-3 shadow-[0_0_28px_-8px_rgba(10,132,255,0.45)] backdrop-blur-sm sm:block"
+                  className="absolute right-[-20%] top-[62%] z-20 hidden w-[124px] rounded-xl border border-app-blue/50 bg-app-panel/90 p-3 shadow-[0_0_28px_-8px_rgba(10,132,255,0.45)] backdrop-blur-sm sm:block"
                   aria-hidden="true"
                 >
                   <Globe className="h-4 w-4 text-app-blue" />
@@ -568,17 +566,27 @@ export default function Home() {
               {/* Desktop / tablet: 2x2 grid with the hub connecting all four */}
               <div className="system-hub-grid hidden md:grid">
                 <SystemCard {...systemBlocks[0]} index={0} className="system-card-1" />
-                <SystemConnector orientation="vertical" className="system-line-top h-10 lg:h-12" />
                 <SystemCard {...systemBlocks[1]} index={1} className="system-card-2" />
 
-                <SystemConnector orientation="horizontal" className="system-line-left w-10 lg:w-12" />
-                <div className="system-hub flex items-center justify-center">
+                {/* One cross of spokes drawn from the hub out to the
+                    four cards, instead of four separate connector
+                    elements sitting in their own grid tracks: those
+                    stopped short of both the hub and the cards, so the
+                    "system" read as four unconnected tiles around a
+                    disc. */}
+                <div className="system-hub relative flex items-center justify-center">
+                  <div className="system-spokes" aria-hidden="true">
+                    <span className="system-spoke-x" />
+                    <span className="system-spoke-y" />
+                    <span className="system-node system-node-t" />
+                    <span className="system-node system-node-b" />
+                    <span className="system-node system-node-l" />
+                    <span className="system-node system-node-r" />
+                  </div>
                   <SystemHub />
                 </div>
-                <SystemConnector orientation="horizontal" className="system-line-right w-10 lg:w-12" />
 
                 <SystemCard {...systemBlocks[2]} index={2} className="system-card-3" />
-                <SystemConnector orientation="vertical" className="system-line-bottom h-10 lg:h-12" />
                 <SystemCard {...systemBlocks[3]} index={3} className="system-card-4" />
               </div>
 
@@ -597,15 +605,18 @@ export default function Home() {
                 <SystemCard {...systemBlocks[3]} index={3} />
               </div>
             </div>
+            </div>
           </div>
         </div>
 
-        {/* Bottom utility bar */}
+        {/* Bottom utility rail — quieter than before and without the
+            duplicate scroll cue; it now only carries the brand line
+            that bridges into Resume Intelligence. */}
         <div className="relative border-t border-white/5">
-          <div className="mx-auto flex max-w-[1536px] flex-col items-center gap-5 px-6 py-6 text-center sm:px-10 lg:flex-row lg:justify-between lg:px-20 lg:text-left">
+          <div className="landing-shell flex flex-col items-center gap-4 py-5 text-center sm:flex-row sm:justify-between sm:text-left">
             <div className="flex items-center gap-3">
               <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-app-blue/70 bg-app-bg text-sm font-semibold text-app-text"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-app-blue/70 bg-app-bg text-sm font-semibold text-app-text"
                 aria-hidden="true"
               >
                 N
@@ -616,21 +627,6 @@ export default function Home() {
                 <br />
                 A BRIGHTER TOMORROW
               </div>
-              <span className="hidden items-center lg:flex" aria-hidden="true">
-                <span className="h-px w-16 bg-gradient-to-r from-app-text/40 to-transparent xl:w-24" />
-                <span className="ml-1 text-app-text/70">→</span>
-              </span>
-            </div>
-
-            <div className="flex flex-col items-center gap-2">
-              <span className="mono text-[9px] tracking-[0.3em] text-app-muted">
-                SCROLL TO EXPLORE
-              </span>
-              <Mouse className="h-4 w-4 text-app-muted" aria-hidden="true" />
-              <ChevronDown
-                className="scroll-dot -mt-1.5 h-3 w-3 text-app-muted"
-                aria-hidden="true"
-              />
             </div>
 
             <div className="flex items-center gap-2.5">
@@ -666,17 +662,39 @@ export default function Home() {
       <NeroFinaleSection />
 
       {/* Footer */}
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-sm font-semibold">AI JOB INTELLIGENCE</div>
-            <div className="mono mt-1 text-[9px] tracking-[0.2em] text-app-muted">
-              INTELLIGENCE / MATCH / ATS
+      <footer className="border-t border-white/10 bg-[#080a10]">
+        <div className="landing-shell flex flex-col gap-6 py-10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <NeroBrand imgClassName="h-8 w-auto" sizes="120px" preload={false} />
+            <span className="hidden h-8 w-px bg-white/10 sm:block" aria-hidden="true" />
+            <div>
+              <div className="text-sm font-semibold text-app-text">
+                AI JOB INTELLIGENCE
+              </div>
+              <div className="mono mt-1 text-[9px] tracking-[0.2em] text-app-muted">
+                INTELLIGENCE / MATCH / ATS
+              </div>
             </div>
           </div>
 
-          <div className="mono text-[9px] tracking-[0.15em] text-app-muted">
-            SYSTEM / 001
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="app-focus-ring text-sm text-app-body transition hover:text-app-text"
+            >
+              Sign in
+            </Link>
+            <span className="h-4 w-px bg-white/10" aria-hidden="true" />
+            <Link
+              href="/register"
+              className="app-focus-ring text-sm text-app-body transition hover:text-app-text"
+            >
+              Get started
+            </Link>
+            <span className="hidden h-4 w-px bg-white/10 sm:block" aria-hidden="true" />
+            <div className="mono hidden text-[9px] tracking-[0.15em] text-app-muted sm:block">
+              SYSTEM / 001
+            </div>
           </div>
         </div>
       </footer>
@@ -701,29 +719,31 @@ function SystemCard({
 }) {
   return (
     <div
+      data-reveal
+      data-reveal-delay={index * 90}
+      style={{ "--reveal-distance": "18px" } as CSSProperties}
       className={cn(
-        "system-card-reveal group relative rounded-2xl border border-app-blue/50 bg-app-panel/70 p-6 shadow-[0_0_28px_-12px_rgba(10,132,255,0.5)] backdrop-blur-[2px] transition hover:border-app-blue/80 hover:bg-app-panel-strong/80 hover:shadow-[0_0_34px_-8px_rgba(10,132,255,0.6)] sm:p-7",
+        "group relative flex h-full flex-col rounded-2xl border border-app-blue/40 bg-app-panel/70 p-6 shadow-[0_0_28px_-14px_rgba(10,132,255,0.5)] backdrop-blur-[2px] transition hover:border-app-blue/80 hover:bg-app-panel-strong/80 hover:shadow-[0_0_34px_-8px_rgba(10,132,255,0.6)]",
         className,
       )}
-      style={{ animationDelay: `${index * 110}ms` }}
     >
       <div className="flex items-center justify-between">
         <span className="mono text-xs text-app-red">{number}</span>
         <span className="h-px w-7 bg-app-body/30" aria-hidden="true" />
       </div>
 
-      <div className="mt-5 flex h-14 w-14 items-center justify-center rounded-xl border border-app-blue/50 bg-app-surface/80 text-app-blue">
-        <Icon className="h-6 w-6" aria-hidden="true" />
+      <div className="mt-5 flex h-12 w-12 items-center justify-center rounded-xl border border-app-blue/50 bg-app-surface/80 text-app-blue">
+        <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
 
-      <h3 className="mt-5 text-lg font-semibold tracking-tight text-app-text sm:text-xl">
+      <h3 className="mt-4 text-base font-semibold tracking-tight text-app-text sm:text-lg">
         {title}
       </h3>
 
-      <p className="mt-3 text-sm leading-6 text-app-muted">{description}</p>
+      <p className="mt-2.5 text-sm leading-6 text-app-muted">{description}</p>
 
       <span
-        className="pointer-events-none absolute bottom-6 right-6 text-app-text/60 transition group-hover:translate-x-1 group-hover:text-app-red"
+        className="mt-auto pt-4 text-app-text/60 transition group-hover:translate-x-1 group-hover:text-app-red"
         aria-hidden="true"
       >
         →
@@ -732,38 +752,15 @@ function SystemCard({
   );
 }
 
-function SystemConnector({
-  orientation,
-  className,
-}: {
-  orientation: "vertical" | "horizontal";
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn("relative", orientation === "vertical" ? "w-6" : "h-6", className)}
-      aria-hidden="true"
-    >
-      <div
-        className={cn(
-          "absolute inset-0 m-auto bg-app-blue/40",
-          orientation === "vertical" ? "h-full w-px" : "h-px w-full",
-        )}
-      />
-      <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-app-red shadow-[0_0_10px_rgba(255,59,48,0.6)]" />
-    </div>
-  );
-}
-
 function SystemHub({ size = "lg" }: { size?: "sm" | "lg" }) {
   const outer =
-    size === "lg" ? "h-[104px] w-[104px] lg:h-[120px] lg:w-[120px]" : "h-14 w-14";
-  const label = size === "lg" ? "text-3xl lg:text-4xl" : "text-lg";
+    size === "lg" ? "h-20 w-20 lg:h-24 lg:w-24" : "h-14 w-14";
+  const label = size === "lg" ? "text-2xl lg:text-[28px]" : "text-lg";
 
   return (
     <div
       className={cn(
-        "system-hub-pulse relative flex shrink-0 items-center justify-center rounded-full border-2 border-app-blue bg-app-bg/95 shadow-[0_0_36px_-6px_rgba(10,132,255,0.6)]",
+        "system-hub-pulse relative z-10 flex shrink-0 items-center justify-center rounded-full border-2 border-app-blue bg-app-bg shadow-[0_0_36px_-6px_rgba(10,132,255,0.6)]",
         outer,
       )}
       role="img"
