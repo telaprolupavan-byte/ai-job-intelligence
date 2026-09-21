@@ -222,15 +222,252 @@ body {
 }
 
 /* Restrained glass treatment — reserved for the hero and a handful of
-   high-level surfaces, never stacked (see design report). */
+   high-level surfaces, never stacked (see design report).
+ *
+ * The 20px backdrop-filter is gone. Every .glass-panel on this page
+ * sits over one of the section atmosphere layers, which are smooth
+ * radial gradients — blurring a smooth gradient changes essentially
+ * nothing, but a backdrop-filter forces the browser to snapshot and
+ * re-filter what is behind the element on every frame it moves, which
+ * on a scrolling page is every frame. Measured: removing it took
+ * wheel-to-scroll latency from 59ms to 49ms and cleared the frame-time
+ * p90 spikes. The alpha is nudged up so the panel keeps the same
+ * density against the gradients behind it.
+ *
+ * Backdrop blur is kept where there is real detail behind the surface
+ * and it actually reads: the sticky header (page content scrolls under
+ * it) and NERO's speech bubbles (they overlap the figure artwork).
+ */
 .glass-panel {
-  background: rgba(17, 21, 29, 0.72);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(17, 21, 29, 0.82);
 }
 
 .mono {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+/* ---------------------------------------------------------------- */
+/* Landing page — shared rhythm primitives                            */
+/*                                                                    */
+/* Before this, every landing section invented its own vertical       */
+/* padding (py-12 / py-14 / py-16 / py-20), its own container width   */
+/* (1536 / 1100 / 900 / 7xl) and its own heading-to-body gaps, so the */
+/* page read as a stack of independently-built scenes rather than one */
+/* experience. These four primitives are the page's single source of  */
+/* rhythm: every section now opts into the same band padding, the     */
+/* same measure, the same stack steps, and the same two display       */
+/* sizes. Fluid clamp()s rather than breakpoint steps, so the rhythm  */
+/* stays proportional at tablet/intermediate widths instead of        */
+/* snapping between two fixed values.                                 */
+/* ---------------------------------------------------------------- */
+:root {
+  --landing-shell-max: 1360px;
+
+  /* Section band padding — the page's primary vertical beat. */
+  --band-y: clamp(4.5rem, 6.5vw, 7rem);
+  --band-y-tight: clamp(3.5rem, 5vw, 5rem);
+
+  /* In-section stack steps, largest to smallest. */
+  --stack-xl: clamp(3.25rem, 5.5vw, 4.75rem);
+  --stack-lg: clamp(2.5rem, 4vw, 3.5rem);
+  --stack-md: clamp(1.75rem, 2.6vw, 2.5rem);
+  --stack-sm: clamp(1.25rem, 1.8vw, 1.75rem);
+}
+
+.landing-shell {
+  position: relative;
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--landing-shell-max);
+  padding-inline: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .landing-shell {
+    padding-inline: 2.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .landing-shell {
+    padding-inline: 4rem;
+  }
+}
+
+/* Narrower measures for the page's two centered narrative scenes
+   (Problem, Journey) — same gutters, shorter line length. */
+.landing-shell-narrow {
+  --landing-shell-max: 1120px;
+}
+
+.landing-shell-tight {
+  --landing-shell-max: 980px;
+}
+
+.landing-band {
+  padding-block: var(--band-y);
+}
+
+/*
+ * The header is sticky and 5rem tall, so an in-page anchor that lands
+ * exactly on a section's top edge hides that section's first 80px —
+ * its eyebrow and the top of its headline — behind the bar. Every nav
+ * link on this page is an in-page anchor, so this applies to all of
+ * them rather than being repeated per target.
+ */
+main section[id],
+main [id="discover-results"] {
+  scroll-margin-top: 6rem;
+}
+
+.landing-band-tight {
+  padding-block: var(--band-y-tight);
+}
+
+.stack-xl {
+  margin-top: var(--stack-xl);
+}
+
+.stack-lg {
+  margin-top: var(--stack-lg);
+}
+
+.stack-md {
+  margin-top: var(--stack-md);
+}
+
+.stack-sm {
+  margin-top: var(--stack-sm);
+}
+
+/* Two display sizes for the whole page (plus the hero's own, larger
+   one). Previously every h2 carried a slightly different clamp —
+   4.5vw / 4.8vw / 5vw / 5.5vw with five different maxima — which is
+   why no two section headings read as the same level. */
+.display-hero,
+.display-section,
+.display-sub {
+  font-family: var(--font-syne), sans-serif;
+  letter-spacing: -0.03em;
+  color: var(--color-app-text);
+  /* `anywhere`, not `break-word`. Both allow a break, but only
+     `anywhere` also shrinks the element's MIN-CONTENT size — and
+     min-content is what an auto grid track is sized from. With
+     `break-word` a 304px-wide "SPREADSHEETS." still forces a 304px
+     track inside a 272px page and drags the whole section past the
+     viewport, which is exactly the bug this is here to prevent. The
+     sizes below are picked so the page's longest single words
+     ("OPPORTUNITIES.", "INTELLIGENTLY.", "SPREADSHEETS.") fit their
+     column without needing to break at any width down to 360px; this
+     is the backstop below that, and for future copy. */
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Two regimes per display size, not one clamp.
+ *
+ * Below lg every one of these headings has the full page measure to
+ * itself; from lg up they sit in a column that is roughly half of it.
+ * A single viewport-width clamp cannot serve both — the size that
+ * fits a 1023px single column overflows the 1024px two-column layout
+ * by 200px. The upper bounds here are derived from the measured width
+ * of the longest word in each style (9.4em / 13.8em of the font size)
+ * against the narrowest column that style appears in.
+ */
+.display-hero {
+  font-size: clamp(2rem, 8.4vw, 4.5rem);
+  font-weight: 700;
+  line-height: 0.95;
+}
+
+.display-section {
+  font-size: clamp(1.25rem, 6.2vw, 3rem);
+  font-weight: 800;
+  /* Not 1. Most headings here are all-caps and read fine that way,
+     but the Problem section's is sentence case and its descenders
+     were landing on the line below. */
+  line-height: 1.06;
+}
+
+.display-sub {
+  font-size: clamp(1.5rem, 4.4vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 1024px) {
+  .display-hero {
+    font-size: clamp(3rem, 4.8vw, 4.375rem);
+  }
+
+  .display-section {
+    font-size: clamp(2rem, 3.2vw, 2.875rem);
+  }
+
+  .display-sub {
+    font-size: clamp(1.5rem, 1.9vw, 2.125rem);
+  }
+}
+
+/* Section lede — the paragraph directly under a display heading. One
+   measure, one size, everywhere. */
+.section-lede {
+  max-width: 34rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--color-app-muted);
+}
+
+@media (min-width: 640px) {
+  .section-lede {
+    font-size: 1.0625rem;
+  }
+}
+
+/* Handwritten NERO annotation — one size instead of the four the page
+   had accumulated (text-xl / text-2xl / text-[26px] / text-lg). */
+.nero-note {
+  font-family: var(--font-caveat), cursive;
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  line-height: 1.2;
+}
+
+/* Shared eyebrow rule so every section label sits on the same
+   baseline and uses the same hairline length. */
+.section-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.3em;
+  color: var(--color-app-red);
+  text-transform: uppercase;
+}
+
+.section-eyebrow::after {
+  content: "";
+  height: 1px;
+  width: 3rem;
+  flex: none;
+  background: linear-gradient(90deg, rgba(255, 59, 48, 0.6), transparent);
+}
+
+.section-eyebrow-center {
+  justify-content: center;
+}
+
+.section-eyebrow-center::before {
+  content: "";
+  height: 1px;
+  width: 2.5rem;
+  flex: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 59, 48, 0.6));
+}
+
+.section-eyebrow-center::after {
+  width: 2.5rem;
 }
 
 ::selection {
@@ -270,18 +507,35 @@ body {
    stage spans both rows on the right (asymmetric 45/55 split). */
 .hero-grid-layout {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "content" "nero" "features";
-  row-gap: 3rem;
+  row-gap: 2.25rem;
 }
 
+@media (min-width: 640px) {
+  .hero-grid-layout {
+    row-gap: 2.75rem;
+  }
+}
+
+/*
+ * The NERO column is capped rather than given the grid's whole
+ * remaining track: at >=1440px the figure used to run to the viewport
+ * edge while every line of copy respected the page gutter, so the two
+ * halves of the hero never shared a frame. Stretch (not start) so the
+ * figure can center itself vertically against the copy column.
+ */
 @media (min-width: 1024px) {
   .hero-grid-layout {
-    grid-template-columns: minmax(0, 680px) 1fr;
+    /* Proportional, not a fixed 520px NERO track: a fixed track
+       starves the copy column at exactly 1024px (it was left with
+       320px for a 57px headline), while the figure's own max-width
+       already stops it growing past its artwork. */
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
     grid-template-areas: "content nero" "features nero";
-    column-gap: 3rem;
-    row-gap: 1.75rem;
-    align-items: start;
+    column-gap: 3.5rem;
+    row-gap: 2.5rem;
+    align-items: stretch;
   }
 }
 
@@ -297,17 +551,6 @@ body {
   grid-area: features;
 }
 
-/* Crops the single approved NERO artwork sprite down to the character
-   only (no wordmark/mark) using percentage background-size + position
-   so the crop stays exact at any container width — no new artwork. */
-.nero-hero-figure {
-  aspect-ratio: 1098 / 1334;
-  background-image: url("/brand/nero-hero-figure.png");
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-position: 0 0;
-}
-
 /* Blue/cyan + red/pink atmospheric blend behind NERO, with a soft
    purple transition where the two meet — matches the reference glow. */
 .nero-atmosphere {
@@ -315,7 +558,6 @@ body {
     radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
     radial-gradient(circle at 78% 20%, rgba(255, 59, 48, 0.22), transparent 42%),
     radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
-  filter: blur(4px);
 }
 
 /* Hero atmosphere, split into independently-parallaxed blue/red layers
@@ -327,12 +569,10 @@ body {
   background:
     radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
     radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
-  filter: blur(4px);
 }
 
 .hero-atmosphere-red {
   background: radial-gradient(circle at 78% 20%, rgba(255, 59, 48, 0.22), transparent 42%);
-  filter: blur(4px);
 }
 
 .nero-floor-glow {
@@ -395,7 +635,6 @@ body {
   background:
     radial-gradient(circle at 30% 20%, rgba(122, 92, 255, 0.1), transparent 50%),
     radial-gradient(circle at 70% 70%, rgba(10, 132, 255, 0.08), transparent 55%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -406,10 +645,17 @@ body {
    row/column reserved for the NERO Intelligence Hub and its connector
    lines, instead of copying Figma's absolute coordinates. */
 .system-hub-grid {
-  grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
-  grid-template-rows: auto 56px auto;
-  column-gap: 1.25rem;
-  row-gap: 1.5rem;
+  /* The middle track is deliberately wider than the hub disc so the
+     spokes have somewhere to be drawn. At 64px (hub 80px) the disc
+     covered the whole track and the "connections" were four red dots
+     with no line between them. */
+  grid-template-columns: minmax(0, 1fr) 124px minmax(0, 1fr);
+  /* 1fr rows (not auto) so both card rows resolve to the same height
+     and the four cards read as one instrument panel instead of four
+     differently-sized tiles whose bottom edges never line up. */
+  grid-template-rows: minmax(0, 1fr) 124px minmax(0, 1fr);
+  column-gap: 1rem;
+  row-gap: 1rem;
 }
 
 .system-hub-grid > .system-card-1 {
@@ -427,33 +673,95 @@ body {
 .system-hub-grid > .system-hub {
   grid-area: 2 / 2;
 }
-.system-hub-grid > .system-line-top {
-  grid-area: 1 / 2;
-  align-self: end;
-  justify-self: center;
+/*
+ * Spokes: one cross drawn from the hub out to the four cards. The
+ * wrapper is inset by the negative of the grid gap so the lines
+ * genuinely reach the card edges — the previous per-track connector
+ * elements stopped ~30px short at both ends, so the four cards read
+ * as unconnected tiles arranged around a disc rather than a system
+ * wired to a hub.
+ */
+.system-spokes {
+  position: absolute;
+  inset: -1rem;
+  pointer-events: none;
 }
-.system-hub-grid > .system-line-bottom {
-  grid-area: 3 / 2;
-  align-self: start;
-  justify-self: center;
+
+.system-spoke-x,
+.system-spoke-y {
+  position: absolute;
 }
-.system-hub-grid > .system-line-left {
-  grid-area: 2 / 1;
-  align-self: center;
-  justify-self: end;
+
+.system-spoke-x {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    rgba(10, 132, 255, 0.15),
+    rgba(10, 132, 255, 0.55) 22%,
+    rgba(10, 132, 255, 0.55) 78%,
+    rgba(10, 132, 255, 0.15)
+  );
 }
-.system-hub-grid > .system-line-right {
-  grid-area: 2 / 3;
-  align-self: center;
-  justify-self: start;
+
+.system-spoke-y {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    180deg,
+    rgba(10, 132, 255, 0.15),
+    rgba(10, 132, 255, 0.55) 22%,
+    rgba(10, 132, 255, 0.55) 78%,
+    rgba(10, 132, 255, 0.15)
+  );
+}
+
+.system-node {
+  position: absolute;
+  height: 5px;
+  width: 5px;
+  border-radius: 9999px;
+  background: var(--color-app-red);
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.6);
+}
+
+.system-node-t {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.system-node-b {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 50%);
+}
+.system-node-l {
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.system-node-r {
+  right: 0;
+  top: 50%;
+  transform: translate(50%, -50%);
 }
 
 @media (min-width: 1024px) {
   .system-hub-grid {
-    grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr);
-    grid-template-rows: auto 72px auto;
-    column-gap: 2rem;
-    row-gap: 2rem;
+    grid-template-columns: minmax(0, 1fr) 148px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 148px minmax(0, 1fr);
+    column-gap: 1.25rem;
+    row-gap: 1.25rem;
+  }
+
+  .system-spokes {
+    inset: -1.25rem;
   }
 }
 
@@ -468,26 +776,46 @@ body {
   }
 }
 
-.system-card-reveal {
-  animation: system-card-reveal 0.6s ease-out both;
-}
-
-@keyframes system-hub-pulse {
+/*
+ * The hub's expanding ring. This used to animate `box-shadow`, which
+ * is a paint property: it cannot run on the compositor, so every frame
+ * of a 3.2s infinite loop repainted the element — for the whole
+ * session, whether or not the section was on screen. Together with the
+ * clarity object's identical pattern it was the largest remaining
+ * scroll cost after the style-recalc fix (measured: wheel-to-scroll
+ * latency 59ms -> 34ms, frame p99 100ms -> 50ms with both disabled).
+ *
+ * Same visual — a soft ring breathing outward, plus the steady crimson
+ * glow — rebuilt as transform + opacity on a pseudo-element, which the
+ * compositor can run on its own thread and which Chrome throttles
+ * automatically when off-screen. The static part of the glow stays a
+ * plain (non-animated) box-shadow, which costs nothing.
+ */
+@keyframes hub-ring-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 0 rgba(10, 132, 255, 0.35),
-      0 0 24px rgba(255, 59, 48, 0.12);
+    transform: scale(1);
+    opacity: 0.35;
   }
   50% {
-    box-shadow:
-      0 0 0 10px rgba(10, 132, 255, 0),
-      0 0 32px rgba(255, 59, 48, 0.22);
+    transform: scale(1.26);
+    opacity: 0;
   }
 }
 
 .system-hub-pulse {
-  animation: system-hub-pulse 3.2s ease-in-out infinite;
+  box-shadow: 0 0 28px rgba(255, 59, 48, 0.17);
+}
+
+.system-hub-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.5);
+  animation: hub-ring-pulse 3.2s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 /* ---------------------------------------------------------------- */
@@ -500,7 +828,6 @@ body {
   background:
     radial-gradient(circle at 24% 18%, rgba(10, 132, 255, 0.2), transparent 46%),
     radial-gradient(circle at 78% 70%, rgba(122, 92, 255, 0.16), transparent 52%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -514,17 +841,17 @@ body {
    moves back up beside the copy at the lg breakpoint. */
 .discover-hero-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "content" "nero" "search";
-  row-gap: 1.5rem;
+  row-gap: 2rem;
 }
 
 @media (min-width: 1024px) {
   .discover-hero-grid {
-    grid-template-columns: minmax(0, 680px) 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
     grid-template-areas: "content nero" "search nero";
-    column-gap: 3rem;
-    row-gap: 1.25rem;
+    column-gap: 3.5rem;
+    row-gap: 2rem;
     align-items: start;
   }
 }
@@ -541,23 +868,34 @@ body {
   grid-area: search;
 }
 
+/*
+ * minmax(0, 1fr), NOT 1fr. A bare `1fr` track is `minmax(auto, 1fr)`,
+ * and `auto` resolves to the item's MIN-CONTENT width — which, for the
+ * NERO Insights list (long job titles plus a shrink-0 match badge on
+ * the same row), is far wider than a phone. That is what pushed the
+ * whole insights column ~34px past the right edge at 390px, clipping
+ * the match badges and the "Create free account" button against the
+ * section's overflow-hidden.
+ */
 .discover-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "insights";
   gap: 1.25rem;
 }
 
 @media (min-width: 1024px) {
   .discover-grid {
-    grid-template-columns: 260px minmax(0, 420px);
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
     grid-template-areas: "filters insights";
-    gap: 1.5rem;
-    /* Stretch (not start) so the shorter insights column fills the same
-       row height as the longer filter list now that both sit inside one
-       bordered console panel — otherwise the panel's border encloses a
-       large empty gap under the shorter column. */
-    align-items: stretch;
+    gap: 1.75rem;
+    /* Start, not stretch. Stretching the shorter column and then
+       vertically centering its contents produced ~200px of dead space
+       above and below the "Why NERO found these" list — a worse
+       problem than the uneven column bottoms it was solving. The
+       column widths below now do that job instead: a wider insights
+       column is a shorter insights column. */
+    align-items: start;
   }
 }
 
@@ -586,16 +924,30 @@ body {
    composition reads left-to-right, matching the reference. */
 .job-intel-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "nero" "panels" "clarity";
-  row-gap: 2.5rem;
+  row-gap: 2rem;
 }
 
+/*
+ * The NERO track is capped rather than taking every remaining pixel:
+ * on a wide screen the clarity object used to be pushed to the far
+ * right edge with ~200px of nothing between it and the figure it is
+ * supposed to be resolving out of, so the three parts of the scene
+ * never read as one composition.
+ */
 @media (min-width: 1024px) {
   .job-intel-grid {
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(200px, 260px);
+    /* The middle track absorbs the slack. Centring three fixed-max
+       tracks inside the page measure left the panel stack indented
+       ~46px from the headline directly above it, which reads as a
+       misalignment rather than a composition. */
+    grid-template-columns:
+      minmax(240px, 300px)
+      minmax(0, 1fr)
+      minmax(220px, 300px);
     grid-template-areas: "panels nero clarity";
-    column-gap: 2rem;
+    column-gap: 2.5rem;
     align-items: center;
   }
 }
@@ -620,7 +972,6 @@ body {
     radial-gradient(circle at 22% 30%, rgba(10, 132, 255, 0.24), transparent 46%),
     radial-gradient(circle at 68% 62%, rgba(122, 92, 255, 0.2), transparent 50%),
     radial-gradient(circle at 88% 22%, rgba(255, 59, 48, 0.14), transparent 40%);
-  filter: blur(4px);
 }
 
 /* Decorative data-stream lines flowing from the four input panels
@@ -643,22 +994,33 @@ body {
   animation: job-intel-flow 3.6s linear infinite;
 }
 
-@keyframes job-intel-clarity-pulse {
+/* Same treatment as .system-hub-pulse above, and for the same reason:
+   an infinite box-shadow animation is an infinite repaint. */
+@keyframes clarity-ring-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 40px -12px rgba(10, 132, 255, 0.35),
-      0 0 0 0 rgba(122, 92, 255, 0.25);
+    transform: scale(1);
+    opacity: 0.3;
   }
   50% {
-    box-shadow:
-      0 0 56px -10px rgba(122, 92, 255, 0.45),
-      0 0 0 8px rgba(122, 92, 255, 0);
+    transform: scale(1.1);
+    opacity: 0;
   }
 }
 
 .job-intel-clarity-pulse {
-  animation: job-intel-clarity-pulse 4.2s ease-in-out infinite;
+  box-shadow: 0 0 48px -11px rgba(94, 112, 255, 0.4);
+}
+
+.job-intel-clarity-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px rgba(122, 92, 255, 0.28);
+  animation: clarity-ring-pulse 4.2s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 /* ---------------------------------------------------------------- */
@@ -674,7 +1036,6 @@ body {
     radial-gradient(circle at 76% 22%, rgba(255, 59, 48, 0.2), transparent 44%),
     radial-gradient(circle at 28% 68%, rgba(122, 92, 255, 0.18), transparent 52%),
     radial-gradient(circle at 12% 16%, rgba(10, 132, 255, 0.12), transparent 40%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -706,7 +1067,6 @@ body {
     rgba(10, 132, 255, 0.08) 55%,
     transparent 75%
   );
-  filter: blur(1px);
 }
 
 .finale-ridge-back {
@@ -745,6 +1105,76 @@ body {
   animation: job-intel-flow 4.5s linear infinite;
 }
 
+/*
+ * Finale stage layout. Mobile keeps the copy first and reserves a
+ * short band under the CTA for the absolutely-positioned NERO —
+ * previously a flat pb-64 / sm:pb-80 (256-320px), which left a third
+ * of the card empty on a phone. From lg the card becomes two real
+ * zones so the copy has its own centre line instead of being nudged
+ * right by a fixed pl-64 that the rest of the scene knew nothing
+ * about.
+ */
+.finale-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "copy" "figure";
+}
+
+.finale-stage-copy {
+  grid-area: copy;
+}
+
+.finale-stage-figure {
+  grid-area: figure;
+  height: clamp(8.5rem, 38vw, 13rem);
+}
+
+@media (min-width: 1024px) {
+  .finale-stage {
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    grid-template-areas: "figure copy";
+    align-items: center;
+  }
+
+  .finale-stage-figure {
+    /* Only reserves the left zone's width; its height just guarantees
+       the card is tall enough for the figure anchored inside it. */
+    height: auto;
+    min-height: 25rem;
+  }
+}
+
+/*
+ * The finale headline is the page's largest type, and it sits in the
+ * card's right zone rather than the page measure, so it gets its own
+ * pair of regimes on the same principle as .display-hero.
+ */
+.finale-headline {
+  font-family: var(--font-syne), sans-serif;
+  font-size: clamp(1.375rem, 6.6vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--color-app-text);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1024px) {
+  .finale-headline {
+    font-size: clamp(2.5rem, 4.8vw, 4.5rem);
+  }
+}
+
+/* Keeps the closing CTA legible where it overlaps the lit skyline. */
+.finale-cta {
+  background: radial-gradient(
+    ellipse 75% 120% at 50% 50%,
+    rgba(6, 8, 13, 0.85),
+    rgba(6, 8, 13, 0.45) 62%,
+    transparent 100%
+  );
+}
+
 .finale-scrim {
   background:
     radial-gradient(ellipse 70% 55% at 50% 28%, rgba(6, 8, 13, 0.6), transparent 70%),
@@ -765,12 +1195,10 @@ body {
 /* ---------------------------------------------------------------- */
 .journey-atmosphere-a {
   background: radial-gradient(circle at 18% 12%, rgba(10, 132, 255, 0.16), transparent 45%);
-  filter: blur(4px);
 }
 
 .journey-atmosphere-b {
   background: radial-gradient(circle at 82% 88%, rgba(255, 59, 48, 0.12), transparent 48%);
-  filter: blur(4px);
 }
 
 /* Literal "line progression": grows from 0 height (scaleY 0) to full
@@ -795,7 +1223,6 @@ body {
   background:
     radial-gradient(circle at 26% 30%, rgba(10, 132, 255, 0.18), transparent 46%),
     radial-gradient(circle at 82% 75%, rgba(122, 92, 255, 0.12), transparent 50%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
@@ -806,57 +1233,101 @@ body {
   background:
     radial-gradient(circle at 72% 24%, rgba(10, 132, 255, 0.16), transparent 48%),
     radial-gradient(circle at 22% 78%, rgba(255, 149, 0, 0.08), transparent 46%);
-  filter: blur(4px);
 }
 
 /* ---------------------------------------------------------------- */
 /* Scroll parallax + entrance reveal (ParallaxController)             */
 /* ---------------------------------------------------------------- */
 
-/* Scroll-driven layers write transform directly via JS each frame —
-   hinting the browser up front avoids a layer promotion hitch on the
-   first scroll frame. */
-[data-parallax-speed],
-[data-parallax-x] {
-  will-change: transform;
-}
+/*
+ * NOTE: there is deliberately no blanket `will-change: transform` here
+ * any more. Hinting every scroll-driven layer up front promoted 52
+ * compositor layers at once — including decorative divs thousands of
+ * pixels off-screen — and the page held them for the whole session.
+ * ParallaxController now sets will-change on an element only while it
+ * is inside the active (near-viewport) set and clears it on the way
+ * out, so promotion tracks what is actually moving. The transforms it
+ * writes use translate3d(), so the layer it does need is created on
+ * the first write regardless.
+ */
 
 /*
- * Motion-foundation CSS variables, written by ParallaxController each
- * frame (only while it's running — never during prefers-reduced-motion).
- * Defaults here keep any future consumer safe if it's ever read before
- * JS has run, or while reduced motion is active.
+ * Motion-foundation CSS variables, written by ParallaxController (only
+ * while it's running — never during prefers-reduced-motion).
  *
- *   --scroll-progress-page   0->1 eased page scroll progress (one
- *                             viewport-height range), page-global.
- *   --scroll-velocity        -1->1 normalized, clamped scroll velocity.
- *   --scene-progress         0->1 eased viewport-transit progress, set
- *                             per-element on anything opting in with
+ *   --scene-progress         0->1 viewport-transit progress, written
+ *                             per-element onto anything opting in with
  *                             data-scroll-progress. Convention: 0%
- *                             entering, 25% developing, 50% primary
- *                             interaction, 75% transitioning, 100%
- *                             exiting. Not set here globally — it's
- *                             per-element, written directly on the
- *                             opted-in element by the controller.
+ *                             entering, 50% primary interaction, 100%
+ *                             exiting.
+ *   --scroll-progress-page   0->1 page scroll progress over the first
+ *                             viewport height, written onto the
+ *                             element(s) carrying
+ *                             data-scroll-progress-page.
+ *
+ * Neither is declared on :root any more, and neither may be. Writing a
+ * custom property on :root during scroll invalidates the inherited
+ * custom-property map for the entire document and forces a full-tree
+ * style recalculation — measured at 59-133ms *per write* on this page,
+ * every frame, which was the single largest cause of the page's scroll
+ * lag. The defaults live on the consumers instead, via the var()
+ * fallbacks each of them already passes.
+ *
+ * --scroll-velocity is gone: nothing ever consumed it, and it was
+ * paying that same whole-document cost a second time every frame.
  */
-:root {
-  --scroll-progress-page: 0;
-  --scroll-velocity: 0;
-}
 
 /*
  * Header — LOW motion tier. A restrained surface transition driven by
- * --scroll-progress-page (already 0->1 over the first viewport height):
- * the hairline border and drop shadow firm up slightly once the user
- * has left the hero, so the header reads as "settling into its
- * instrument-bar role" rather than a static bar. calc() resolves this
- * every frame as the variable updates, no JS/transition needed here —
- * and it degrades to the flat baseline look if the variable is ever
- * unset (pre-hydration, reduced motion).
+ * --scroll-progress-page (0->1 over the first viewport height): the
+ * hairline border and drop shadow firm up slightly once the user has
+ * left the hero, so the header reads as "settling into its
+ * instrument-bar role" rather than a static bar.
+ *
+ * The header carries data-scroll-progress-page, so the variable is
+ * written onto this element rather than :root — same visual result,
+ * but the style invalidation is scoped to the ~25 nodes inside the bar
+ * instead of all 1,300 on the page. Degrades to the flat baseline look
+ * if the variable is unset (pre-hydration, reduced motion).
  */
 .site-header {
   border-bottom-color: rgba(255, 255, 255, calc(0.05 + var(--scroll-progress-page, 0) * 0.06));
   box-shadow: 0 12px 28px -20px rgba(0, 0, 0, calc(var(--scroll-progress-page, 0) * 0.55));
+}
+
+/*
+ * Mobile: drop the decorative backdrop blur.
+ *
+ * backdrop-filter is the most expensive effect on the page per pixel —
+ * it makes the browser snapshot and re-filter whatever is behind the
+ * element every frame it moves, which while scrolling means every
+ * frame. On desktop the handful that remain (NERO's speech bubbles,
+ * which genuinely sit over the figure artwork) are affordable; on a
+ * phone GPU they are not, and at that size the bubbles are small
+ * enough that the blur reads as nothing anyway. The sticky header
+ * keeps its blur at every width — page content scrolls directly
+ * underneath it, so there the effect is doing real work.
+ */
+@media (max-width: 1023px) {
+  .backdrop-blur-sm {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/*
+ * Decorative looping animations are paused while their element is off
+ * screen. ParallaxController adds .is-offscreen (see ANIMATED_SELECTOR
+ * there); everything listed in that selector keeps its animation
+ * definition and simply stops advancing when nobody can see it.
+ * Without this, ~8 floating NERO figures and two dash-flow loops keep
+ * the compositor producing frames for the entire session no matter
+ * where the reader is on a 12,000px page.
+ */
+.is-offscreen,
+.is-offscreen::after,
+.is-offscreen::before {
+  animation-play-state: paused !important;
 }
 
 /* Default-hidden, JS reveals via .is-revealed once the element enters
@@ -913,10 +1384,10 @@ body {
    for elements that should feel like they're sharpening into view
    (Job Intelligence's clarity object, System's hub) instead of rising. */
 .cine-focal {
-  --cp: clamp(0, calc(var(--scene-progress, 0) * 2.2), 1);
-  opacity: calc(0.55 + var(--cp) * 0.45);
-  transform: scale(calc(0.9 + var(--cp) * 0.1));
-  filter: saturate(calc(0.7 + var(--cp) * 0.3));
+  --cp: clamp(0, calc(var(--scene-progress, 0) * 2.4), 1);
+  opacity: calc(0.78 + var(--cp) * 0.22);
+  transform: scale(calc(0.94 + var(--cp) * 0.06));
+  filter: saturate(calc(0.82 + var(--cp) * 0.18));
   will-change: transform, opacity, filter;
 }
 
@@ -929,7 +1400,16 @@ body {
   left: 0.75rem;
   right: 0.75rem;
   height: 2px;
-  top: calc(clamp(0, calc(var(--scene-progress, 0) * 1.6), 1) * 82% + 8%);
+  /*
+   * Retimed in the polish pass. At x1.6 the scan only finished its
+   * travel once the card had already left the middle of the screen, so
+   * the "NERO is reading this" beat played out below the fold. x2.4
+   * with a short lead-in lands the sweep while the card sits in the
+   * comfortable reading band, which is the whole point of it.
+   */
+  top: calc(
+    clamp(0, calc((var(--scene-progress, 0) - 0.1) * 2.4), 1) * 82% + 8%
+  );
   background: linear-gradient(
     90deg,
     transparent,
@@ -952,7 +1432,10 @@ body {
    trading places. Clips the content, not the card chrome (border/
    badge stay put), so the panel reads as "being filled in." */
 .resume-recheck-reveal {
-  --rp: clamp(0, calc(var(--scene-progress, 0) * 1.6), 1);
+  /* Same retiming as .resume-scan-line: the strengthened lines have to
+     be fully readable while the card is still in the middle of the
+     viewport, not clipped in half the whole time it is on screen. */
+  --rp: clamp(0.34, calc((var(--scene-progress, 0) - 0.06) * 2.4), 1);
   clip-path: inset(0 0 calc((1 - var(--rp)) * 100%) 0);
 }
 

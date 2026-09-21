@@ -120,14 +120,14 @@ export default function NeroFinaleVisual() {
         data-parallax-speed="0.14"
         data-parallax-scale-to="1.06"
         data-parallax-local
-        className="absolute bottom-0 left-[2%] z-10 w-[46%] max-w-[220px] sm:max-w-[260px] lg:max-w-[300px]"
+        className="absolute bottom-0 left-[3%] z-10 w-[46%] max-w-[190px] sm:max-w-[230px] lg:left-6 lg:w-[300px] lg:max-w-[300px]"
       >
         <Image
           src="/brand/nero-hero-figure.png"
           alt="NERO, the AI Job Intelligence mascot, looking out over the horizon toward what's next"
           width={1098}
           height={1334}
-          sizes="(min-width: 1024px) 300px, (min-width: 640px) 260px, 190px"
+          sizes="(min-width: 1024px) 300px, (min-width: 640px) 230px, 190px"
           quality={95}
           className="nero-float relative h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.6)]"
         />

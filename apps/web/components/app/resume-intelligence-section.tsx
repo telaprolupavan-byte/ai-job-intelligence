@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Badge from "@/components/app/badge";
+import SectionHeading from "@/components/app/section-heading";
 
 const stages: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: FileText, title: "Resume", text: "Your resume, as it stands today." },
@@ -43,6 +44,14 @@ const improvedLines = [
  * A small NERO cameo sits beside the header (same standing/pointing
  * artwork reused everywhere else) so the section's own companion
  * presence stays consistent with the rest of the page.
+ *
+ * STRONG motion tier — but the strength now lives in the scan line and
+ * the "after" card filling in, not in per-element drift. The five rail
+ * icons and the two mock cards each used to carry their own
+ * data-parallax-speed, which meant a row that is supposed to be a
+ * single horizontal sequence stair-stepped downward by ~25px across
+ * its five items, and the before/after pair never shared a top edge.
+ * Both now drift as one group.
  */
 export default function ResumeIntelligenceSection() {
   return (
@@ -58,49 +67,42 @@ export default function ResumeIntelligenceSection() {
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-[1536px] px-6 py-16 sm:px-10 sm:py-20 lg:px-20 lg:py-28">
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-3">
-              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                RESUME INTELLIGENCE
-              </span>
-              <span className="h-px w-12 bg-app-red/50" />
-            </div>
-
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5.5vw,4rem)] font-extrabold leading-[0.95] tracking-[-0.03em] text-app-text">
-              KNOW WHERE YOUR{" "}
-              <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
-                RESUME
-              </span>{" "}
-              STANDS.
-            </h2>
-
-            <p className="mt-6 max-w-[540px] text-base leading-7 text-app-muted sm:text-lg">
-              NERO reads your resume the way a hiring manager would, then
-              shows you exactly what to strengthen before you apply.
-            </p>
-          </div>
+      <div className="landing-shell landing-band">
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between lg:gap-12">
+          <SectionHeading
+            eyebrow="RESUME INTELLIGENCE"
+            title={
+              <>
+                KNOW WHERE YOUR{" "}
+                <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+                  RESUME
+                </span>{" "}
+                STANDS.
+              </>
+            }
+            lede="NERO reads your resume the way a hiring manager would, then shows you exactly what to strengthen before you apply."
+            className="max-w-2xl"
+          />
 
           {/* Mascot cameo — same approved standing/pointing artwork used
               throughout the page, sized to sit beside the header on wide
               screens and centered below it on mobile, without taking
               over the section's existing before/after layout. A gentle
               scroll-linked scale-up reads as NERO leaning in to analyze,
-              HIGH-tier per the cinematic-pass motion map. */}
+              STRONG-tier per the cinematic-pass motion map. */}
           <div
-            data-parallax-speed="0.09"
+            data-parallax-speed="0.08"
             data-parallax-scale-to="1.05"
             data-parallax-local
-            className="relative mx-auto w-[130px] shrink-0 sm:mx-0 sm:w-[150px] lg:w-[170px]"
+            className="relative mx-auto w-[150px] shrink-0 sm:w-[170px] lg:mx-0 lg:mr-6 lg:w-[190px]"
           >
-            <div className="pointer-events-none absolute -top-8 right-[-8%] z-20 hidden max-w-[170px] rotate-2 sm:block">
-              <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-3 shadow-lg backdrop-blur-sm">
-                <p className="font-[family-name:var(--font-caveat)] text-xl leading-5 text-app-text">
+            <div className="pointer-events-none absolute left-1/2 top-2 z-20 w-[168px] -translate-x-1/2 rotate-2 sm:left-auto sm:right-[74%] sm:top-6 sm:translate-x-0">
+              <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-2.5 shadow-lg backdrop-blur-sm">
+                <p className="nero-note text-app-text">
                   Here&apos;s what I found.
                 </p>
                 <span
-                  className="absolute -bottom-1.5 left-9 h-3.5 w-3.5 rotate-45 border-b border-r border-app-border-soft bg-app-panel/85"
+                  className="absolute -bottom-1.5 left-9 h-3.5 w-3.5 rotate-45 border-b border-r border-app-border-soft bg-app-panel/85 sm:-right-1.5 sm:bottom-auto sm:left-auto sm:top-6 sm:-rotate-45"
                   aria-hidden="true"
                 />
               </div>
@@ -111,7 +113,7 @@ export default function ResumeIntelligenceSection() {
               alt="NERO, the AI Job Intelligence mascot, reviewing a resume"
               width={1098}
               height={1334}
-              sizes="170px"
+              sizes="190px"
               quality={95}
               className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
             />
@@ -122,31 +124,34 @@ export default function ResumeIntelligenceSection() {
           </div>
         </div>
 
-        {/* Stage rail */}
-        <div className="relative mt-16 lg:mt-20">
+        {/* Stage rail — one drift wrapper for the whole sequence so the
+            five icons stay on the same baseline and the hairline that
+            joins them stays a straight line. */}
+        <div
+          data-parallax-speed="0.03"
+          data-parallax-local
+          className="stack-xl relative"
+        >
           <div
-            data-parallax-speed="0.04"
-            data-parallax-local
-            className="pointer-events-none absolute left-0 right-0 top-6 hidden h-px bg-gradient-to-r from-transparent via-app-border-strong to-transparent sm:block"
+            className="pointer-events-none absolute left-[10%] right-[10%] top-6 hidden h-px bg-gradient-to-r from-transparent via-app-border-strong to-transparent sm:block"
             aria-hidden="true"
           />
-          <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-5 sm:gap-x-4">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-5 sm:gap-x-4">
             {stages.map((stage, index) => (
               <div
                 key={stage.title}
                 data-reveal
                 data-reveal-delay={index * 110}
-                data-parallax-speed={(0.02 + index * 0.008).toFixed(3)}
-                data-parallax-local
+                style={{ "--reveal-distance": "14px" } as CSSProperties}
                 className="relative flex flex-col items-center text-center"
               >
                 <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-app-blue/50 bg-app-bg text-app-blue">
                   <stage.icon className="h-5 w-5" aria-hidden="true" />
                 </div>
-                <h3 className="mt-3 text-sm font-semibold tracking-[0.1em] text-app-text">
+                <h3 className="mt-3.5 text-xs font-semibold tracking-[0.18em] text-app-text">
                   {stage.title.toUpperCase()}
                 </h3>
-                <p className="mt-1.5 max-w-[140px] text-xs leading-5 text-app-muted">
+                <p className="mt-1.5 max-w-[150px] text-xs leading-5 text-app-muted">
                   {stage.text}
                 </p>
               </div>
@@ -156,30 +161,35 @@ export default function ResumeIntelligenceSection() {
 
         {/* Before / after resume mock. data-reveal uses a plain CSS
             transition (not a @keyframes ...forwards animation), so —
-            unlike reveal-up/nero-float/system-card-reveal elsewhere on
-            the page — it's safe to combine directly with
-            data-parallax-speed on the same element: a transition just
-            interpolates computed-value changes rather than locking out
-            inline-style updates for the property, so the JS parallax
-            write and the reveal's opacity/transform settle coexist
-            (same convention already used on the stage-rail icons
-            above). data-scroll-progress only ever writes the
-            --scene-progress custom property, never transform, so it
-            never has this conflict at all. */}
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:mt-20 lg:gap-8">
+            unlike reveal-up/nero-float elsewhere on the page — it's
+            safe to combine directly with data-parallax-speed on the
+            same element: a transition just interpolates computed-value
+            changes rather than locking out inline-style updates for the
+            property, so the JS parallax write and the reveal's
+            opacity/transform settle coexist. data-scroll-progress only
+            ever writes the --scene-progress custom property, never
+            transform, so it never has this conflict at all.
+
+            The pair shares a single parallax wrapper: two side-by-side
+            cards that are meant to be read against each other have to
+            keep the same top edge, and giving each its own speed put
+            them ~14px out of register at every scroll position. */}
+        <div
+          data-parallax-speed="0.04"
+          data-parallax-local
+          className="stack-xl grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 lg:gap-6"
+        >
           <div
             data-reveal
-            data-parallax-speed="0.03"
-            data-parallax-local
             data-scroll-progress
             style={{ "--reveal-distance": "18px" } as CSSProperties}
-            className="glass-panel relative overflow-hidden rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(255,59,48,0.4)]"
+            className="glass-panel relative flex flex-col overflow-hidden rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(255,59,48,0.4)]"
           >
             {/* Reads as NERO actively scanning the resume — a thin
                 line traveling down the card, tied to this panel's own
                 scroll transit rather than a fixed-duration loop. */}
             <div className="resume-scan-line" aria-hidden="true" />
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className="mono text-[9px] tracking-[0.2em] text-app-faint">
                 BEFORE
               </span>
@@ -189,7 +199,7 @@ export default function ResumeIntelligenceSection() {
               {flaggedLines.map((line) => (
                 <p
                   key={line}
-                  className="rounded-lg border border-app-red/20 bg-app-red-soft/40 px-3 py-2 text-xs leading-5 text-app-body"
+                  className="rounded-lg border border-app-red/20 bg-app-red-soft/40 px-3 py-2.5 text-xs leading-5 text-app-body"
                 >
                   {line}
                 </p>
@@ -199,14 +209,11 @@ export default function ResumeIntelligenceSection() {
 
           <div
             data-reveal
-            data-reveal-delay="220"
-            data-parallax-speed="0.05"
-            data-parallax-scale-to="1.02"
-            data-parallax-local
+            data-reveal-delay="180"
             style={{ "--reveal-distance": "18px" } as CSSProperties}
-            className="glass-panel relative rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(34,160,107,0.4)]"
+            className="glass-panel relative flex flex-col rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(34,160,107,0.4)]"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className="mono text-[9px] tracking-[0.2em] text-app-faint">
                 AFTER RECHECK
               </span>
@@ -223,7 +230,7 @@ export default function ResumeIntelligenceSection() {
               {improvedLines.map((line) => (
                 <p
                   key={line}
-                  className="flex items-start gap-2 rounded-lg border border-app-success/20 bg-app-success-soft/40 px-3 py-2 text-xs leading-5 text-app-body"
+                  className="flex items-start gap-2 rounded-lg border border-app-success/20 bg-app-success-soft/40 px-3 py-2.5 text-xs leading-5 text-app-body"
                 >
                   <CheckCircle2
                     className="mt-0.5 h-3.5 w-3.5 shrink-0 text-app-success"
@@ -239,7 +246,7 @@ export default function ResumeIntelligenceSection() {
         <p
           data-reveal
           data-reveal-delay="120"
-          className="mx-auto mt-12 max-w-lg text-center font-[family-name:var(--font-caveat)] text-2xl leading-[1.2] text-app-blue sm:text-[26px]"
+          className="nero-note stack-lg mx-auto max-w-lg text-center text-app-blue"
         >
           Real changes, not a score to chase.
         </p>

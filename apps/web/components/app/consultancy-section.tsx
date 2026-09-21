@@ -1,15 +1,21 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AlertTriangle, Eye, Lock, Users, type LucideIcon } from "lucide-react";
+import SectionHeading from "@/components/app/section-heading";
 
 // Deterministic per-dot offsets (not random per render) so each dot's
 // "settle" reveal is stable across renders — the illusion of many
 // individuals coming into a structured view depends on each dot
 // resolving to exactly the same tidy grid position every time.
+//
+// The state mix is deliberately weighted toward neutral. At one in
+// five the amber "needs attention" tiles read as a scattering of
+// warnings rather than an occasional flag, which both misrepresents
+// the idea and turns an otherwise calm grid into visual noise.
 const STUDENT_DOTS = Array.from({ length: 24 }, (_, i) => {
-  const rotate = ((i * 37) % 17) - 8;
-  const delay = (i % 8) * 60;
-  const state = i % 5 === 0 ? "attention" : i % 3 === 0 ? "progress" : "neutral";
+  const rotate = ((i * 37) % 13) - 6;
+  const delay = (i % 8) * 55;
+  const state = i % 11 === 3 ? "attention" : i % 4 === 1 ? "progress" : "neutral";
   return { id: i, rotate, delay, state };
 });
 
@@ -34,6 +40,8 @@ const sequence: { icon: LucideIcon; title: string }[] = [
  * needs-attention) — never real student data — and settle from a
  * scattered tilt into a clean grid as they're scrolled into view,
  * standing in for "many students organizing into a structured view."
+ *
+ * RESTRAINED motion tier, matching the Student section it pairs with.
  */
 export default function ConsultancySection() {
   return (
@@ -49,30 +57,23 @@ export default function ConsultancySection() {
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-[1536px] px-6 py-20 sm:px-10 sm:py-24 lg:px-20 lg:py-28">
-        <div className="grid gap-14 lg:grid-cols-[minmax(0,600px)_1fr] lg:items-center lg:gap-16">
+      <div className="landing-shell landing-band">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
           <div>
-            <div className="flex items-center gap-3">
-              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                FOR CONSULTANCIES
-              </span>
-              <span className="h-px w-12 bg-app-red/50" />
-            </div>
+            <SectionHeading
+              eyebrow="FOR CONSULTANCIES"
+              title={
+                <>
+                  100 STUDENTS SHOULDN&apos;T MEAN{" "}
+                  <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+                    100 SPREADSHEETS.
+                  </span>
+                </>
+              }
+              lede="Give your team a clearer view of student job-search progress — without taking over each student's personal NERO workspace."
+            />
 
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.1rem,4.8vw,3.5rem)] font-extrabold leading-[1.02] tracking-[-0.03em] text-app-text">
-              100 STUDENTS SHOULDN&apos;T MEAN{" "}
-              <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
-                100 SPREADSHEETS.
-              </span>
-            </h2>
-
-            <p className="mt-6 max-w-[520px] text-base leading-7 text-app-muted sm:text-lg">
-              Give your team a clearer view of student job-search
-              progress — without taking over each student&apos;s
-              personal NERO workspace.
-            </p>
-
-            <div className="mt-8 flex items-start gap-3 rounded-xl border border-app-border-soft bg-app-panel/50 p-4">
+            <div className="stack-md flex max-w-[520px] items-start gap-3 rounded-xl border border-app-border-soft bg-app-panel/50 p-4">
               <Lock className="mt-0.5 h-4 w-4 shrink-0 text-app-blue" aria-hidden="true" />
               <p className="mono text-[11px] leading-6 tracking-[0.05em] text-app-body">
                 VISIBILITY FOR THE CONSULTANCY.
@@ -81,9 +82,18 @@ export default function ConsultancySection() {
               </p>
             </div>
 
-            <div className="mt-10 flex flex-wrap gap-3">
+            <div className="stack-md flex flex-wrap items-center gap-x-3 gap-y-3">
               {sequence.map((step, index) => (
-                <div key={step.title} className="flex items-center gap-3">
+                // The connector renders BEFORE its chip, never after:
+                // a trailing separator used to be left dangling at the
+                // end of a wrapped line, which read as a rendering bug.
+                <span key={step.title} className="inline-flex items-center gap-3">
+                  {index > 0 && (
+                    <span
+                      className="h-px w-6 bg-app-border-strong"
+                      aria-hidden="true"
+                    />
+                  )}
                   <span
                     data-reveal
                     data-reveal-delay={index * 100}
@@ -94,14 +104,11 @@ export default function ConsultancySection() {
                       {step.title.toUpperCase()}
                     </span>
                   </span>
-                  {index < sequence.length - 1 && (
-                    <span className="h-px w-6 bg-app-border-strong" aria-hidden="true" />
-                  )}
-                </div>
+                </span>
               ))}
             </div>
 
-            <div className="mt-10">
+            <div className="stack-md">
               <Link
                 href="/register"
                 className="app-focus-ring group inline-flex items-center justify-center gap-2 rounded-lg bg-crimson-fill px-6 py-3.5 text-sm font-medium text-white shadow-[0_0_28px_rgba(217,40,31,0.4)] transition hover:bg-crimson-fill-hover"
@@ -114,12 +121,12 @@ export default function ConsultancySection() {
             </div>
           </div>
 
-          <div>
+          <div className="mx-auto w-full max-w-[520px]">
             <div
               data-parallax-speed="0.05"
               data-parallax-scale-to="1.02"
               data-parallax-local
-              className="grid grid-cols-6 gap-2.5 sm:grid-cols-8"
+              className="grid grid-cols-6 gap-3 sm:grid-cols-8"
             >
               {STUDENT_DOTS.map((dot) => (
                 <span

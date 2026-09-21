@@ -9,9 +9,9 @@ import Image from "next/image";
  */
 export default function NeroJobIntelligenceVisual() {
   return (
-    <div className="relative mx-auto w-full max-w-[380px]">
+    <div className="relative mx-auto w-full max-w-[250px] sm:max-w-[320px] lg:max-w-[380px]">
       <div
-        className="pointer-events-none absolute -top-4 right-[-6%] z-20 hidden max-w-[190px] rotate-2 sm:block"
+        className="pointer-events-none absolute -top-8 right-[-10%] z-20 hidden max-w-[190px] rotate-2 sm:block"
         aria-hidden="true"
       >
         <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-3 shadow-lg backdrop-blur-sm">
@@ -30,7 +30,7 @@ export default function NeroJobIntelligenceVisual() {
         alt="NERO, the AI Job Intelligence mascot, connecting the pieces of an opportunity together"
         width={1098}
         height={1334}
-        sizes="(min-width: 1024px) 340px, (min-width: 640px) 300px, 240px"
+        sizes="(min-width: 1024px) 340px, (min-width: 640px) 300px, 230px"
         quality={95}
         className="nero-float relative z-10 h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
       />
