@@ -128,7 +128,7 @@ export default function Home() {
         />
         <nav className="landing-shell flex h-20 items-center justify-between">
           <div className="flex items-center gap-4">
-            <NeroBrand imgClassName="h-9 w-auto sm:h-10" sizes="140px" />
+            <NeroBrand imgClassName="h-11 w-auto sm:h-12" sizes="160px" />
             <span className="hidden h-6 w-px bg-white/10 lg:block" aria-hidden="true" />
             <span className="mono hidden text-[9px] tracking-[0.25em] text-app-muted lg:flex lg:items-center lg:gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_8px_rgba(255,59,48,0.6)]" />
@@ -190,7 +190,7 @@ export default function Home() {
           className="pointer-events-none absolute left-0 top-[34%] hidden h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-app-red/70 lg:block"
         />
 
-        <div className="landing-shell flex flex-col justify-center pb-12 pt-10 sm:pt-12 lg:min-h-[calc(100svh-8rem)] lg:pb-10 lg:pt-10">
+        <div className="landing-shell flex flex-col justify-center pb-12 pt-8 sm:pt-10 lg:min-h-[calc(100svh-13rem)] lg:pb-10 lg:pt-6">
           <div className="hero-grid-layout">
             {/* LEFT — copy + CTAs. Parallax goes on this wrapper (not on
                 the reveal-up children directly) — a CSS @keyframes
@@ -442,7 +442,7 @@ export default function Home() {
           aria-hidden="true"
         />
 
-        <div className="landing-shell landing-band">
+        <div className="landing-shell landing-band-tight">
           {/* Meet NERO — character intro + the three intelligence
               pillars, framed as the overture for the system below
               rather than a second full-scale hero: a smaller display
@@ -462,13 +462,13 @@ export default function Home() {
             lede="NERO is your AI job intelligence companion — built to help you understand your position, your opportunities, and your next move."
           />
 
-          <div className="stack-lg grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
+          <div className="stack-md grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             {neroPillars.map((pillar, index) => (
               <div
                 key={pillar.title}
                 data-reveal
                 data-reveal-delay={index * 100}
-                className="flex items-start gap-3.5 rounded-xl border border-app-border-soft bg-app-panel/50 p-5"
+                className="flex items-start gap-3.5 rounded-xl border border-app-border-soft bg-app-panel/50 p-4"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-app-blue/50 bg-app-surface/80 text-app-blue">
                   <pillar.icon className="h-4 w-4" aria-hidden="true" />
@@ -485,13 +485,13 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="stack-lg border-t border-white/5 pt-[var(--stack-lg)]">
+          <div className="stack-md border-t border-white/5 pt-[var(--stack-md)]">
             {/* The System's own header runs the full measure. It used
                 to live inside the left column, where "INTELLIGENTLY."
                 — the single widest word on the page — was 230px wider
                 than the track holding it, which is what blew the whole
                 section past the viewport on a phone. */}
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
               <SectionHeading
                 eyebrow="02 / THE SYSTEM"
                 title={
@@ -510,7 +510,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="stack-lg grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,0.68fr)_minmax(0,1fr)] lg:items-center lg:gap-14">
+            <div className="stack-md grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.68fr)_minmax(0,1fr)] lg:items-center lg:gap-10">
             {/* LEFT — supporting lines + NERO */}
             <div className="flex flex-col">
               {/* Brand line + handwritten note share one row so the
@@ -730,7 +730,7 @@ function SystemCard({
       data-reveal-delay={index * 90}
       style={{ "--reveal-distance": "18px" } as CSSProperties}
       className={cn(
-        "group relative flex h-full flex-col rounded-2xl border border-app-blue/40 bg-app-panel/70 p-6 shadow-[0_0_28px_-14px_rgba(10,132,255,0.5)] transition hover:border-app-blue/80 hover:bg-app-panel-strong/80 hover:shadow-[0_0_34px_-8px_rgba(10,132,255,0.6)]",
+        "group relative flex h-full flex-col rounded-2xl border border-app-blue/40 bg-app-panel/70 p-5 shadow-[0_0_28px_-14px_rgba(10,132,255,0.5)] transition hover:border-app-blue/80 hover:bg-app-panel-strong/80 hover:shadow-[0_0_34px_-8px_rgba(10,132,255,0.6)]",
         className,
       )}
     >
@@ -739,18 +739,18 @@ function SystemCard({
         <span className="h-px w-7 bg-app-body/30" aria-hidden="true" />
       </div>
 
-      <div className="mt-5 flex h-12 w-12 items-center justify-center rounded-xl border border-app-blue/50 bg-app-surface/80 text-app-blue">
+      <div className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl border border-app-blue/50 bg-app-surface/80 text-app-blue">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
 
-      <h3 className="mt-4 text-base font-semibold tracking-tight text-app-text sm:text-lg">
+      <h3 className="mt-3 text-base font-semibold tracking-tight text-app-text sm:text-lg">
         {title}
       </h3>
 
-      <p className="mt-2.5 text-sm leading-6 text-app-muted">{description}</p>
+      <p className="mt-2 text-sm leading-6 text-app-muted">{description}</p>
 
       <span
-        className="mt-auto pt-4 text-app-text/60 transition group-hover:translate-x-1 group-hover:text-app-red"
+        className="mt-auto pt-3 text-app-text/60 transition group-hover:translate-x-1 group-hover:text-app-red"
         aria-hidden="true"
       >
         →
