@@ -91,12 +91,24 @@ export default function ProblemSection() {
           ))}
         </div>
 
-        {/* Resolution line — the section's single focal moment. Laid
-            out as one centered row (arrow -> statement -> NERO) rather
-            than a right-aligned block floating under a centered
-            header, which is what made the old composition read as two
-            unrelated alignments stacked on top of each other. */}
-        <div className="stack-lg flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-7">
+        {/* Resolution — the section's single focal moment, and the one
+            place on the page where NERO answers something rather than
+            introducing it.
+
+            The questions above resolve INTO him: a hairline drops out
+            of the cluster into the statement, and the figure rises far
+            enough to overlap the cluster's own band, so the three
+            parts read as one composition (scattered questions ->
+            resolution -> NERO) instead of a centered caption with a
+            sticker parked beside it. He is also a size step larger —
+            he was the smallest figure on the page while carrying the
+            section's only answer. */}
+        <div className="stack-lg relative flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-8">
+          <span
+            className="pointer-events-none absolute -top-8 left-1/2 hidden h-8 w-px -translate-x-1/2 bg-gradient-to-b from-transparent to-app-red/70 sm:block"
+            aria-hidden="true"
+          />
+
           <div
             data-reveal
             data-reveal-delay="460"
@@ -118,7 +130,7 @@ export default function ProblemSection() {
           <div
             data-parallax-speed="0.07"
             data-parallax-local
-            className="relative w-32 shrink-0 sm:w-40 lg:w-48"
+            className="relative w-40 shrink-0 sm:-mt-16 sm:w-48 lg:-mt-20 lg:w-56"
           >
             <div
               data-reveal
@@ -137,7 +149,7 @@ export default function ProblemSection() {
                 alt="NERO, the AI Job Intelligence mascot, arriving to make sense of the questions above"
                 width={1098}
                 height={1334}
-                sizes="190px"
+                sizes="(min-width: 1024px) 224px, (min-width: 640px) 192px, 160px"
                 quality={95}
                 style={
                   {

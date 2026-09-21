@@ -1,16 +1,16 @@
-import type { CSSProperties } from "react";
-import Image from "next/image";
 
 /**
  * Page 5's closing environment — "Same You. A Brighter Tomorrow."
  *
- * Reuses the same approved standing/pointing NERO artwork as every
- * other scene (no new character, no new pose, no new logo mark),
- * staged over a CSS/SVG-built ridge that recedes toward a distant
- * skyline so the finale reads as NERO looking out over what's next.
- * Same layering technique as the Job Intelligence data streams
- * (gradient-stroked SVG path, dash-offset flow) and the same
- * nero-float / nero-floor-glow treatment used throughout the site.
+ * A CSS/SVG-built ridge receding toward a distant skyline, which NERO
+ * (NeroFinaleFigure, a real column of .finale-stage rather than a
+ * layer inside this backdrop) looks out over. Same layering technique
+ * as the Job Intelligence data streams: a gradient-stroked SVG path
+ * with dash-offset flow.
+ *
+ * Full bleed since the final pass — it is the section's own
+ * background, not the contents of a rounded card — so `inset-0` here
+ * now spans the viewport width.
  *
  * Depth pass: the finale had zero scroll-linked motion of its own
  * (every other scene has at least atmosphere parallax) — every layer
@@ -116,41 +116,6 @@ export default function NeroFinaleVisual() {
       </svg>
 
       <div className="finale-scrim absolute inset-0" aria-hidden="true" />
-
-      <div
-        data-parallax-speed="0.14"
-        data-parallax-scale-to="1.06"
-        data-parallax-local
-        className="absolute bottom-0 left-[3%] z-10 w-[46%] max-w-[200px] sm:max-w-[244px] lg:left-6 lg:w-[320px] lg:max-w-[320px]"
-      >
-        {/* Success beat — the thumbs-up in this pose is the page's
-            closing gesture, so the figure takes one step up in scale to
-            hold the foreground against the widest scene on the page.
-            The cadence stays deliberately calm (6.4s / 16px against the
-            6s / 14px default): slightly more lift than the default so
-            it doesn't read as flat, but nothing like the bounce Meet
-            NERO gets — this scene's brief is to slow the rhythm down,
-            not to end on another burst of motion. */}
-        <Image
-          src="/brand/nero-hero-figure.png"
-          alt="NERO, the AI Job Intelligence mascot, giving a thumbs up as he looks out over the horizon toward what's next"
-          width={1098}
-          height={1334}
-          sizes="(min-width: 1024px) 320px, (min-width: 640px) 244px, 200px"
-          quality={95}
-          style={
-            {
-              "--nero-float-duration": "6.4s",
-              "--nero-float-distance": "16px",
-            } as CSSProperties
-          }
-          className="nero-float relative h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.6)]"
-        />
-        <div
-          className="nero-floor-glow pointer-events-none absolute -bottom-4 left-1/2 h-16 w-[85%] -translate-x-1/2"
-          aria-hidden="true"
-        />
-      </div>
     </div>
   );
 }

@@ -47,9 +47,15 @@ const stages: { icon: LucideIcon; title: string; text: string }[] = [
  */
 export default function NeroJourneySection() {
   return (
+    // overflow-clip, not overflow-hidden: both clip the decorative
+    // atmosphere layers identically, but `hidden` makes this element a
+    // scrollport, which is what a `position: sticky` descendant is
+    // constrained by — and NERO's column below depends on sticking to
+    // the viewport, not to this box. `clip` is not a scrollport, so
+    // the companion travels and the clipping is unchanged.
     <section
       id="nero-journey"
-      className="relative overflow-hidden border-t border-white/10 bg-[#090c11]"
+      className="relative overflow-clip border-t border-white/10 bg-[#090c11]"
     >
       <div className="technical-grid absolute inset-0 opacity-25" aria-hidden="true" />
       <div
@@ -72,7 +78,7 @@ export default function NeroJourneySection() {
           title={
             <>
               ONE PATH.{" "}
-              <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
                 EIGHT STEPS.
               </span>
             </>
@@ -81,7 +87,7 @@ export default function NeroJourneySection() {
           className="mx-auto max-w-2xl"
         />
 
-        <div className="stack-xl grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:items-center lg:gap-16">
+        <div className="stack-xl grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:items-stretch lg:gap-16">
           <div className="relative">
             {/* Rail line doubles as the section's literal "line
                 progression": data-scroll-progress writes this element's
@@ -128,10 +134,17 @@ export default function NeroJourneySection() {
 
           {/* Mascot companion — same approved standing/pointing artwork
               reused across the page, walking the rail alongside the
-              visitor rather than acting as a new character. On wide
-              screens it sits centred against the full height of the
-              rail rather than floating off its top-right corner. */}
-          <div className="order-first lg:order-none">
+              visitor rather than acting as a new character.
+
+              From lg he is sticky against the full height of the rail:
+              the section's whole argument is that one guide stays with
+              you from resume to tracked application, and a figure
+              parked beside stage 04 while you read stage 08 argues the
+              opposite. Sticky (not scroll-driven JS) keeps this free —
+              no per-frame work, no layout shift, and it degrades to
+              the previous static placement wherever it is unsupported.
+              Offset clears the 5rem sticky header. */}
+          <div className="order-first lg:order-none lg:sticky lg:top-28 lg:self-start">
             <div
               data-parallax-speed="0.06"
               data-parallax-scale-to="1.04"

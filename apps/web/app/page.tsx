@@ -211,7 +211,7 @@ export default function Home() {
                 style={{ animationDelay: "0ms" }}
               >
                 <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                  01 / AI JOB INTELLIGENCE
+                  AI JOB INTELLIGENCE
                 </span>
                 <span className="h-px w-12 bg-app-red/50" />
               </div>
@@ -493,7 +493,7 @@ export default function Home() {
                 section past the viewport on a phone. */}
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
               <SectionHeading
-                eyebrow="02 / THE SYSTEM"
+                eyebrow="THE SYSTEM"
                 title={
                   <>
                     YOUR SEARCH.

@@ -16,7 +16,6 @@ import {
 import { getJobs, type Job } from "@/lib/jobs";
 import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
-import ScrollCue from "@/components/app/scroll-cue";
 import { Skeleton } from "@/components/app/skeleton";
 import SectionHeading from "@/components/app/section-heading";
 import { cn } from "@/lib/utils";
@@ -221,7 +220,7 @@ export default function DiscoverJobsSection() {
           {/* HEADLINE — mobile order: 1st */}
           <div className="discover-hero-area-content">
             <SectionHeading
-              eyebrow="03 / 06 · DISCOVER JOBS"
+              eyebrow="DISCOVER JOBS"
               title={
                 <>
                   REAL JOBS.
@@ -254,7 +253,7 @@ export default function DiscoverJobsSection() {
               <div
                 data-parallax-speed="0.09"
                 data-parallax-local
-                className="pointer-events-none absolute -left-6 bottom-8 z-20 hidden -rotate-2 text-left xl:block"
+                className="pointer-events-none absolute -bottom-12 left-1 z-20 hidden -rotate-2 text-left xl:block"
                 aria-hidden="true"
               >
                 <p className="nero-note text-app-blue">
@@ -569,53 +568,6 @@ export default function DiscoverJobsSection() {
                 loading={!hasLoaded || (isPending && jobs.length === 0)}
               />
               <WhyNeroFoundThese filters={applied} />
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION TRANSITION — the one scroll cue outside the hero,
-            because this one is also a real anchor link into the next
-            scene rather than decoration. */}
-        <div className="stack-lg flex flex-col items-center gap-6 border-t border-white/5 pt-6 text-center lg:flex-row lg:items-center lg:justify-between lg:text-left">
-          <div>
-            <div className="flex items-center justify-center gap-2 lg:justify-start">
-              <span className="mono text-[10px] tracking-[0.3em] text-app-red">
-                NEXT 04 / 06
-              </span>
-              <span className="mono text-[10px] tracking-[0.3em] text-app-blue">
-                JOB INTELLIGENCE
-              </span>
-            </div>
-
-            <div className="mt-3 flex items-center justify-center gap-3 lg:justify-start">
-              <h3 className="display-sub">
-                KNOW BEFORE
-                <br />
-                YOU APPLY.
-              </h3>
-
-              <a
-                href="#job-intelligence"
-                aria-label="Continue to Job Intelligence"
-                className="app-focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-app-border-strong text-app-text transition hover:border-app-blue hover:text-app-blue"
-              >
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </a>
-            </div>
-          </div>
-
-          <ScrollCue label="SCROLL TO CONTINUE" />
-
-          <div
-            className="hidden items-center gap-2.5 lg:flex"
-            aria-hidden="true"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-app-blue/70 bg-app-bg text-xs font-semibold text-app-text">
-              N
-            </span>
-            <div className="mono text-[9px] leading-5 tracking-[0.2em] text-app-muted">
-              SAME YOU.
-              <br />A BRIGHTER TOMORROW.
             </div>
           </div>
         </div>

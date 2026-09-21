@@ -77,7 +77,7 @@ export default function ConsultancySection() {
               title={
                 <>
                   100 STUDENTS SHOULDN&apos;T MEAN{" "}
-                  <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
                     100 SPREADSHEETS.
                   </span>
                 </>
