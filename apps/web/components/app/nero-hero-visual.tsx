@@ -41,7 +41,7 @@ export default function NeroHeroVisual({
         width={1098}
         height={1334}
         sizes="(min-width: 1024px) 480px, (min-width: 640px) 400px, 280px"
-        quality={90}
+        quality={95}
         priority={priority}
         className="nero-float relative z-10 h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
       />

@@ -64,22 +64,40 @@ export default function StudentSection() {
               lede="Your resume. Your opportunities. Your decisions. Your progress."
             />
 
-            <div className="stack-md grid grid-cols-3 gap-x-4 gap-y-6 sm:flex sm:flex-wrap sm:gap-6">
-              {path.map((step, index) => (
-                <div
-                  key={step.title}
-                  data-reveal
-                  data-reveal-delay={index * 80}
-                  className="flex flex-col items-center gap-2.5 text-center sm:w-[88px]"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-app-border-soft text-app-blue">
-                    <step.icon className="h-5 w-5" aria-hidden="true" />
+            {/* The six stages are a PATH, not six unrelated badges —
+                this section's brief is forward career movement, and a
+                flat wrapped row of circles was the one place on the
+                page where a sequence was drawn as a set. Same rail
+                treatment Resume Intelligence already uses (one hairline
+                behind an even grid of steps), running crimson -> blue
+                left to right and arriving at NERO's column, so the row
+                reads as travel toward him rather than a legend.
+
+                A six-column grid from sm up rather than flex-wrap: a
+                wrapped sixth item would leave the rail pointing at
+                nothing. */}
+            <div className="stack-md relative">
+              <div
+                className="pointer-events-none absolute left-[8%] right-[8%] top-[22px] hidden h-px bg-gradient-to-r from-app-red/60 via-app-blue/50 to-app-blue/70 sm:block"
+                aria-hidden="true"
+              />
+              <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-6 sm:gap-x-2">
+                {path.map((step, index) => (
+                  <div
+                    key={step.title}
+                    data-reveal
+                    data-reveal-delay={index * 80}
+                    className="relative flex flex-col items-center gap-2.5 text-center"
+                  >
+                    <div className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full border border-app-border-soft bg-app-bg text-app-blue">
+                      <step.icon className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <span className="mono text-[9px] leading-4 tracking-[0.15em] text-app-muted">
+                      {step.title.toUpperCase()}
+                    </span>
                   </div>
-                  <span className="mono text-[9px] leading-4 tracking-[0.15em] text-app-muted">
-                    {step.title.toUpperCase()}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <p data-reveal className="nero-note stack-md max-w-md text-app-blue">

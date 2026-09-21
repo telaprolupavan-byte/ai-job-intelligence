@@ -551,13 +551,15 @@ main [id="discover-results"] {
   grid-area: features;
 }
 
-/* Blue/cyan + red/pink atmospheric blend behind NERO, with a soft
-   purple transition where the two meet — matches the reference glow. */
+/* Neural Blue + AI Crimson atmospheric blend behind NERO, with a
+   deeper blue midpoint where the two meet. The midpoint used to be a
+   violet wash; the locked Cyber-Spidey palette has no violet in it, so
+   the seam is carried by the blue accent instead of a fourth hue. */
 .nero-atmosphere {
   background:
     radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
     radial-gradient(circle at 78% 20%, rgba(255, 59, 48, 0.22), transparent 42%),
-    radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
+    radial-gradient(circle at 55% 45%, rgba(10, 132, 255, 0.12), transparent 55%);
 }
 
 /* Hero atmosphere, split into independently-parallaxed blue/red layers
@@ -568,7 +570,7 @@ main [id="discover-results"] {
 .hero-atmosphere-blue {
   background:
     radial-gradient(circle at 32% 28%, rgba(10, 132, 255, 0.28), transparent 45%),
-    radial-gradient(circle at 55% 45%, rgba(122, 92, 255, 0.14), transparent 55%);
+    radial-gradient(circle at 55% 45%, rgba(10, 132, 255, 0.12), transparent 55%);
 }
 
 .hero-atmosphere-red {
@@ -579,7 +581,7 @@ main [id="discover-results"] {
   background: radial-gradient(
     ellipse 55% 60% at 50% 50%,
     rgba(10, 132, 255, 0.35),
-    rgba(122, 92, 255, 0.12) 55%,
+    rgba(10, 132, 255, 0.14) 55%,
     transparent 75%
   );
 }
@@ -641,7 +643,7 @@ main [id="discover-results"] {
 /* ---------------------------------------------------------------- */
 .problem-atmosphere {
   background:
-    radial-gradient(circle at 30% 20%, rgba(122, 92, 255, 0.1), transparent 50%),
+    radial-gradient(circle at 30% 20%, rgba(255, 59, 48, 0.07), transparent 50%),
     radial-gradient(circle at 70% 70%, rgba(10, 132, 255, 0.08), transparent 55%);
 }
 
@@ -828,14 +830,66 @@ main [id="discover-results"] {
 
 /* ---------------------------------------------------------------- */
 /* Landing "Resume Intelligence" section — stage rail + before/after  */
-/* resume mock, same blue -> purple blend as Job Intelligence but      */
-/* weighted cooler (no red yet — that returns once Job Intelligence's  */
+/* resume mock, same blue blend as Job Intelligence but weighted       */
+/* cooler (no red yet — that returns once Job Intelligence's           */
 /* "don't apply blind" framing re-enters).                            */
 /* ---------------------------------------------------------------- */
 .resume-intel-atmosphere {
   background:
     radial-gradient(circle at 24% 18%, rgba(10, 132, 255, 0.2), transparent 46%),
-    radial-gradient(circle at 78% 70%, rgba(122, 92, 255, 0.16), transparent 52%);
+    radial-gradient(circle at 78% 70%, rgba(10, 132, 255, 0.13), transparent 52%);
+}
+
+/*
+ * Resume Intelligence — the analysis row.
+ *
+ * One row, read left to right: NERO -> the resume he flagged -> the
+ * resume after the recheck. The two mock cards used to be a bare
+ * sm:grid-cols-2 pair with the figure a whole band away in the
+ * header, so nothing in the section connected the character to the
+ * document he is supposed to be reading.
+ *
+ * Mobile stacks figure/before/after; from sm the two cards pair up
+ * with the figure above them; from lg the figure becomes its own
+ * narrow first column so all three share one baseline.
+ */
+.resume-analysis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "nero" "before" "after";
+  align-items: stretch;
+  gap: 1.25rem;
+}
+
+.resume-analysis-nero {
+  grid-area: nero;
+}
+
+.resume-analysis-before {
+  grid-area: before;
+}
+
+.resume-analysis-after {
+  grid-area: after;
+}
+
+@media (min-width: 640px) {
+  .resume-analysis-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "nero nero"
+      "before after";
+  }
+}
+
+@media (min-width: 1024px) {
+  .resume-analysis-grid {
+    /* The figure's column is capped so the two panels — the actual
+       content of the row — keep the width they had. */
+    grid-template-columns: minmax(0, 210px) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "nero before after";
+    gap: 1.5rem;
+  }
 }
 
 /* ---------------------------------------------------------------- */
@@ -972,13 +1026,13 @@ main [id="discover-results"] {
   grid-area: clarity;
 }
 
-/* Blue -> purple -> red atmospheric blend, same recipe as the hero's
-   nero-atmosphere but weighted toward the purple midpoint used across
+/* Blue -> red atmospheric blend, same recipe as the hero's
+   nero-atmosphere but weighted toward the blue midpoint that carries
    Page 3 -> Page 4's transition lighting. */
 .job-intel-atmosphere {
   background:
     radial-gradient(circle at 22% 30%, rgba(10, 132, 255, 0.24), transparent 46%),
-    radial-gradient(circle at 68% 62%, rgba(122, 92, 255, 0.2), transparent 50%),
+    radial-gradient(circle at 68% 62%, rgba(10, 132, 255, 0.17), transparent 50%),
     radial-gradient(circle at 88% 22%, rgba(255, 59, 48, 0.14), transparent 40%);
 }
 
@@ -1017,7 +1071,7 @@ main [id="discover-results"] {
 }
 
 .job-intel-clarity-pulse {
-  box-shadow: 0 0 48px -11px rgba(94, 112, 255, 0.4);
+  box-shadow: 0 0 48px -11px rgba(10, 132, 255, 0.4);
 }
 
 .job-intel-clarity-pulse::after {
@@ -1025,7 +1079,7 @@ main [id="discover-results"] {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: 0 0 0 4px rgba(122, 92, 255, 0.28);
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.28);
   animation: clarity-ring-pulse 4.2s ease-in-out infinite;
   pointer-events: none;
   will-change: transform, opacity;
@@ -1035,14 +1089,14 @@ main [id="discover-results"] {
 /* Landing "Make Your Next Move" section — Page 5 scene              */
 /* Continues Page 4's motion language exactly (technical-grid,       */
 /* reveal animation, NERO companion, progress rail, scroll-continue  */
-/* bar) with the same blue -> purple -> red atmospheric blend, now   */
+/* bar) with the same blue -> red atmospheric blend, now             */
 /* weighted toward red as the journey approaches the final CTA's     */
 /* red-atmosphere — no new movement values introduced.               */
 /* ---------------------------------------------------------------- */
 .next-move-atmosphere {
   background:
     radial-gradient(circle at 76% 22%, rgba(255, 59, 48, 0.2), transparent 44%),
-    radial-gradient(circle at 28% 68%, rgba(122, 92, 255, 0.18), transparent 52%),
+    radial-gradient(circle at 28% 68%, rgba(10, 132, 255, 0.15), transparent 52%),
     radial-gradient(circle at 12% 16%, rgba(10, 132, 255, 0.12), transparent 40%);
 }
 
@@ -1055,7 +1109,7 @@ main [id="discover-results"] {
 /* ---------------------------------------------------------------- */
 .finale-sky {
   background:
-    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(122, 92, 255, 0.12), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(10, 132, 255, 0.12), transparent 60%),
     linear-gradient(180deg, #05070c 0%, #0a0d14 45%, #120a0c 100%);
 }
 
@@ -1071,7 +1125,7 @@ main [id="discover-results"] {
 .finale-planet {
   background: radial-gradient(
     circle at 35% 35%,
-    rgba(122, 92, 255, 0.22),
+    rgba(10, 132, 255, 0.24),
     rgba(10, 132, 255, 0.08) 55%,
     transparent 75%
   );
@@ -1114,18 +1168,41 @@ main [id="discover-results"] {
 }
 
 /*
- * Finale stage layout. Mobile keeps the copy first and reserves a
- * short band under the CTA for the absolutely-positioned NERO —
- * previously a flat pb-64 / sm:pb-80 (256-320px), which left a third
- * of the card empty on a phone. From lg the card becomes two real
- * zones so the copy has its own centre line instead of being nudged
- * right by a fixed pl-64 that the rest of the scene knew nothing
- * about.
+ * Finale stage layout.
+ *
+ * The scene is full bleed (the environment is the section's own
+ * background, not the contents of a rounded card), so this grid only
+ * places the two things that belong to the page measure: NERO and the
+ * closing copy. Mobile reads copy -> figure, which puts NERO on the
+ * ridge directly under the CTA; from lg the two become side-by-side
+ * zones sharing one centre line.
+ *
+ * The section's own height is set here rather than by copy length: a
+ * horizon needs room to read as a horizon, and the closing moment is
+ * the one place on the page where negative space is the point.
  */
+.finale-section {
+  /* Deep enough that the ridge/skyline has somewhere to recede to,
+     capped so the finale never becomes a scroll obstacle. */
+  min-height: clamp(34rem, 82vh, 46rem);
+  display: flex;
+  align-items: center;
+}
+
+.finale-band {
+  /* Asymmetric: the two handwritten notes are pinned to the top of
+     this box, and on a phone a symmetric band put the eyebrow line
+     straight through "Higher Possibilities." */
+  padding-top: clamp(6.5rem, 8vw, 7.5rem);
+  padding-bottom: clamp(4.5rem, 8vw, 7.5rem);
+}
+
 .finale-stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "copy" "figure";
+  row-gap: clamp(1.5rem, 4vw, 2.5rem);
+  justify-items: center;
 }
 
 .finale-stage-copy {
@@ -1134,7 +1211,7 @@ main [id="discover-results"] {
 
 .finale-stage-figure {
   grid-area: figure;
-  height: clamp(8.5rem, 38vw, 13rem);
+  width: 100%;
 }
 
 @media (min-width: 1024px) {
@@ -1142,13 +1219,14 @@ main [id="discover-results"] {
     grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
     grid-template-areas: "figure copy";
     align-items: center;
+    column-gap: clamp(2rem, 4vw, 4rem);
+    row-gap: 0;
   }
 
   .finale-stage-figure {
-    /* Only reserves the left zone's width; its height just guarantees
-       the card is tall enough for the figure anchored inside it. */
-    height: auto;
-    min-height: 25rem;
+    /* Bottom-aligned against the copy block so NERO stands on the
+       ridge behind him instead of hovering mid-sky. */
+    align-self: end;
   }
 }
 
@@ -1230,7 +1308,7 @@ main [id="discover-results"] {
 .student-atmosphere {
   background:
     radial-gradient(circle at 26% 30%, rgba(10, 132, 255, 0.18), transparent 46%),
-    radial-gradient(circle at 82% 75%, rgba(122, 92, 255, 0.12), transparent 50%);
+    radial-gradient(circle at 82% 75%, rgba(255, 59, 48, 0.09), transparent 50%);
 }
 
 /* ---------------------------------------------------------------- */

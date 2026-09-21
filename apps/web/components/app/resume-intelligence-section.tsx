@@ -68,72 +68,30 @@ export default function ResumeIntelligenceSection() {
       />
 
       <div className="landing-shell landing-band">
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between lg:gap-12">
+        {/* Same two-column header the System section uses: heading on
+            the measure's left, lede on its right. With NERO moved down
+            into the analysis row where he belongs, a single left-hand
+            column would have left the top half of the widest band on
+            the page empty. */}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
           <SectionHeading
             eyebrow="RESUME INTELLIGENCE"
             title={
               <>
                 KNOW WHERE YOUR{" "}
-                <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
                   RESUME
                 </span>{" "}
                 STANDS.
               </>
             }
-            lede="NERO reads your resume the way a hiring manager would, then shows you exactly what to strengthen before you apply."
             className="max-w-2xl"
           />
 
-          {/* Mascot cameo — the approved Page 2 Explainer artwork rather
-              than the Page 1 standing/pointing pose used elsewhere: this
-              is the ANALYZING beat, and the explainer export is the one
-              approved pose where NERO is actually holding a lit readout
-              and pointing at something in it. That is the section's job
-              (reading a document and reporting findings) and it is what
-              the "Here's what I found." note above him is answering.
-              Sized up a step so the figure reads as working rather than
-              decorating, and given the page's calmest idle float (7s /
-              8px vs the 6s / 14px default) — concentration, not bounce.
-              The scroll-linked scale-up still reads as NERO leaning in,
-              STRONG-tier per the cinematic-pass motion map. */}
-          <div
-            data-parallax-speed="0.08"
-            data-parallax-scale-to="1.05"
-            data-parallax-local
-            className="relative mx-auto w-[168px] shrink-0 sm:w-[188px] lg:mx-0 lg:mr-6 lg:w-[210px]"
-          >
-            <div className="pointer-events-none absolute left-1/2 top-2 z-20 w-[168px] -translate-x-1/2 rotate-2 sm:left-auto sm:right-[74%] sm:top-6 sm:translate-x-0">
-              <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-2.5 shadow-lg backdrop-blur-sm">
-                <p className="nero-note text-app-text">
-                  Here&apos;s what I found.
-                </p>
-                <span
-                  className="absolute -bottom-1.5 left-9 h-3.5 w-3.5 rotate-45 border-b border-r border-app-border-soft bg-app-panel/85 sm:-right-1.5 sm:bottom-auto sm:left-auto sm:top-6 sm:-rotate-45"
-                  aria-hidden="true"
-                />
-              </div>
-            </div>
-
-            <Image
-              src="/brand/nero-page2-explainer.png"
-              alt="NERO, the AI Job Intelligence mascot, reading a resume off a lit panel and pointing out what he found"
-              width={780}
-              height={936}
-              sizes="210px"
-              quality={95}
-              style={
-                {
-                  "--nero-float-duration": "7s",
-                  "--nero-float-distance": "8px",
-                } as CSSProperties
-              }
-              className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
-            />
-            <div
-              className="nero-floor-glow pointer-events-none absolute -bottom-3 left-1/2 h-14 w-[85%] -translate-x-1/2"
-              aria-hidden="true"
-            />
-          </div>
+          <p className="section-lede lg:pb-2">
+            NERO reads your resume the way a hiring manager would, then
+            shows you exactly what to strengthen before you apply.
+          </p>
         </div>
 
         {/* Stage rail — one drift wrapper for the whole sequence so the
@@ -189,13 +147,72 @@ export default function ResumeIntelligenceSection() {
         <div
           data-parallax-speed="0.04"
           data-parallax-local
-          className="stack-xl grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 lg:gap-6"
+          className="resume-analysis-grid stack-xl"
         >
+          {/* Mascot cameo — the approved Page 2 Explainer artwork
+              rather than the Page 1 standing/pointing pose used
+              elsewhere: this is the ANALYZING beat, and the explainer
+              export is the one approved pose where NERO is actually
+              holding a lit readout and pointing at something in it.
+              That is the section's job (reading a document and
+              reporting findings) and it is what the "Here's what I
+              found." note beside him is answering.
+
+              He used to sit in the top-right corner of the header,
+              one full band away from the only two panels in the
+              section he could plausibly be reading — the classic
+              "NERO floating beside the text." He is now the first
+              column of the analysis row itself: figure, then the
+              resume he flagged, then the resume after the recheck,
+              read left to right as one sentence. The page's calmest
+              idle float (7s / 8px vs the 6s / 14px default) —
+              concentration, not bounce — and the scroll-linked
+              scale-up reads as him leaning in, STRONG-tier per the
+              cinematic-pass motion map. */}
+          <div
+            data-parallax-speed="0.06"
+            data-parallax-scale-to="1.05"
+            data-parallax-local
+            className="resume-analysis-nero relative mx-auto w-[168px] sm:w-[188px] lg:mx-0 lg:w-full lg:max-w-[210px] lg:self-center"
+          >
+            <div className="pointer-events-none absolute -top-11 left-1/2 z-20 w-[168px] -translate-x-1/2 rotate-2">
+              <div className="relative rounded-2xl border border-app-border-soft bg-app-panel/85 px-4 py-2.5 shadow-lg backdrop-blur-sm">
+                <p className="nero-note text-app-text">
+                  Here&apos;s what I found.
+                </p>
+                <span
+                  className="absolute -bottom-1.5 left-1/2 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-b border-r border-app-border-soft bg-app-panel/85"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+
+            <Image
+              src="/brand/nero-page2-explainer.png"
+              alt="NERO, the AI Job Intelligence mascot, reading a resume off a lit panel and pointing out what he found"
+              width={780}
+              height={936}
+              sizes="210px"
+              quality={95}
+              style={
+                {
+                  "--nero-float-duration": "7s",
+                  "--nero-float-distance": "8px",
+                } as CSSProperties
+              }
+              className="nero-float relative z-10 h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
+            />
+            <div
+              className="nero-floor-glow pointer-events-none absolute -bottom-3 left-1/2 h-14 w-[85%] -translate-x-1/2"
+              aria-hidden="true"
+            />
+          </div>
+
           <div
             data-reveal
             data-scroll-progress
             style={{ "--reveal-distance": "18px" } as CSSProperties}
-            className="glass-panel relative flex flex-col overflow-hidden rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(255,59,48,0.4)]"
+            className="resume-analysis-before glass-panel relative flex flex-col overflow-hidden rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(255,59,48,0.4)]"
           >
             {/* Reads as NERO actively scanning the resume — a thin
                 line traveling down the card, tied to this panel's own
@@ -223,7 +240,7 @@ export default function ResumeIntelligenceSection() {
             data-reveal
             data-reveal-delay="180"
             style={{ "--reveal-distance": "18px" } as CSSProperties}
-            className="glass-panel relative flex flex-col rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(34,160,107,0.4)]"
+            className="resume-analysis-after glass-panel relative flex flex-col rounded-2xl border border-app-border-soft p-6 shadow-[0_0_24px_-16px_rgba(34,160,107,0.4)]"
           >
             <div className="flex items-center justify-between gap-3">
               <span className="mono text-[9px] tracking-[0.2em] text-app-faint">

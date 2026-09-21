@@ -116,7 +116,7 @@ export default function NeroJobIntelligenceSection() {
       <div
         data-parallax-speed="0.1"
         data-parallax-local
-        className="pointer-events-none absolute -left-40 top-24 hidden h-[440px] w-[440px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_60%_40%,rgba(122,92,255,0.08),transparent_62%)] lg:block"
+        className="pointer-events-none absolute -left-40 top-24 hidden h-[440px] w-[440px] rounded-full border border-white/5 bg-[radial-gradient(circle_at_60%_40%,rgba(10,132,255,0.08),transparent_62%)] lg:block"
         aria-hidden="true"
       />
       <div
@@ -134,13 +134,13 @@ export default function NeroJobIntelligenceSection() {
             sits inside the header row, opposite the copy. */}
         <div className="flex items-start justify-between gap-8">
           <SectionHeading
-            eyebrow="04 / 06 · JOB INTELLIGENCE"
+            eyebrow="JOB INTELLIGENCE"
             title={
               <>
                 KNOW BEFORE
                 <br />
                 YOU{" "}
-                <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
                   APPLY.
                 </span>
               </>
@@ -246,7 +246,7 @@ export default function NeroJobIntelligenceSection() {
           <div className="relative flex flex-col items-center px-6 py-12 text-center sm:px-10 sm:py-14">
             <h3 className="display-section max-w-2xl">
               DON&apos;T APPLY{" "}
-              <span className="bg-gradient-to-r from-[#5cc6ff] via-[#8f7bff] to-[#b46bff] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#8fdcff] via-[#5cc6ff] to-app-blue bg-clip-text text-transparent">
                 BLIND.
               </span>
             </h3>
@@ -363,7 +363,7 @@ function DataStreams() {
       <defs>
         <linearGradient id="job-intel-stream-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#0a84ff" stopOpacity="0.7" />
-          <stop offset="55%" stopColor="#7a5cff" stopOpacity="0.55" />
+          <stop offset="55%" stopColor="#0a84ff" stopOpacity="0.5" />
           <stop offset="100%" stopColor="#ff3b30" stopOpacity="0.3" />
         </linearGradient>
       </defs>
@@ -399,7 +399,7 @@ function ClarityObject() {
       className="cine-focal relative flex h-48 w-48 shrink-0 items-center justify-center sm:h-52 sm:w-52"
     >
       <div
-        className="job-intel-clarity-pulse absolute inset-0 rotate-45 rounded-[2.5rem] border border-app-blue/55 bg-gradient-to-br from-app-blue/16 via-app-panel/30 to-[#7a5cff]/22 backdrop-blur-sm"
+        className="job-intel-clarity-pulse absolute inset-0 rotate-45 rounded-[2.5rem] border border-app-blue/55 bg-gradient-to-br from-app-blue/16 via-app-panel/30 to-app-blue/22 backdrop-blur-sm"
         aria-hidden="true"
       />
       <div
@@ -414,7 +414,7 @@ function ClarityObject() {
       >
         A Clearer
         <br />
-        <span className="bg-gradient-to-r from-[#5cc6ff] to-[#b46bff] bg-clip-text text-transparent">
+        <span className="bg-gradient-to-r from-[#8fdcff] to-app-blue bg-clip-text text-transparent">
           Understanding
         </span>
       </p>
@@ -462,7 +462,7 @@ function ProgressRail() {
     <div className="flex flex-col items-center gap-2.5 sm:items-start" aria-hidden="true">
       <div className="relative h-px w-40 bg-app-border-soft">
         <span
-          className="absolute -top-[3px] h-[7px] w-[7px] -translate-x-1/2 rounded-full bg-gradient-to-r from-app-blue to-[#8f5cff] shadow-[0_0_10px_rgba(143,92,255,0.7)]"
+          className="absolute -top-[3px] h-[7px] w-[7px] -translate-x-1/2 rounded-full bg-gradient-to-r from-app-blue to-[#8fdcff] shadow-[0_0_10px_rgba(10,132,255,0.7)]"
           style={{ left: `${activePercent}%` }}
         />
       </div>
