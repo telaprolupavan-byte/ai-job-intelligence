@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import {
   calculateAtsAlignment,
+  calculateGapAnalysis,
   calculateJobMatch,
   generateJobIntelligence,
   getJobEligibility,
@@ -12,6 +13,7 @@ import {
   type AtsAlignmentResult,
   type AtsAlignmentStatus,
   type AtsRequirementResult,
+  type GapAnalysisResult,
   type Job,
   type JobEligibilityResult,
   type JobIntelligenceData,
@@ -36,6 +38,7 @@ import { Skeleton } from "@/components/app/skeleton";
 import ResumeVersionSelector, {
   type ResumeVersionOption,
 } from "@/components/app/resume-version-selector";
+import GapAnalysisSection from "@/components/app/gap-analysis-section";
 
 type JobFilters = {
   search: string;
@@ -128,6 +131,15 @@ function JobsPageInner() {
     {},
   );
   const [atsErrors, setAtsErrors] = useState<Record<string, string>>({});
+  const [gapAnalyses, setGapAnalyses] = useState<
+    Record<string, GapAnalysisResult>
+  >({});
+  const [gapAnalysisLoadingIds, setGapAnalysisLoadingIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [gapAnalysisErrors, setGapAnalysisErrors] = useState<
+    Record<string, string>
+  >({});
 
   // AJI-019: the ONE page-level source of truth for which ResumeVersion
   // Job Match, ATS Alignment, and Gap Analysis all use. null means the
@@ -419,6 +431,43 @@ function JobsPageInner() {
       }));
     } finally {
       setAtsLoadingIds((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
+    }
+  }
+
+  async function handleCalculateGapAnalysis(jobId: string) {
+    setGapAnalysisLoadingIds((current) => ({ ...current, [jobId]: true }));
+    setGapAnalysisErrors((current) => {
+      const next = { ...current };
+      delete next[jobId];
+      return next;
+    });
+
+    try {
+      const result = await calculateGapAnalysis(
+        jobId,
+        selectedResumeVersionId ?? undefined,
+      );
+
+      setGapAnalyses((current) => ({
+        ...current,
+        [jobId]: result,
+      }));
+    } catch (err) {
+      console.error(err);
+
+      setGapAnalysisErrors((current) => ({
+        ...current,
+        [jobId]:
+          err instanceof Error
+            ? err.message
+            : "Unable to load Gap Analysis.",
+      }));
+    } finally {
+      setGapAnalysisLoadingIds((current) => {
         const next = { ...current };
         delete next[jobId];
         return next;
@@ -731,6 +780,12 @@ function JobsPageInner() {
                 isCalculatingAts={Boolean(atsLoadingIds[job.id])}
                 atsError={atsErrors[job.id]}
                 onCalculateAts={handleCalculateAts}
+                gapAnalysis={gapAnalyses[job.id]}
+                isCalculatingGapAnalysis={Boolean(
+                  gapAnalysisLoadingIds[job.id],
+                )}
+                gapAnalysisError={gapAnalysisErrors[job.id]}
+                onCalculateGapAnalysis={handleCalculateGapAnalysis}
               />
             ))}
           </div>
@@ -964,6 +1019,10 @@ function JobCard({
   isCalculatingAts,
   atsError,
   onCalculateAts,
+  gapAnalysis,
+  isCalculatingGapAnalysis,
+  gapAnalysisError,
+  onCalculateGapAnalysis,
 }: {
   job: Job;
   application?: Application;
@@ -984,6 +1043,10 @@ function JobCard({
   isCalculatingAts: boolean;
   atsError?: string;
   onCalculateAts: (jobId: string) => void;
+  gapAnalysis?: GapAnalysisResult;
+  isCalculatingGapAnalysis: boolean;
+  gapAnalysisError?: string;
+  onCalculateGapAnalysis: (jobId: string) => void;
 }) {
   const visibleMatches = [
     ...(match?.must_have_matches ?? []),
@@ -1229,6 +1292,15 @@ function JobCard({
 
           {/* ATS ALIGNMENT DETAILS */}
           {ats && <AtsAlignmentPanel result={ats} />}
+
+          {/* GAP ANALYSIS & JOB-SPECIFIC SUGGESTIONS (AJI-015) */}
+          <GapAnalysisSection
+            jobId={job.id}
+            result={gapAnalysis}
+            isLoading={isCalculatingGapAnalysis}
+            error={gapAnalysisError}
+            onCalculate={onCalculateGapAnalysis}
+          />
 
           {/* MATCH DETAILS */}
           {match && (
