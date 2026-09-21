@@ -16,7 +16,6 @@ import {
 import { getJobs, type Job } from "@/lib/jobs";
 import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
-import NeroHeroVisual from "@/components/app/nero-hero-visual";
 import ScrollCue from "@/components/app/scroll-cue";
 import { Skeleton } from "@/components/app/skeleton";
 import SectionHeading from "@/components/app/section-heading";
@@ -239,7 +238,17 @@ export default function DiscoverJobsSection() {
           {/* MASCOT — mobile order: 2nd. MEDIUM motion tier: NERO gets
               restrained local depth; the search card and job data below
               stay motion-free so they remain readable and usable while
-              scrolling. */}
+              scrolling.
+
+              Character pass: this is the SEARCHING beat, and it now uses
+              the approved Page 2 Explainer export instead of the generic
+              Page 1 standing pose. That artwork already has NERO holding
+              a live JOBS panel — Full-Time / Contract / Remote / Hybrid,
+              a search glyph and a U.S. coverage map — which is precisely
+              the filter set and national scope this section is about, so
+              he reads as running the search rather than standing next to
+              a search form. Idle float is quicker and shallower than the
+              default (5.2s / 15px): scanning, not drifting. */}
           <div className="discover-hero-area-nero relative flex justify-center lg:justify-end">
             <div className="relative w-full max-w-[360px]">
               <div
@@ -270,9 +279,28 @@ export default function DiscoverJobsSection() {
                 data-parallax-speed="0.09"
                 data-parallax-scale-to="1.04"
                 data-parallax-local
-                className="w-full px-10 pt-16 sm:px-12 lg:px-4 lg:pt-12"
+                className="relative w-full px-10 pt-16 sm:px-12 lg:px-4 lg:pt-12"
               >
-                <NeroHeroVisual />
+                <Image
+                  src="/brand/nero-page2-explainer.png"
+                  alt="NERO, the AI Job Intelligence mascot, running a job search on a panel of Full-Time, Contract, Remote and Hybrid filters across the U.S."
+                  width={780}
+                  height={936}
+                  sizes="(min-width: 1024px) 340px, (min-width: 640px) 300px, 260px"
+                  quality={95}
+                  style={
+                    {
+                      "--nero-float-duration": "5.2s",
+                      "--nero-float-distance": "15px",
+                    } as CSSProperties
+                  }
+                  className="nero-float relative z-10 h-auto w-full drop-shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
+                />
+
+                <div
+                  className="nero-floor-glow pointer-events-none absolute -bottom-2 left-1/2 h-20 w-[70%] -translate-x-1/2"
+                  aria-hidden="true"
+                />
               </div>
             </div>
           </div>

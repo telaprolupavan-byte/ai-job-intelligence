@@ -1,7 +1,16 @@
 import Image from "next/image";
 
 /**
- * The hero's centerpiece NERO character.
+ * The hero's centerpiece NERO character — and, since the character
+ * pass, only the hero's: the Discover section used to share this
+ * component and now renders the Page 2 Explainer artwork instead,
+ * because that pose is the one that is actually running a search.
+ *
+ * WELCOME / CONFIDENT beat, and the page's reference treatment: the
+ * Page 1 standing pose points straight at the visitor with a thumbs up,
+ * which is the greeting, so nothing here needed reframing. It keeps the
+ * default 6s / 14px idle float that every other scene is now tuned
+ * against — see the --nero-float-* custom properties in globals.css.
  *
  * Placeholder pending the production GLB -> react-three-fiber pipeline
  * (see landing page task notes): renders the approved standing-pose

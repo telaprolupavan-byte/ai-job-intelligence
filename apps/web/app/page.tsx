@@ -128,7 +128,7 @@ export default function Home() {
         />
         <nav className="landing-shell flex h-20 items-center justify-between">
           <div className="flex items-center gap-4">
-            <NeroBrand imgClassName="h-11 w-auto sm:h-12" sizes="160px" />
+            <NeroBrand imgClassName="h-12 w-auto sm:h-14" sizes="200px" />
             <span className="hidden h-6 w-px bg-white/10 lg:block" aria-hidden="true" />
             <span className="mono hidden text-[9px] tracking-[0.25em] text-app-muted lg:flex lg:items-center lg:gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-app-red shadow-[0_0_8px_rgba(255,59,48,0.6)]" />
@@ -343,7 +343,7 @@ export default function Home() {
                     style={{ "--reveal-distance": "16px" } as CSSProperties}
                     className="rounded-xl border border-app-border-soft bg-app-panel/80 px-4 py-3.5 shadow-lg backdrop-blur-sm"
                   >
-                    <p className="text-xs leading-5 text-app-body">
+                    <p className="font-[family-name:var(--font-instrument-sans)] text-xs leading-5 text-app-body">
                       I&apos;ll help you find, match, and prepare for the
                       right opportunities.
                     </p>
@@ -548,7 +548,7 @@ export default function Home() {
                 data-parallax-speed="0.1"
                 data-parallax-scale-to="1.04"
                 data-parallax-local
-                className="stack-md relative mx-auto w-full max-w-[270px] sm:max-w-[320px] lg:mx-0"
+                className="stack-md relative mx-auto w-full max-w-[300px] sm:max-w-[360px] lg:mx-0 lg:max-w-[400px]"
               >
                 <NeroSystemVisual />
 

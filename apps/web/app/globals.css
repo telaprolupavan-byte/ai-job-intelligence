@@ -593,18 +593,26 @@ main [id="discover-results"] {
   );
 }
 
+/* NERO's idle float. The distance/duration are custom properties so each
+   scene can dial the character's body language to the work it's doing —
+   a slow, shallow hover while he's reading a resume, a quicker bounce
+   while he's explaining the system — without a second keyframe set or a
+   second animated property. Defaults reproduce the original 6s/14px
+   loop exactly, so any figure that doesn't opt in is unchanged.
+   Reduced-motion already neutralises this globally (see the
+   animation-duration override near the end of this file). */
 @keyframes nero-float {
   0%,
   100% {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-14px);
+    transform: translateY(calc(var(--nero-float-distance, 14px) * -1));
   }
 }
 
 .nero-float {
-  animation: nero-float 6s ease-in-out infinite;
+  animation: nero-float var(--nero-float-duration, 6s) ease-in-out infinite;
 }
 
 @keyframes scroll-dot {
