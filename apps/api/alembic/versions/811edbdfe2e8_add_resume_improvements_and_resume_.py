@@ -1,7 +1,7 @@
 """add resume improvements and resume version lineage
 
 Revision ID: 811edbdfe2e8
-Revises: c3f6a1d47e21
+Revises: d1e5a8c73b40
 Create Date: 2026-09-22 03:45:52.939265
 
 AJI-021 (Resume Improvement Approval & Recheck). Three changes:
@@ -34,7 +34,24 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '811edbdfe2e8'
-down_revision: Union[str, Sequence[str], None] = 'c3f6a1d47e21'
+# Originally c3f6a1d47e21. d1e5a8c73b40 (PR #60) branched off the same
+# revision and merged first, so once PR #61 merged, main carried two
+# alembic heads and `alembic upgrade head` failed outright on a fresh
+# database. Re-pointed onto d1e5a8c73b40 to linearize the chain.
+#
+# Safe to re-point rather than add a merge revision, on two counts:
+#
+# 1. Neither migration depends on the other's changes, so the order is
+#    immaterial. d1e5a8c73b40 only ALTERS `job_match_results`
+#    (re-creating three foreign keys); it touches `resume_versions`
+#    solely as an FK target on `id`. This one creates
+#    `resume_improvements` and alters `resume_versions`, never touching
+#    `job_match_results` or `resume_versions.id`.
+# 2. No environment can have applied this revision at its old parent,
+#    because main was unmigratable for the entire window in which that
+#    parent existed - there is no deployed `alembic_version` row to
+#    strand.
+down_revision: Union[str, Sequence[str], None] = 'd1e5a8c73b40'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
