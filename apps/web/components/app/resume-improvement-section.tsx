@@ -686,8 +686,12 @@ function ScoreCard({
       <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
         {label}
       </div>
-      <div className="mt-1 text-2xl font-bold text-app-text">
-        {Math.round(score)}
+      {/* Matches the approved ATS Alignment card on this same page
+          (jobs/page.tsx) exactly - `mt-2 text-3xl font-bold` with a `%`
+          unit. It renders the same `overall_score` value, so rendering
+          it a second way on one screen reads as two different metrics. */}
+      <div className="mt-2 text-3xl font-bold text-app-text">
+        {Math.round(score)}%
       </div>
       <p className="mt-1 text-[11px] leading-5 text-app-dim">
         Must have {mustHaveMatched}/{mustHaveTotal} · Preferred{" "}

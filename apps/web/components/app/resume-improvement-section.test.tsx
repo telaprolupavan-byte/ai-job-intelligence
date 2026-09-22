@@ -394,9 +394,11 @@ describe("ResumeImprovementSection", () => {
 
     expect(screen.getByText("Improved 1 created")).toBeInTheDocument();
     expect(screen.getByText("Before")).toBeInTheDocument();
-    expect(screen.getByText("61")).toBeInTheDocument();
+    // Rendered with the `%` unit, matching the approved ATS Alignment
+    // card that shows the same value on this page.
+    expect(screen.getByText("61%")).toBeInTheDocument();
     expect(screen.getByText("After")).toBeInTheDocument();
-    expect(screen.getByText("78")).toBeInTheDocument();
+    expect(screen.getByText("78%")).toBeInTheDocument();
     expect(screen.getByText("+17 ATS")).toBeInTheDocument();
     expect(screen.getByText("1 improved")).toBeInTheDocument();
     expect(screen.getByText("missing → matched")).toBeInTheDocument();
