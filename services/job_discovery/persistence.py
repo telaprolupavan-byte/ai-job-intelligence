@@ -12,6 +12,38 @@ from services.job_discovery.normalizer import normalize_text
 from services.job_discovery.validator import validate_discovered_job
 
 
+def to_naive_utc(value: datetime | None) -> datetime | None:
+    """Coerce a datetime to naive UTC for the `jobs` timestamp columns.
+
+    `jobs.posting_date`/`first_seen_at`/`last_seen_at` are
+    `TIMESTAMP WITHOUT TIME ZONE` columns that hold UTC by convention
+    (their model defaults are naive `datetime.utcnow`). Binding an
+    *aware* datetime to one of them makes Postgres cast timestamptz ->
+    timestamp using the server session's `TimeZone`, so the value is
+    silently shifted by that offset on any deployment whose Postgres
+    session timezone is not UTC - which then skews `first_seen_at`
+    ordering and the dashboard's "jobs today" date bucket.
+
+    Discovery feeds both kinds: `datetime.now(timezone.utc)` is aware,
+    and a source's ISO-8601 `posted_at` (e.g. Greenhouse's "...Z") parses
+    aware too, while a source without an offset parses naive. Converting
+    here - the single boundary where discovered data enters the DB -
+    keeps what is stored identical regardless of the server's timezone.
+    """
+    if value is None:
+        return None
+
+    if value.tzinfo is None:
+        return value
+
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def utcnow_naive() -> datetime:
+    """Current UTC time in the naive form the `jobs` columns expect."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def normalize_company_name(name: str) -> str:
     return " ".join(name.lower().split())
 
@@ -71,7 +103,7 @@ def upsert_discovered_job(
         )
 
     if existing_job is None:
-        now = datetime.now(timezone.utc)
+        now = utcnow_naive()
 
         job = Job(
             company_id=company.id,
@@ -88,7 +120,7 @@ def upsert_discovered_job(
             description=discovered_job.description,
             requirements=discovered_job.requirements,
             responsibilities=discovered_job.responsibilities,
-            posting_date=discovered_job.posted_at,
+            posting_date=to_naive_utc(discovered_job.posted_at),
             source=discovered_job.source,
             source_url=discovered_job.source_url,
             application_url=discovered_job.application_url,
@@ -118,11 +150,11 @@ def upsert_discovered_job(
     existing_job.description = discovered_job.description
     existing_job.requirements = discovered_job.requirements
     existing_job.responsibilities = discovered_job.responsibilities
-    existing_job.posting_date = discovered_job.posted_at
+    existing_job.posting_date = to_naive_utc(discovered_job.posted_at)
     existing_job.source_url = discovered_job.source_url
     existing_job.application_url = discovered_job.application_url
     existing_job.identity_fingerprint = fingerprint
-    existing_job.last_seen_at = datetime.now(timezone.utc)
+    existing_job.last_seen_at = utcnow_naive()
     existing_job.is_active = True
 
     db.flush()

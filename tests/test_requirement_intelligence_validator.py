@@ -181,3 +181,64 @@ def test_invalid_merge_raises_validation_error_not_silent_corruption():
                 ]
             )
         )
+
+
+# ---------------------------------------------------------------------------
+# An out-of-contract `*_confidence` from the AI is a rejected field.
+#
+# Mirrors the same screening in
+# apps/api/services/job_intelligence/validator.py. Before it, an
+# identity confidence set by assignment bypassed Pydantic entirely (an
+# out-of-contract value was persisted and served as if valid), and a
+# domain confidence passed to the DomainTerminology constructor raised -
+# discarding an otherwise-valid snapshot over one unrepresentable field.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "confidence", ["super-high", "very high", "", "  ", "0.9", 0.9, None, [], {}]
+)
+def test_out_of_contract_identity_confidence_falls_back_to_medium(confidence):
+    result = _build(
+        ai_semantics={
+            "normalized_title": "AI Engineer",
+            "normalized_title_evidence": "Senior AI Engineer",
+            "normalized_title_confidence": confidence,
+        }
+    )
+
+    assert result.identity.normalized_title == "AI Engineer"
+    assert result.identity.normalized_title_confidence == "medium"
+
+
+@pytest.mark.parametrize(
+    "confidence", ["super-high", "very high", "", "0.9", 0.9, None, [], {}]
+)
+def test_out_of_contract_domain_confidence_does_not_discard_the_snapshot(
+    confidence,
+):
+    result = _build(
+        ai_semantics={
+            "domain": "Machine learning",
+            "domain_evidence": "Machine learning",
+            "domain_confidence": confidence,
+        }
+    )
+
+    assert result.domain.value == "Machine learning"
+    assert result.domain.confidence == "medium"
+
+
+@pytest.mark.parametrize(
+    ("returned", "expected"),
+    [("high", "high"), ("High", "high"), ("  LOW  ", "low"), ("Medium", "medium")],
+)
+def test_valid_confidence_is_accepted_case_insensitively(returned, expected):
+    result = _build(
+        ai_semantics={
+            "normalized_title": "AI Engineer",
+            "normalized_title_evidence": "Senior AI Engineer",
+            "normalized_title_confidence": returned,
+        }
+    )
+
+    assert result.identity.normalized_title_confidence == expected

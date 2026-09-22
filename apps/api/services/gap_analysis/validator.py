@@ -93,6 +93,29 @@ def _evidence_supported(evidence: str | None, grounding_text: str) -> bool:
     return normalized_evidence in _normalize_for_comparison(grounding_text)
 
 
+# The only confidence values `GapSuggestion.confidence` accepts. An AI
+# that answers "High", "very high" or `0.9` is returning a value this
+# contract has no representation for; it is treated like any other
+# rejected AI field (fall back to the deterministic default) rather than
+# being handed to Pydantic, which would raise and discard the whole
+# analysis. Case is normalized rather than rejected - "High" means the
+# same thing as "high" and carries real signal.
+_ALLOWED_CONFIDENCE = ("high", "medium", "low")
+_DEFAULT_CONFIDENCE = "medium"
+
+
+def _validated_confidence(value: Any) -> str:
+    if not isinstance(value, str):
+        return _DEFAULT_CONFIDENCE
+
+    normalized = value.strip().lower()
+
+    if normalized in _ALLOWED_CONFIDENCE:
+        return normalized
+
+    return _DEFAULT_CONFIDENCE
+
+
 def _has_hedge_language(text: str) -> bool:
     normalized = _normalize_for_comparison(text)
     return any(phrase in normalized for phrase in _HEDGE_PHRASES)
@@ -116,7 +139,7 @@ def _build_gap_suggestion(
         ai_explanation = ai_item.get("explanation")
         ai_evidence = ai_item.get("explanation_evidence")
         ai_suggestion_text = ai_item.get("suggestion_text")
-        ai_confidence = ai_item.get("confidence") or "medium"
+        ai_confidence = _validated_confidence(ai_item.get("confidence"))
 
         evidence_ok = _evidence_supported(ai_evidence, grounding_text)
 
@@ -167,9 +190,10 @@ def build_gap_analysis_result(
     Merge deterministic gap candidates with (optional) validated AI
     enrichment into the final Gap Analysis contract. Never raises for a
     rejected individual AI field (those silently fall back to the
-    deterministic template) — only a structurally invalid final result
-    (caught by `GapAnalysisResult`'s own Pydantic validation) would ever
-    surface as `GapAnalysisValidationError` to the caller.
+    deterministic template) — only a structurally invalid result
+    (caught by `GapSuggestion`'s/`GapAnalysisResult`'s own Pydantic
+    validation) would ever surface as `GapAnalysisValidationError` to
+    the caller, never as a raw Pydantic error.
     """
     ai_gaps_by_requirement_id: dict[str, dict[str, Any]] = {}
 
@@ -179,18 +203,28 @@ def build_gap_analysis_result(
             if requirement_id:
                 ai_gaps_by_requirement_id[requirement_id] = item
 
-    gaps = [
-        _build_gap_suggestion(
-            candidate,
-            ai_gaps_by_requirement_id.get(candidate.requirement_id),
-        )
-        for candidate in candidates
-    ]
-
-    must_have_gap_count = sum(1 for gap in gaps if gap.category == "must_have")
-    preferred_gap_count = sum(1 for gap in gaps if gap.category == "preferred")
-
+    # Building the individual gaps is inside the same guard as the final
+    # result: `GapSuggestion` is itself a validated model, so an AI value
+    # this module has not explicitly screened must still surface as
+    # `GapAnalysisValidationError` (which the service turns into a
+    # controlled 503) rather than escaping as a raw Pydantic
+    # `ValidationError` and becoming an unhandled 500.
     try:
+        gaps = [
+            _build_gap_suggestion(
+                candidate,
+                ai_gaps_by_requirement_id.get(candidate.requirement_id),
+            )
+            for candidate in candidates
+        ]
+
+        must_have_gap_count = sum(
+            1 for gap in gaps if gap.category == "must_have"
+        )
+        preferred_gap_count = sum(
+            1 for gap in gaps if gap.category == "preferred"
+        )
+
         return GapAnalysisResult(
             analysis_version=analysis_version,
             job_id=job_id,

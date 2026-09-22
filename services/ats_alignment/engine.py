@@ -212,26 +212,78 @@ _DEGREE_RANK: dict[str, int] = {
     "phd": 4,
 }
 
+# Substring-matched degree phrasings. Alongside the possessive forms a JD
+# tends to use ("bachelor's degree"), these cover the spelled-out forms a
+# *resume* actually uses - "Bachelor of Science in Computer Science" is
+# how most candidates write the degree, and matching only "bachelor's"
+# scored every one of them as a missing degree requirement. Each entry is
+# multi-word or dotted, so plain substring matching cannot collide with
+# an unrelated word; bare abbreviations go in _DEGREE_WORD_TERMS instead.
 _DEGREE_SEARCH_TERMS: dict[int, tuple[str, ...]] = {
-    1: ("associate's degree", "associate degree", "a.a.", "a.s."),
+    1: (
+        "associate's degree",
+        "associate degree",
+        "associate of science",
+        "associate of arts",
+        "associate of applied science",
+        "a.a.",
+        "a.s.",
+    ),
     2: (
         "bachelor's degree",
         "bachelor degree",
         "bachelor's",
         "bachelors",
+        "bachelor of science",
+        "bachelor of arts",
+        "bachelor of engineering",
+        "bachelor of technology",
+        "bachelor of commerce",
+        "bachelor of business",
         "b.s.",
         "b.a.",
+        "b.sc",
+        "b.tech",
+        "b.eng",
     ),
     3: (
         "master's degree",
         "master degree",
         "master's",
         "masters",
+        "master of science",
+        "master of arts",
+        "master of business administration",
+        "master of engineering",
+        "master of technology",
+        "mba",
         "m.s.",
         "m.a.",
-        "mba",
+        "m.sc",
+        "m.tech",
+        "m.eng",
     ),
-    4: ("ph.d", "phd", "doctorate", "doctoral"),
+    4: (
+        "ph.d",
+        "phd",
+        "doctorate",
+        "doctoral",
+        "doctor of philosophy",
+        "d.phil",
+    ),
+}
+
+# Bare abbreviations with no dots or spaces to disambiguate them. These
+# are matched on word boundaries rather than as raw substrings so that,
+# for example, "bsc" does not match inside a longer token. Deliberately
+# excludes two-letter forms ("bs", "ba", "ms", "ma"): on a real resume
+# "MS" is far more often Microsoft or a product name than a degree, and a
+# false *positive* here would silently credit a degree the candidate
+# never claimed - the opposite of this engine's grounding rule.
+_DEGREE_WORD_TERMS: dict[int, tuple[str, ...]] = {
+    2: ("bsc", "btech", "beng"),
+    3: ("msc", "mtech", "meng"),
+    4: ("dphil",),
 }
 
 
@@ -247,6 +299,15 @@ def _highest_degree_found(raw_text_lower: str) -> tuple[int, str] | None:
             if phrase in raw_text_lower:
                 if best is None or rank > best[0]:
                     best = (rank, phrase)
+                break
+
+    for rank, words in _DEGREE_WORD_TERMS.items():
+        if best is not None and rank <= best[0]:
+            continue
+
+        for word in words:
+            if re.search(rf"\b{re.escape(word)}\b", raw_text_lower):
+                best = (rank, word)
                 break
 
     return best

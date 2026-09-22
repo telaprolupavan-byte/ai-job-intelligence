@@ -364,6 +364,33 @@ function JobsPageInner() {
     Boolean,
   ).length;
 
+  // Job Match, ATS Alignment and Gap Analysis are all computed against
+  // one exact ResumeVersion, so a result produced for the previously
+  // selected version says nothing about the newly selected one. Keeping
+  // it on screen would show a score/gap list from another resume under
+  // the new selection with nothing marking it stale - the one thing
+  // AJI-019's single shared selectedResumeVersionId exists to prevent.
+  // Dropping it returns each panel to its un-calculated state, matching
+  // the selector's own "applies to the next intelligence calculation".
+  //
+  // Hard Eligibility and Job Intelligence are deliberately NOT cleared:
+  // neither reads the resume (eligibility is profile/preferences vs.
+  // job, Job Intelligence is job-only shared data), so switching resume
+  // version cannot change either one.
+  useEffect(() => {
+    // Returning the same reference when there is nothing to drop lets
+    // React bail out instead of re-rendering on mount.
+    const dropAll = <T,>(current: Record<string, T>): Record<string, T> =>
+      Object.keys(current).length === 0 ? current : {};
+
+    setMatches(dropAll);
+    setMatchErrors(dropAll);
+    setAtsResults(dropAll);
+    setAtsErrors(dropAll);
+    setGapAnalyses(dropAll);
+    setGapAnalysisErrors(dropAll);
+  }, [selectedResumeVersionId]);
+
   async function handleCalculateMatch(jobId: string) {
     setMatchingJobIds((current) => ({ ...current, [jobId]: true }));
     setMatchErrors((current) => {

@@ -1,4 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
+
+import pytest
+from sqlalchemy import text
 
 from services.job_discovery.contracts import DiscoveredJob
 from services.job_discovery.persistence import upsert_discovered_job
@@ -160,3 +163,73 @@ def test_fallback_fingerprint_differs_creates_new_job(db):
 
     assert first_job.id != second_job.id
     assert first_job.identity_fingerprint != second_job.identity_fingerprint
+
+# ---------------------------------------------------------------------------
+# Timestamp timezone handling
+#
+# jobs.posting_date/first_seen_at/last_seen_at are TIMESTAMP WITHOUT TIME
+# ZONE columns holding UTC by convention. Binding an *aware* datetime to
+# one makes Postgres cast timestamptz -> timestamp using the session's
+# TimeZone, silently shifting the stored value on any deployment whose
+# Postgres session timezone is not UTC. These tests pin the coercion that
+# keeps what is stored identical regardless of that setting.
+# ---------------------------------------------------------------------------
+
+
+def test_aware_posted_at_is_stored_as_naive_utc(db):
+    posted_at = datetime(2026, 1, 15, 23, 30, tzinfo=timezone.utc)
+
+    job = upsert_discovered_job(
+        db,
+        make_job(source_job_id="tz-aware-1", posted_at=posted_at),
+    )
+
+    stored = db.get(Job, job.id)
+
+    assert stored.posting_date.tzinfo is None
+    assert stored.posting_date == datetime(2026, 1, 15, 23, 30)
+
+
+def test_naive_posted_at_is_preserved_unchanged(db):
+    posted_at = datetime(2026, 1, 15, 23, 30)
+
+    job = upsert_discovered_job(
+        db,
+        make_job(source_job_id="tz-naive-1", posted_at=posted_at),
+    )
+
+    assert db.get(Job, job.id).posting_date == posted_at
+
+
+def test_seen_timestamps_are_naive(db):
+    job = upsert_discovered_job(db, make_job(source_job_id="tz-seen-1"))
+
+    stored = db.get(Job, job.id)
+
+    assert stored.first_seen_at.tzinfo is None
+    assert stored.last_seen_at.tzinfo is None
+
+
+@pytest.mark.parametrize(
+    "session_timezone", ["UTC", "America/New_York", "Asia/Kolkata"]
+)
+def test_timestamps_do_not_shift_with_server_timezone(db, session_timezone):
+    """The same input must land in the DB identically whatever the
+    Postgres session timezone is - the regression this coercion fixes."""
+    db.execute(text(f"SET LOCAL TIME ZONE '{session_timezone}'"))
+
+    posted_at = datetime(2026, 1, 15, 23, 30, tzinfo=timezone.utc)
+
+    job = upsert_discovered_job(
+        db,
+        make_job(
+            source_job_id=f"tz-shift-{session_timezone}",
+            posted_at=posted_at,
+        ),
+    )
+    db.flush()
+    db.expire_all()
+
+    stored = db.get(Job, job.id)
+
+    assert stored.posting_date == datetime(2026, 1, 15, 23, 30)

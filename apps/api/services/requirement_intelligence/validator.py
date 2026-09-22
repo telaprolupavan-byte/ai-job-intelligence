@@ -42,6 +42,30 @@ class RequirementIntelligenceValidationError(RuntimeError):
     must not be persisted/returned."""
 
 
+# The only values the contract's `Confidence` literal accepts - see
+# apps/api/services/job_intelligence/validator.py, which screens the same
+# four AI confidence fields for the same two reasons: a confidence set by
+# *assignment* onto an already-built `TitleSeniorityInfo` is not
+# re-validated by Pydantic (an out-of-contract value would be persisted
+# and served as if valid), and one passed to the `DomainTerminology`
+# *constructor* raises, discarding an otherwise-valid snapshot over a
+# single unrepresentable field. Case is normalized rather than rejected.
+_ALLOWED_CONFIDENCE = ("high", "medium", "low")
+_DEFAULT_CONFIDENCE = "medium"
+
+
+def _validated_confidence(value: Any) -> str:
+    if not isinstance(value, str):
+        return _DEFAULT_CONFIDENCE
+
+    normalized = value.strip().lower()
+
+    if normalized in _ALLOWED_CONFIDENCE:
+        return normalized
+
+    return _DEFAULT_CONFIDENCE
+
+
 def _normalize_for_comparison(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
@@ -83,7 +107,7 @@ def _build_identity(
             "normalized_title_evidence"
         )
         identity.normalized_title_confidence = (
-            ai_semantics.get("normalized_title_confidence") or "medium"
+            _validated_confidence(ai_semantics.get("normalized_title_confidence"))
         )
 
     role_family = ai_semantics.get("role_family")
@@ -93,7 +117,7 @@ def _build_identity(
         identity.role_family = role_family
         identity.role_family_evidence = ai_semantics.get("role_family_evidence")
         identity.role_family_confidence = (
-            ai_semantics.get("role_family_confidence") or "medium"
+            _validated_confidence(ai_semantics.get("role_family_confidence"))
         )
 
     # Deterministic title-keyword seniority always wins; the AI only
@@ -106,7 +130,7 @@ def _build_identity(
             identity.seniority = seniority
             identity.seniority_evidence = ai_semantics.get("seniority_evidence")
             identity.seniority_confidence = (
-                ai_semantics.get("seniority_confidence") or "medium"
+                _validated_confidence(ai_semantics.get("seniority_confidence"))
             )
 
     return identity
@@ -134,7 +158,7 @@ def _build_domain(
     if value and _evidence_supported(evidence, raw_text):
         return DomainTerminology(
             value=value,
-            confidence=ai_semantics.get("domain_confidence") or "medium",
+            confidence=_validated_confidence(ai_semantics.get("domain_confidence")),
             evidence_text=evidence,
             related_terms=related_terms,
         )
