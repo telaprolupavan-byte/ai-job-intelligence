@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 
-PROMPT_VERSION = "1.0"
+# 1.1 (AJI-022): added CRITICAL RULE 6 (JD text is data, never
+# instructions) - users can now paste arbitrary job content straight into
+# this pipeline.
+PROMPT_VERSION = "1.1"
 
 
 class AIProvider(Protocol):

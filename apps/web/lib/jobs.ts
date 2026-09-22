@@ -1,3 +1,5 @@
+import { apiRequest } from "./api";
+
 export type Job = {
   id: string;
   title: string;
@@ -67,6 +69,9 @@ export async function getJobs(params: {
   const response = await fetch(
     `${API_BASE_URL}/jobs?${searchParams.toString()}`,
     {
+      // Optional on this public endpoint: signed in, the listing also
+      // includes the user's own submitted jobs (AJI-022).
+      headers: authHeaders(),
       cache: "no-store",
     }
   );
@@ -759,4 +764,64 @@ export async function runResumeImprovementRecheck(
   }
 
   return data as ResumeImprovementResult;
+}
+
+// ---------------------------------------------------------------------------
+// AJI-022 — User Job Submission
+// ---------------------------------------------------------------------------
+
+export type SubmittedJob = Job & {
+  raw_submitted_content: string | null;
+};
+
+export type JobSubmissionInput = {
+  content: string;
+  title?: string;
+  company?: string;
+};
+
+export type JobSubmissionResponse = {
+  job: SubmittedJob;
+  intelligence: JobIntelligenceResponse;
+  requirement_intelligence: {
+    id: string;
+    job_id: string;
+    extraction_status: string;
+  };
+  security: {
+    prompt_injection_detected: boolean;
+    signals: { pattern_label: string; evidence_text: string }[];
+  };
+};
+
+// The submission runs Job Intelligence and Requirement Intelligence back
+// to back, each with its own AI call. This ceiling only guarantees the
+// "Analyzing…" state always clears; retrying is safe because resubmitting
+// the same content reuses the same job server-side.
+const SUBMIT_JOB_TIMEOUT_MS = 300_000;
+
+export async function submitJob(
+  input: JobSubmissionInput,
+): Promise<JobSubmissionResponse> {
+  return apiRequest<JobSubmissionResponse>(
+    "/jobs/submissions",
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        content: input.content,
+        title: input.title?.trim() || null,
+        company: input.company?.trim() || null,
+      }),
+      cache: "no-store",
+    },
+    SUBMIT_JOB_TIMEOUT_MS,
+  );
+}
+
+export async function getJob(jobId: string): Promise<SubmittedJob> {
+  return apiRequest<SubmittedJob>(`/jobs/${encodeURIComponent(jobId)}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
 }

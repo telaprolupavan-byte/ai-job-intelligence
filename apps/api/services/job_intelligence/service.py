@@ -76,7 +76,9 @@ def _raw_job_description(job: Job) -> RawJobDescription:
         requirements=job.requirements,
         responsibilities=job.responsibilities,
         location=job.location,
-        country=job.country,
+        # A user-submitted job (AJI-022) stores "" when the country is
+        # unknown - reported as unknown, never as a guessed default.
+        country=job.country or None,
         remote_type=job.remote_type,
         employment_type=job.employment_type,
         salary_min=job.salary_min,

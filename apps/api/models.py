@@ -489,6 +489,25 @@ class Job(Base):
         default=True,
     )
 
+    # AJI-022: NULL = a discovered job, shared with every user (the
+    # original meaning of every existing row). A user id = a job that
+    # user pasted in themselves; it is private to them and every per-job
+    # endpoint 404s for anyone else (see apps/api/services/job_access.py).
+    submitted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    # AJI-022: the user's pasted job content exactly as submitted. The
+    # description/requirements/responsibilities columns hold the
+    # deterministic section split of it (the inputs Job Intelligence
+    # reads), which cannot reproduce the original ordering on its own.
+    # Always NULL for discovered jobs.
+    raw_submitted_content: Mapped[str | None] = mapped_column(
+        Text,
+    )
+
     company: Mapped["Company | None"] = relationship(
         back_populates="jobs",
     )

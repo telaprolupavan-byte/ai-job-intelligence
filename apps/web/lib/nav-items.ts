@@ -27,3 +27,9 @@ export const primaryNavItems: NavItem[] = [
 export const secondaryNavItems: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
+
+// A nav item stays active on its nested routes too (e.g. Jobs on
+// /jobs/submit), matching the approved app-shell designs.
+export function isNavItemActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}

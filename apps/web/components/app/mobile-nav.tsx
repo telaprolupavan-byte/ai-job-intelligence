@@ -5,7 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { primaryNavItems, secondaryNavItems } from "@/lib/nav-items";
+import {
+  isNavItemActive,
+  primaryNavItems,
+  secondaryNavItems,
+} from "@/lib/nav-items";
 import NeroBrand from "@/components/app/nero-brand";
 
 export default function MobileNav() {
@@ -45,7 +49,7 @@ export default function MobileNav() {
 
           <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
             {primaryNavItems.map((item) => {
-              const active = pathname === item.href;
+              const active = isNavItemActive(pathname, item.href);
               const Icon = item.icon;
 
               return (

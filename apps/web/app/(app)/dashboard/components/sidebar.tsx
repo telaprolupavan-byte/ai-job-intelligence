@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { primaryNavItems, secondaryNavItems } from "@/lib/nav-items";
+import {
+  isNavItemActive,
+  primaryNavItems,
+  secondaryNavItems,
+} from "@/lib/nav-items";
 import NeroBrand from "@/components/app/nero-brand";
 
 export default function Sidebar() {
@@ -21,7 +25,7 @@ export default function Sidebar() {
 
         <div className="space-y-1">
           {primaryNavItems.map((item) => {
-            const active = pathname === item.href;
+            const active = isNavItemActive(pathname, item.href);
             const Icon = item.icon;
 
             return (
@@ -49,7 +53,7 @@ export default function Sidebar() {
 
       <div className="border-t border-app-border p-3">
         {secondaryNavItems.map((item) => {
-          const active = pathname === item.href;
+          const active = isNavItemActive(pathname, item.href);
           const Icon = item.icon;
 
           return (

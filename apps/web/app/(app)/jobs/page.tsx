@@ -9,6 +9,7 @@ import {
   calculateJobMatch,
   createResumeImprovement,
   generateJobIntelligence,
+  getJob,
   getJobEligibility,
   getJobs,
   runResumeImprovementRecheck,
@@ -102,6 +103,15 @@ function JobsPageInner() {
 
   const [page, setPage] = useState(initialPage);
   const [results, setResults] = useState<JobResults>(EMPTY_RESULTS);
+
+  // AJI-022: `?job=<id>` is where a successful job submission lands - that
+  // one job's card, with its Job Intelligence loaded, instead of the
+  // discovery list. Cleared by "All jobs".
+  const [focusedJobId, setFocusedJobId] = useState<string | null>(
+    searchParams.get("job"),
+  );
+  const [focusedJob, setFocusedJob] = useState<Job | null>(null);
+  const [focusedJobError, setFocusedJobError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matches, setMatches] = useState<Record<string, JobMatchResult>>({});
 
@@ -276,13 +286,14 @@ function JobsPageInner() {
     if (appliedFilters.location)
       params.set("location", appliedFilters.location);
     if (page > 1) params.set("page", String(page));
+    if (focusedJobId) params.set("job", focusedJobId);
 
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilters, page]);
+  }, [appliedFilters, page, focusedJobId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,6 +332,41 @@ function JobsPageInner() {
       cancelled = true;
     };
   }, [appliedFilters, page]);
+
+  useEffect(() => {
+    if (!focusedJobId) {
+      setFocusedJob(null);
+      setFocusedJobError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    getJob(focusedJobId)
+      .then((job) => {
+        if (cancelled) return;
+
+        setFocusedJob(job);
+        setFocusedJobError(null);
+        // Reuses the snapshot the submission just created (the POST is
+        // idempotent), so this renders the job's understanding, not a
+        // second analysis.
+        handleViewIntelligence(job.id);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+
+        console.error(err);
+        setFocusedJob(null);
+        setFocusedJobError(
+          err instanceof Error ? err.message : "Unable to load this job.",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [focusedJobId]);
 
   // Loaded once (not per-page/filter): this is the user's own tracking
   // state, independent of which page of job results is showing.
@@ -664,6 +710,57 @@ function JobsPageInner() {
     }
   }
 
+  function renderJobCard(job: Job) {
+    return (
+      <JobCard
+        key={job.id}
+        job={job}
+        application={applicationsByJobId[job.id]}
+        onApplicationChange={handleApplicationChange}
+        match={matches[job.id]}
+        isMatching={Boolean(matchingJobIds[job.id])}
+        matchError={matchErrors[job.id]}
+        onCalculateMatch={handleCalculateMatch}
+        intelligence={intelligence[job.id]}
+        isLoadingIntelligence={Boolean(
+          intelligenceLoadingIds[job.id],
+        )}
+        intelligenceError={intelligenceErrors[job.id]}
+        onViewIntelligence={handleViewIntelligence}
+        eligibility={eligibility[job.id]}
+        isCheckingEligibility={Boolean(
+          eligibilityLoadingIds[job.id],
+        )}
+        eligibilityError={eligibilityErrors[job.id]}
+        onCheckEligibility={handleCheckEligibility}
+        ats={atsResults[job.id]}
+        isCalculatingAts={Boolean(atsLoadingIds[job.id])}
+        atsError={atsErrors[job.id]}
+        onCalculateAts={handleCalculateAts}
+        gapAnalysis={gapAnalyses[job.id]}
+        isCalculatingGapAnalysis={Boolean(
+          gapAnalysisLoadingIds[job.id],
+        )}
+        gapAnalysisError={gapAnalysisErrors[job.id]}
+        onCalculateGapAnalysis={handleCalculateGapAnalysis}
+        improvement={improvements[job.id]}
+        isSubmittingImprovement={Boolean(
+          improvementSubmittingIds[job.id],
+        )}
+        isRecheckingImprovement={Boolean(
+          improvementRecheckingIds[job.id],
+        )}
+        improvementError={improvementErrors[job.id]}
+        onApproveImprovements={handleApproveImprovements}
+        onRunRecheck={handleRunRecheck}
+      />
+    );
+  }
+
+  function showAllJobs() {
+    setFocusedJobId(null);
+  }
+
   return (
     <div className="bg-app-bg text-app-text">
       <Container>
@@ -685,119 +782,131 @@ function JobsPageInner() {
               </p>
             </div>
 
-            <div className="rounded-lg border border-app-border bg-app-panel px-4 py-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
-                Active Listings
-              </div>
+            <div className="flex flex-wrap items-end gap-4">
+              {/* AJI-022 entry point (Figma 133:266 / 133:267) */}
+              <AppButton
+                href="/jobs/submit"
+                className="h-12 w-[180px] rounded-[10px] text-[13px] normal-case tracking-normal text-app-text"
+              >
+                Add a job
+              </AppButton>
 
-              <div className="mt-1 text-xl font-bold">
-                {isPending ? "—" : results.totalJobs}
+              <div className="rounded-lg border border-app-border bg-app-panel px-4 py-3">
+                <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
+                  Active Listings
+                </div>
+
+                <div className="mt-1 text-xl font-bold">
+                  {isPending ? "—" : results.totalJobs}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* FILTER PANEL */}
-        <form
-          onSubmit={handleSearch}
-          className="mb-6 rounded-xl border border-app-border bg-app-panel"
-        >
-          <PanelHeader
-              eyebrow="Search Parameters"
-              description="Configure discovery criteria"
-              action={
-                <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint md:flex">
-                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-                  AJI / Discovery
-                </div>
-              }
-            />
+        {!focusedJobId && (
+          <form
+            onSubmit={handleSearch}
+            className="mb-6 rounded-xl border border-app-border bg-app-panel"
+          >
+            <PanelHeader
+                eyebrow="Search Parameters"
+                description="Configure discovery criteria"
+                action={
+                  <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint md:flex">
+                    <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                    AJI / Discovery
+                  </div>
+                }
+              />
 
-            <div className="grid gap-4 p-5 md:grid-cols-2 lg:grid-cols-4">
-              <FilterField label="Role / Keyword" htmlFor="search">
-                <input
-                  id="search"
-                  type="text"
-                  value={filterForm.search}
-                  onChange={(event) =>
-                    setFilterForm((current) => ({
-                      ...current,
-                      search: event.target.value,
-                    }))
-                  }
-                  placeholder="AI Engineer"
-                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
-                />
-              </FilterField>
+              <div className="grid gap-4 p-5 md:grid-cols-2 lg:grid-cols-4">
+                <FilterField label="Role / Keyword" htmlFor="search">
+                  <input
+                    id="search"
+                    type="text"
+                    value={filterForm.search}
+                    onChange={(event) =>
+                      setFilterForm((current) => ({
+                        ...current,
+                        search: event.target.value,
+                      }))
+                    }
+                    placeholder="AI Engineer"
+                    className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
+                  />
+                </FilterField>
 
-              <FilterField label="Employment Type" htmlFor="employmentType">
-                <select
-                  id="employmentType"
-                  value={filterForm.employmentType}
-                  onChange={(event) =>
-                    setFilterForm((current) => ({
-                      ...current,
-                      employmentType: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
-                >
-                  <option value="">All Types</option>
-                  <option value="full_time">Full Time</option>
-                  <option value="contract">Contract</option>
-                  <option value="part_time">Part Time</option>
-                  <option value="internship">Internship</option>
-                  <option value="temporary">Temporary</option>
-                </select>
-              </FilterField>
+                <FilterField label="Employment Type" htmlFor="employmentType">
+                  <select
+                    id="employmentType"
+                    value={filterForm.employmentType}
+                    onChange={(event) =>
+                      setFilterForm((current) => ({
+                        ...current,
+                        employmentType: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                  >
+                    <option value="">All Types</option>
+                    <option value="full_time">Full Time</option>
+                    <option value="contract">Contract</option>
+                    <option value="part_time">Part Time</option>
+                    <option value="internship">Internship</option>
+                    <option value="temporary">Temporary</option>
+                  </select>
+                </FilterField>
 
-              <FilterField label="Work Arrangement" htmlFor="remoteType">
-                <select
-                  id="remoteType"
-                  value={filterForm.remoteType}
-                  onChange={(event) =>
-                    setFilterForm((current) => ({
-                      ...current,
-                      remoteType: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
-                >
-                  <option value="">All Arrangements</option>
-                  <option value="remote">Remote</option>
-                  <option value="hybrid">Hybrid</option>
-                  <option value="onsite">On-site</option>
-                </select>
-              </FilterField>
+                <FilterField label="Work Arrangement" htmlFor="remoteType">
+                  <select
+                    id="remoteType"
+                    value={filterForm.remoteType}
+                    onChange={(event) =>
+                      setFilterForm((current) => ({
+                        ...current,
+                        remoteType: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none focus:border-app-blue"
+                  >
+                    <option value="">All Arrangements</option>
+                    <option value="remote">Remote</option>
+                    <option value="hybrid">Hybrid</option>
+                    <option value="onsite">On-site</option>
+                  </select>
+                </FilterField>
 
-              <FilterField label="Location" htmlFor="location">
-                <input
-                  id="location"
-                  type="text"
-                  value={filterForm.location}
-                  onChange={(event) =>
-                    setFilterForm((current) => ({
-                      ...current,
-                      location: event.target.value,
-                    }))
-                  }
-                  placeholder="New York, NY"
-                  className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
-                />
-              </FilterField>
-            </div>
+                <FilterField label="Location" htmlFor="location">
+                  <input
+                    id="location"
+                    type="text"
+                    value={filterForm.location}
+                    onChange={(event) =>
+                      setFilterForm((current) => ({
+                        ...current,
+                        location: event.target.value,
+                      }))
+                    }
+                    placeholder="New York, NY"
+                    className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
+                  />
+                </FilterField>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-3 px-5 pb-5">
-              <AppButton type="submit">
-                <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                Search Jobs
-              </AppButton>
+              <div className="flex flex-wrap items-center gap-3 px-5 pb-5">
+                <AppButton type="submit">
+                  <SearchIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                  Search Jobs
+                </AppButton>
 
-              <AppButton type="button" variant="ghost" onClick={clearFilters}>
-                Clear{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-              </AppButton>
-            </div>
-        </form>
+                <AppButton type="button" variant="ghost" onClick={clearFilters}>
+                  Clear{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                </AppButton>
+              </div>
+          </form>
+        )}
 
         {/* ERROR */}
         {error && (
@@ -808,22 +917,30 @@ function JobsPageInner() {
 
         {/* RESULTS TOOLBAR (selector placement per AJI-019 — Jobs Placement Reference) */}
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
-              Discovery Results
+          {focusedJobId ? (
+            <div>
+              <AppButton variant="ghost" size="sm" onClick={showAllJobs}>
+                ← All jobs
+              </AppButton>
             </div>
+          ) : (
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
+                Discovery Results
+              </div>
 
-            <h2 className="mt-1 text-xl font-semibold">
-              Available Opportunities
-            </h2>
+              <h2 className="mt-1 text-xl font-semibold">
+                Available Opportunities
+              </h2>
 
-            {!isPending && (
-              <p className="mt-1 text-xs text-app-faint">
-                {results.totalJobs} results · Resume choice applies to the
-                next intelligence calculation.
-              </p>
-            )}
-          </div>
+              {!isPending && (
+                <p className="mt-1 text-xs text-app-faint">
+                  {results.totalJobs} results · Resume choice applies to the
+                  next intelligence calculation.
+                </p>
+              )}
+            </div>
+          )}
 
           <ResumeVersionSelector
             status={resumeVersionState.status}
@@ -835,8 +952,23 @@ function JobsPageInner() {
           />
         </div>
 
+        {/* SUBMITTED / FOCUSED JOB (AJI-022) */}
+        {focusedJobId && focusedJobError && (
+          <ErrorState title="Job unavailable" message={focusedJobError} />
+        )}
+
+        {focusedJobId && !focusedJobError && !focusedJob && (
+          <div className="rounded-xl border border-app-border bg-app-panel p-6">
+            <Skeleton className="h-5 w-2/3" />
+            <Skeleton className="mt-3 h-3 w-1/3" />
+            <Skeleton className="mt-5 h-16 w-full" />
+          </div>
+        )}
+
+        {focusedJobId && focusedJob && renderJobCard(focusedJob)}
+
         {/* LOADING */}
-        {isPending && (
+        {!focusedJobId && isPending && (
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, index) => (
               <div
@@ -857,7 +989,7 @@ function JobsPageInner() {
         )}
 
         {/* EMPTY */}
-        {!isPending && !error && results.jobs.length === 0 && (
+        {!focusedJobId && !isPending && !error && results.jobs.length === 0 && (
           <EmptyState
             icon={SearchIcon}
             title="No jobs found"
@@ -873,57 +1005,14 @@ function JobsPageInner() {
         )}
 
         {/* JOB LIST */}
-        {!isPending && results.jobs.length > 0 && (
+        {!focusedJobId && !isPending && results.jobs.length > 0 && (
           <div className="space-y-4">
-            {results.jobs.map((job) => (
-              <JobCard
-                key={job.id}
-                job={job}
-                application={applicationsByJobId[job.id]}
-                onApplicationChange={handleApplicationChange}
-                match={matches[job.id]}
-                isMatching={Boolean(matchingJobIds[job.id])}
-                matchError={matchErrors[job.id]}
-                onCalculateMatch={handleCalculateMatch}
-                intelligence={intelligence[job.id]}
-                isLoadingIntelligence={Boolean(
-                  intelligenceLoadingIds[job.id],
-                )}
-                intelligenceError={intelligenceErrors[job.id]}
-                onViewIntelligence={handleViewIntelligence}
-                eligibility={eligibility[job.id]}
-                isCheckingEligibility={Boolean(
-                  eligibilityLoadingIds[job.id],
-                )}
-                eligibilityError={eligibilityErrors[job.id]}
-                onCheckEligibility={handleCheckEligibility}
-                ats={atsResults[job.id]}
-                isCalculatingAts={Boolean(atsLoadingIds[job.id])}
-                atsError={atsErrors[job.id]}
-                onCalculateAts={handleCalculateAts}
-                gapAnalysis={gapAnalyses[job.id]}
-                isCalculatingGapAnalysis={Boolean(
-                  gapAnalysisLoadingIds[job.id],
-                )}
-                gapAnalysisError={gapAnalysisErrors[job.id]}
-                onCalculateGapAnalysis={handleCalculateGapAnalysis}
-                improvement={improvements[job.id]}
-                isSubmittingImprovement={Boolean(
-                  improvementSubmittingIds[job.id],
-                )}
-                isRecheckingImprovement={Boolean(
-                  improvementRecheckingIds[job.id],
-                )}
-                improvementError={improvementErrors[job.id]}
-                onApproveImprovements={handleApproveImprovements}
-                onRunRecheck={handleRunRecheck}
-              />
-            ))}
+            {results.jobs.map((job) => renderJobCard(job))}
           </div>
         )}
 
         {/* PAGINATION */}
-        {!isPending && results.totalPages > 1 && (
+        {!focusedJobId && !isPending && results.totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-5">
             <AppButton
               variant="ghost"
