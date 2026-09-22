@@ -43,7 +43,7 @@ from apps.api.services.resume_improvement.service import (
     ResumeImprovementServiceError,
     create_resume_improvement,
     get_latest_resume_improvement,
-    retry_recheck,
+    run_recheck,
 )
 from apps.api.models import (
     AtsAlignmentResult,
@@ -791,6 +791,9 @@ def _resume_improvement_to_response(record: ResumeImprovement) -> dict:
         "parent_resume_version_id": str(record.parent_resume_version_id),
         "child_resume_version_id": str(record.child_resume_version_id),
         "child_resume_version_name": result_data["child_resume_version_name"],
+        "parent_resume_version_name": result_data.get(
+            "parent_resume_version_name"
+        ),
         "engine_version": record.engine_version,
         "approved_count": record.approved_count,
         "skipped_count": record.skipped_count,
@@ -895,9 +898,12 @@ def create_job_resume_improvement(
     Re-submitting the same approvals returns the existing record instead
     of creating a second version.
 
-    A failed recheck is reported in `recheck_status`/`recheck_error`
-    with a 200 response - the created version is preserved either way,
-    and POST /jobs/{job_id}/resume-improvement/{id}/recheck retries it.
+    This endpoint does NOT run the recheck. It returns with
+    `recheck_status = "pending"`; running the recheck against the same
+    job is a separate, explicit user action - POST
+    /jobs/{job_id}/resume-improvement/{id}/recheck. The created version
+    is already committed here, so it stays persisted and recoverable
+    even if the recheck is never run.
     """
     try:
         job_uuid = UUID(job_id)
@@ -942,8 +948,12 @@ def retry_resume_improvement_recheck(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Retry the recheck for an existing Resume Improvement record whose
-    recheck previously failed or never finished (AJI-021).
+    Run the recheck for an existing Resume Improvement record (AJI-021).
+
+    This is both the initial "Run recheck" action after a version is
+    created and the retry after a failure - one endpoint, because they
+    do exactly the same thing. It rechecks the child version against the
+    same job using the existing, unmodified ATS Alignment path.
 
     Never creates a resume version and never re-applies decisions - the
     version and the approvals are already durable. A record whose
@@ -968,7 +978,7 @@ def retry_resume_improvement_recheck(
         )
 
     try:
-        record = retry_recheck(
+        record = run_recheck(
             db=db,
             current_user=current_user,
             job_id=job_uuid,

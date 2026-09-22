@@ -305,6 +305,7 @@ def test_the_full_approve_create_recheck_compare_flow(client, scenario):
     gap_analysis = _create_gap_analysis(client, scenario)
     assert gap_analysis["gaps"], "fixture should produce a real gap"
 
+    # Step 1: approve -> create the version. This does NOT recheck.
     response = client.post(
         f"/jobs/{scenario['job'].id}/resume-improvement",
         headers=_auth_headers(scenario["user"]),
@@ -312,12 +313,27 @@ def test_the_full_approve_create_recheck_compare_flow(client, scenario):
     )
 
     assert response.status_code == 200
+    created = response.json()
+
+    assert created["parent_resume_version_id"] == str(scenario["version"].id)
+    assert created["child_resume_version_id"] != str(scenario["version"].id)
+    assert created["child_resume_version_name"] == "Improved 1"
+    assert created["parent_resume_version_name"] == "Original"
+    assert created["approved_count"] == 1
+    assert created["recheck_status"] == "pending"
+    assert created["recheck_ats_alignment_id"] is None
+    assert created["comparison"] is None
+
+    # Step 2: "Run recheck" — an explicit, separate action.
+    response = client.post(
+        f"/jobs/{scenario['job'].id}/resume-improvement/{created['id']}/recheck",
+        headers=_auth_headers(scenario["user"]),
+    )
+    assert response.status_code == 200
     body = response.json()
 
-    assert body["parent_resume_version_id"] == str(scenario["version"].id)
-    assert body["child_resume_version_id"] != str(scenario["version"].id)
-    assert body["child_resume_version_name"] == "Improved 1"
-    assert body["approved_count"] == 1
+    assert body["id"] == created["id"]
+    assert body["child_resume_version_id"] == created["child_resume_version_id"]
     assert body["recheck_status"] == "complete"
 
     comparison = body["comparison"]
@@ -643,6 +659,13 @@ def test_recheck_of_a_completed_record_returns_it_unchanged(client, scenario):
         json=_approval_body(gap_analysis),
     ).json()
 
+    first = client.post(
+        f"/jobs/{scenario['job'].id}/resume-improvement/{created['id']}/recheck",
+        headers=_auth_headers(scenario["user"]),
+    ).json()
+    assert first["recheck_status"] == "complete"
+
+    # Running it again never re-points a completed recheck.
     response = client.post(
         f"/jobs/{scenario['job'].id}/resume-improvement/{created['id']}/recheck",
         headers=_auth_headers(scenario["user"]),
@@ -651,9 +674,7 @@ def test_recheck_of_a_completed_record_returns_it_unchanged(client, scenario):
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == created["id"]
-    assert (
-        body["recheck_ats_alignment_id"] == created["recheck_ats_alignment_id"]
-    )
+    assert body["recheck_ats_alignment_id"] == first["recheck_ats_alignment_id"]
 
 
 def test_another_user_cannot_retry_a_recheck(client, db, scenario):
@@ -714,3 +735,68 @@ def test_existing_ats_and_gap_analysis_endpoints_still_work(client, scenario):
     assert gaps.status_code == 200
     # The stored Gap Analysis is unchanged by having been acted on.
     assert gaps.json()["id"] == gap_analysis["id"]
+
+
+# ---------------------------------------------------------------------------
+# "Run recheck" is a separate, explicit action over HTTP
+# ---------------------------------------------------------------------------
+
+def test_creating_a_version_over_http_does_not_recheck(client, scenario):
+    gap_analysis = _create_gap_analysis(client, scenario)
+
+    created = client.post(
+        f"/jobs/{scenario['job'].id}/resume-improvement",
+        headers=_auth_headers(scenario["user"]),
+        json=_approval_body(gap_analysis),
+    ).json()
+
+    assert created["recheck_status"] == "pending"
+    assert created["recheck_ats_alignment_id"] is None
+    assert created["comparison"] is None
+
+    # Reading it back still shows a pending, fully-created version.
+    fetched = client.get(
+        f"/jobs/{scenario['job'].id}/resume-improvement",
+        headers=_auth_headers(scenario["user"]),
+    ).json()
+    assert fetched["id"] == created["id"]
+    assert fetched["recheck_status"] == "pending"
+    assert (
+        fetched["child_resume_version_id"] == created["child_resume_version_id"]
+    )
+
+
+def test_a_pending_version_is_still_listed_in_the_resume_library(
+    client, scenario
+):
+    gap_analysis = _create_gap_analysis(client, scenario)
+
+    created = client.post(
+        f"/jobs/{scenario['job'].id}/resume-improvement",
+        headers=_auth_headers(scenario["user"]),
+        json=_approval_body(gap_analysis),
+    ).json()
+
+    versions = client.get(
+        f"/resumes/{scenario['version'].resume_id}/versions",
+        headers=_auth_headers(scenario["user"]),
+    ).json()
+
+    by_id = {version["id"]: version for version in versions}
+    assert created["child_resume_version_id"] in by_id
+    assert by_id[created["child_resume_version_id"]]["source"] == "improvement"
+    # The original is untouched whether or not the recheck ever runs.
+    assert by_id[str(scenario["version"].id)]["is_master"] is True
+
+
+def test_the_response_carries_both_real_version_names(client, scenario):
+    gap_analysis = _create_gap_analysis(client, scenario)
+
+    created = client.post(
+        f"/jobs/{scenario['job'].id}/resume-improvement",
+        headers=_auth_headers(scenario["user"]),
+        json=_approval_body(gap_analysis),
+    ).json()
+
+    assert created["parent_resume_version_name"] == "Original"
+    assert created["child_resume_version_name"] == "Improved 1"

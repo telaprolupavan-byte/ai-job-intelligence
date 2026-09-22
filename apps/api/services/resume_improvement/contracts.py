@@ -61,11 +61,13 @@ TransitionDirection = Literal[
     "removed",
 ]
 
-# "pending" only ever describes the window between the child version
-# being durably committed and its recheck finishing - it is what a row
-# is left at if the process dies mid-recheck, so the version is still
-# there and the recheck is still retryable. It is never a state the
-# child version's existence depends on.
+# "pending" is the state a record is created in: the child version is
+# durably committed and the recheck has not been run yet. Running it is
+# an explicit user action (Figma 09: "Run recheck"), so a record can sit
+# here indefinitely - including across a page reload - with the version
+# fully persisted and recoverable. It is also where a record lands if
+# the process dies mid-recheck. It is never a state the child version's
+# existence depends on.
 RecheckStatus = Literal["pending", "complete", "failed"]
 
 
@@ -211,6 +213,11 @@ class ResumeImprovementResult(BaseModel):
     parent_resume_version_id: str
     child_resume_version_id: str
     child_resume_version_name: str
+    # The source version's real name, recorded at creation time so the
+    # lineage can be displayed accurately without the client having to
+    # resolve it (and without inventing a placeholder when it cannot).
+    # Optional so rows written before this field remain readable.
+    parent_resume_version_name: str | None = None
 
     approved_count: int = 0
     skipped_count: int = 0

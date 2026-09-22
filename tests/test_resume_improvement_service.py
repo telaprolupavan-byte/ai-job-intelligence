@@ -39,7 +39,7 @@ from apps.api.services.resume_improvement.service import (
     ResumeImprovementServiceError,
     create_resume_improvement,
     get_latest_resume_improvement,
-    retry_recheck,
+    run_recheck,
 )
 
 
@@ -247,6 +247,29 @@ def approve_all(gap_analysis: GapAnalysis, *, text: str = "Ran Kubernetes in pro
     ]
 
 
+
+def create_and_recheck(db, *, user, job, gap_analysis, decisions=None):
+    """Both explicit steps: create the version, then run the recheck.
+
+    Creation no longer rechecks on its own (Figma 09's "Run recheck" is
+    a separate user action), so any test asserting on a recheck outcome
+    has to run it.
+    """
+    record = create_resume_improvement(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        gap_analysis_id=gap_analysis.id,
+        decisions=decisions if decisions is not None else approve_all(gap_analysis),
+    )
+    return run_recheck(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        improvement_id=record.id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Happy path: create a child version and recheck it
 # ---------------------------------------------------------------------------
@@ -257,11 +280,11 @@ def test_approving_creates_a_child_version_and_rechecks_the_same_job(db):
 
     assert gap_analysis.result["gaps"], "fixture should produce real gaps"
 
-    record = create_resume_improvement(
-        db=db,
-        current_user=user,
-        job_id=job.id,
-        gap_analysis_id=gap_analysis.id,
+    record = create_and_recheck(
+        db,
+        user=user,
+        job=job,
+        gap_analysis=gap_analysis,
         decisions=approve_all(gap_analysis),
     )
 
@@ -366,11 +389,11 @@ def test_the_recheck_reflects_the_added_evidence_in_the_comparison(db):
     )
     assert kubernetes_gap["status"] == "missing"
 
-    record = create_resume_improvement(
-        db=db,
-        current_user=user,
-        job_id=job.id,
-        gap_analysis_id=gap_analysis.id,
+    record = create_and_recheck(
+        db,
+        user=user,
+        job=job,
+        gap_analysis=gap_analysis,
         decisions=[
             {
                 "requirement_id": "req-skill-kubernetes",
@@ -707,11 +730,11 @@ def test_the_new_version_survives_a_failed_recheck(db, monkeypatch):
 
     monkeypatch.setattr(improvement_service, "calculate_ats_alignment", explode)
 
-    record = create_resume_improvement(
-        db=db,
-        current_user=user,
-        job_id=job.id,
-        gap_analysis_id=gap_analysis.id,
+    record = create_and_recheck(
+        db,
+        user=user,
+        job=job,
+        gap_analysis=gap_analysis,
         decisions=approve_all(gap_analysis),
     )
 
@@ -736,11 +759,11 @@ def test_an_unexpected_recheck_failure_does_not_leak_internal_detail(db, monkeyp
 
     monkeypatch.setattr(improvement_service, "calculate_ats_alignment", explode)
 
-    record = create_resume_improvement(
-        db=db,
-        current_user=user,
-        job_id=job.id,
-        gap_analysis_id=gap_analysis.id,
+    record = create_and_recheck(
+        db,
+        user=user,
+        job=job,
+        gap_analysis=gap_analysis,
         decisions=approve_all(gap_analysis),
     )
 
@@ -758,11 +781,11 @@ def test_a_failed_recheck_can_be_retried_without_creating_a_version(db, monkeypa
 
     monkeypatch.setattr(improvement_service, "calculate_ats_alignment", explode)
 
-    record = create_resume_improvement(
-        db=db,
-        current_user=user,
-        job_id=job.id,
-        gap_analysis_id=gap_analysis.id,
+    record = create_and_recheck(
+        db,
+        user=user,
+        job=job,
+        gap_analysis=gap_analysis,
         decisions=approve_all(gap_analysis),
     )
     assert record.recheck_status == "failed"
@@ -771,7 +794,7 @@ def test_a_failed_recheck_can_be_retried_without_creating_a_version(db, monkeypa
 
     monkeypatch.undo()
 
-    retried = retry_recheck(
+    retried = run_recheck(
         db=db,
         current_user=user,
         job_id=job.id,
@@ -797,16 +820,16 @@ def test_retrying_a_completed_recheck_never_repoints_it(db):
     user = make_user(db)
     job, _, gap_analysis = setup_gap_analysis(db, user=user)
 
-    record = create_resume_improvement(
-        db=db,
-        current_user=user,
-        job_id=job.id,
-        gap_analysis_id=gap_analysis.id,
+    record = create_and_recheck(
+        db,
+        user=user,
+        job=job,
+        gap_analysis=gap_analysis,
         decisions=approve_all(gap_analysis),
     )
     original_recheck_id = record.recheck_ats_alignment_id
 
-    retried = retry_recheck(
+    retried = run_recheck(
         db=db,
         current_user=user,
         job_id=job.id,
@@ -830,7 +853,7 @@ def test_another_user_cannot_retry_someone_elses_recheck(db):
     )
 
     with pytest.raises(ResumeImprovementServiceError) as exc:
-        retry_recheck(
+        run_recheck(
             db=db,
             current_user=intruder,
             job_id=job.id,
@@ -850,11 +873,11 @@ def test_the_recheck_is_an_ordinary_ats_alignment_row(db):
 
     baseline = db.get(AtsAlignmentResult, gap_analysis.ats_alignment_id)
 
-    record = create_resume_improvement(
-        db=db,
-        current_user=user,
-        job_id=job.id,
-        gap_analysis_id=gap_analysis.id,
+    record = create_and_recheck(
+        db,
+        user=user,
+        job=job,
+        gap_analysis=gap_analysis,
         decisions=approve_all(gap_analysis),
     )
 
@@ -902,3 +925,125 @@ def test_job_intelligence_and_gap_analysis_rows_are_untouched(db):
         db.query(GapAnalysis).filter(GapAnalysis.job_id == job.id).count()
         == gap_count_before
     )
+
+
+# ---------------------------------------------------------------------------
+# Creating a version does not recheck: "Run recheck" is a separate step
+# ---------------------------------------------------------------------------
+
+def test_creating_a_version_does_not_run_the_recheck(db, monkeypatch):
+    user = make_user(db)
+    job, parent, gap_analysis = setup_gap_analysis(db, user=user)
+
+    calls = []
+
+    def spy(**kwargs):
+        calls.append(kwargs)
+        raise AssertionError("the recheck must not run during creation")
+
+    monkeypatch.setattr(improvement_service, "calculate_ats_alignment", spy)
+
+    record = create_resume_improvement(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        gap_analysis_id=gap_analysis.id,
+        decisions=approve_all(gap_analysis),
+    )
+
+    assert calls == []
+    assert record.recheck_status == "pending"
+    assert record.recheck_ats_alignment_id is None
+    assert record.recheck_error is None
+    assert record.result.get("comparison") is None
+
+    # The version itself is already fully created and committed.
+    child = db.get(ResumeVersion, record.child_resume_version_id)
+    assert child is not None
+    assert child.parent_version_id == parent.id
+
+
+def test_a_pending_version_stays_persisted_if_the_recheck_is_never_run(db):
+    """Leaving the page without running the recheck must not cost the
+    user the version they approved."""
+    user = make_user(db)
+    job, parent, gap_analysis = setup_gap_analysis(db, user=user)
+
+    record = create_resume_improvement(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        gap_analysis_id=gap_analysis.id,
+        decisions=approve_all(gap_analysis),
+    )
+
+    # Simulate coming back later: re-read everything from the database.
+    db.expire_all()
+
+    reloaded = get_latest_resume_improvement(db, user_id=user.id, job_id=job.id)
+    assert reloaded is not None
+    assert reloaded.id == record.id
+    assert reloaded.recheck_status == "pending"
+
+    child = db.get(ResumeVersion, reloaded.child_resume_version_id)
+    assert child is not None
+    assert child.source == "improvement"
+    assert child.content_text.startswith(parent.content_text.rstrip())
+
+    # And the recheck can still be run afterwards.
+    rechecked = run_recheck(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        improvement_id=reloaded.id,
+    )
+    assert rechecked.recheck_status == "complete"
+    assert rechecked.child_resume_version_id == child.id
+
+
+def test_run_recheck_uses_the_same_job_and_the_new_version(db):
+    user = make_user(db)
+    job, parent, gap_analysis = setup_gap_analysis(db, user=user)
+
+    record = create_resume_improvement(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        gap_analysis_id=gap_analysis.id,
+        decisions=approve_all(gap_analysis),
+    )
+    rechecked = run_recheck(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        improvement_id=record.id,
+    )
+
+    recheck = db.get(AtsAlignmentResult, rechecked.recheck_ats_alignment_id)
+    assert recheck.job_id == job.id
+    assert recheck.resume_version_id == record.child_resume_version_id
+    assert recheck.resume_version_id != parent.id
+
+
+def test_the_record_carries_the_real_parent_version_name(db):
+    """Lineage is displayed from stored data, never from a hardcoded
+    placeholder — so a non-default parent name must survive."""
+    user = make_user(db)
+    job = make_job(db)
+    parent = make_resume_version(db, user=user, name="Senior SRE CV")
+    make_requirement_intelligence(
+        db, job=job, user=user, requirements=[ri_skill_item("kubernetes")]
+    )
+    gap_analysis = generate_gap_analysis(db=db, current_user=user, job_id=job.id)
+
+    record = create_resume_improvement(
+        db=db,
+        current_user=user,
+        job_id=job.id,
+        gap_analysis_id=gap_analysis.id,
+        decisions=approve_all(gap_analysis),
+    )
+
+    assert record.result["parent_resume_version_name"] == "Senior SRE CV"
+    assert record.result["child_resume_version_name"] == "Improved 1"
+    assert record.parent_resume_version_id == parent.id

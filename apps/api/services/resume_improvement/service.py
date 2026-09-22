@@ -20,12 +20,19 @@ Source data (reused, never recreated):
   `services/ats_alignment` is touched: the scoring formula, its
   weights, and `ENGINE_VERSION` are exactly what they were.
 
+Two explicit steps, not one: `create_resume_improvement` creates the
+child version and returns with `recheck_status = "pending"`. It does
+*not* run the recheck. `run_recheck` is a separate call the user
+triggers ("Run recheck" in Figma 09), and is also the retry path after a
+failure - the same code, because both do the same thing.
+
 Ordering guarantee (the ticket's "preserve the new version if recheck
 fails" rule): the child `ResumeVersion` and the `ResumeImprovement` row
-are committed *before* the recheck is attempted, and a recheck failure
+are committed before any recheck is attempted, and a recheck failure
 only ever writes `recheck_status`/`recheck_error` onto the already-
-durable row. There is no code path in which a failed, slow, or crashed
-recheck removes, rolls back, or invalidates a version the user approved.
+durable row. There is no code path in which a failed, slow, crashed, or
+never-run recheck removes, rolls back, or invalidates a version the user
+approved - leaving the page without running it keeps the version.
 
 Ownership: every lookup here is scoped to the requesting user's own
 `user_id`, and the parent `ResumeVersion` is additionally re-verified
@@ -489,6 +496,7 @@ def create_resume_improvement(
             parent_resume_version_id=str(parent_version.id),
             child_resume_version_id=str(child_version.id),
             child_resume_version_name=child_version.name,
+            parent_resume_version_name=parent_version.name,
             approved_count=sum(
                 1 for decision in validated if decision.action == "approve"
             ),
@@ -528,17 +536,27 @@ def create_resume_improvement(
 
     db.refresh(record)
 
-    return _run_recheck(db=db, current_user=current_user, record=record)
+    # The recheck is NOT run here. Creating the version and rechecking it
+    # are two explicit user steps (Figma 09: "Run recheck"), so this
+    # returns with `recheck_status = "pending"` and the caller decides
+    # when to run it. The version is already committed at this point, so
+    # leaving without ever running the recheck still leaves it persisted
+    # and recoverable.
+    return record
 
 
-def retry_recheck(
+def run_recheck(
     *,
     db: Session,
     current_user: User,
     job_id: UUID,
     improvement_id: UUID,
 ) -> ResumeImprovement:
-    """Re-run a recheck that previously failed (or never finished).
+    """Run the recheck for an existing improvement record.
+
+    This is both the initial "Run recheck" action and the retry after a
+    failure - one code path, because they do exactly the same thing: the
+    version and the decisions are already durable either way.
 
     Never creates a version and never re-applies decisions. A record
     whose recheck already succeeded is returned unchanged - a completed

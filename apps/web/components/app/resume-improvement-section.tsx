@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type {
   GapAnalysisResult,
   GapSuggestion,
+  ImprovementComparison,
   ImprovementDecisionInput,
   RequirementTransition,
   ResumeImprovementResult,
@@ -45,16 +46,12 @@ type ResumeImprovementSectionProps = {
   isSubmitting: boolean;
   isRechecking: boolean;
   error?: string;
-  /** Display name of the parent version, for the Figma 09.1 version
-   *  history block. Resolved by the caller from the resume-version list
-   *  it already loads, so this needs no extra API field. */
-  parentVersionName?: string;
   onApprove: (
     jobId: string,
     gapAnalysisId: string,
     decisions: ImprovementDecisionInput[],
   ) => void;
-  onRetryRecheck: (jobId: string, improvementId: string) => void;
+  onRunRecheck: (jobId: string, improvementId: string) => void;
 };
 
 const STEPS = [
@@ -76,9 +73,8 @@ export default function ResumeImprovementSection({
   isSubmitting,
   isRechecking,
   error,
-  parentVersionName,
   onApprove,
-  onRetryRecheck,
+  onRunRecheck,
 }: ResumeImprovementSectionProps) {
   const gaps = gapAnalysis?.gaps ?? [];
 
@@ -220,7 +216,9 @@ export default function ResumeImprovementSection({
                 {result.child_resume_version_name}
               </Badge>
               {result.recheck_status === "complete" && result.comparison && (
-                <ScoreDeltaBadge delta={result.comparison.score_delta} />
+                <ScoreDeltaBadge
+                  delta={displayedScoreDelta(result.comparison)}
+                />
               )}
             </>
           )}
@@ -229,13 +227,15 @@ export default function ResumeImprovementSection({
 
       <StepTrail
         active={
-          showCompare
-            ? result?.recheck_status === "complete"
-              ? "Compare"
-              : "Recheck"
-            : isSubmitting
-              ? "New version"
-              : "Review"
+          isSubmitting
+            ? "New version"
+            : isRechecking
+              ? "Recheck"
+              : showCompare
+                ? result?.recheck_status === "complete"
+                  ? "Compare"
+                  : "New version"
+                : "Review"
         }
       />
 
@@ -271,9 +271,8 @@ export default function ResumeImprovementSection({
         <CompareView
           jobId={jobId}
           result={result}
-          parentVersionName={parentVersionName}
           isRechecking={isRechecking}
-          onRetryRecheck={onRetryRecheck}
+          onRunRecheck={onRunRecheck}
           onReviewMore={() => setIsReviewing(true)}
         />
       )}
@@ -615,19 +614,24 @@ function ApprovalFooter({
 function CompareView({
   jobId,
   result,
-  parentVersionName,
   isRechecking,
-  onRetryRecheck,
+  onRunRecheck,
   onReviewMore,
 }: {
   jobId: string;
   result: ResumeImprovementResult;
-  parentVersionName?: string;
   isRechecking: boolean;
-  onRetryRecheck: (jobId: string, improvementId: string) => void;
+  onRunRecheck: (jobId: string, improvementId: string) => void;
   onReviewMore: () => void;
 }) {
   const comparison = result.comparison;
+  // The source version's real name, from the record. Never a
+  // hardcoded placeholder — if the backend did not record one (rows
+  // written before that field existed), the lineage is described
+  // without naming it rather than inventing a name.
+  const parentVersionName = result.parent_resume_version_name;
+  const hasRun = result.recheck_status === "complete" && comparison;
+  const hasFailed = result.recheck_status === "failed";
   const appliedDecisions = result.decisions.filter(
     (decision) => decision.action === "approve" && decision.applied_text,
   );
@@ -643,7 +647,7 @@ function CompareView({
         </p>
         <p className="mt-1 break-words text-xs leading-5 text-app-body">
           {result.child_resume_version_name} &middot; based on{" "}
-          {parentVersionName ?? "your original version"} &middot;{" "}
+          {parentVersionName ?? "the source version"} &middot;{" "}
           {result.approved_count} approved{" "}
           {result.approved_count === 1 ? "improvement" : "improvements"}{" "}
           applied
@@ -679,7 +683,45 @@ function CompareView({
         </p>
       </div>
 
-      {result.recheck_status !== "complete" && (
+      {/* Figma 09: "Run recheck" is its own step. Until it is run the
+          version simply exists, un-rechecked — that is not a failure and
+          must not be shown as one. */}
+      {!hasRun && !hasFailed && (
+        <div className="mt-3 rounded-lg border border-app-border p-4">
+          {isRechecking ? (
+            <div aria-live="polite">
+              <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
+                Recheck in progress
+              </p>
+              <p className="mt-1 break-words text-xs leading-5 text-app-faint">
+                Rechecking your new version against this same job…
+              </p>
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="h-8 w-1/3" />
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="break-words text-xs leading-5 text-app-faint">
+                Recheck this new version against the same job to see what
+                changed.
+              </p>
+              <div className="mt-3">
+                <AppButton
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onRunRecheck(jobId, result.id)}
+                >
+                  Run recheck
+                </AppButton>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {hasFailed && (
         <div
           role="status"
           className="mt-3 rounded-lg border border-app-danger-border bg-app-danger-bg p-4"
@@ -708,7 +750,7 @@ function CompareView({
               variant="secondary"
               size="sm"
               loading={isRechecking}
-              onClick={() => onRetryRecheck(jobId, result.id)}
+              onClick={() => onRunRecheck(jobId, result.id)}
             >
               Retry recheck
             </AppButton>
@@ -805,9 +847,12 @@ function VersionHistory({
   parentVersionName,
 }: {
   result: ResumeImprovementResult;
-  parentVersionName?: string;
+  parentVersionName: string | null;
 }) {
-  const parentLabel = parentVersionName ?? "Original";
+  // Never a hardcoded version identity: when the record does not carry
+  // the source version's name, the relationship is still described, it
+  // just is not named.
+  const parentLabel = parentVersionName ?? "Source version";
 
   return (
     <div className="mt-4">
@@ -888,6 +933,20 @@ function ScoreCard({
         {preferredMatched}/{preferredTotal}
       </p>
     </div>
+  );
+}
+
+/**
+ * The delta shown to the user is derived from the same rounded scores
+ * the cards display, so "17% → 33%" can never be paired with "+16.66".
+ * The stored/API `score_delta` is the exact unrounded value and is
+ * deliberately left alone — this is presentation only, and no ATS
+ * calculation is touched.
+ */
+function displayedScoreDelta(comparison: ImprovementComparison): number {
+  return (
+    Math.round(comparison.recheck_score) -
+    Math.round(comparison.baseline_score)
   );
 }
 

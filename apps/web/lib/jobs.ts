@@ -622,6 +622,9 @@ export type ResumeImprovementResult = {
   parent_resume_version_id: string;
   child_resume_version_id: string;
   child_resume_version_name: string;
+  /** The source version's real name, recorded server-side at creation.
+   *  Null only for records written before this field existed. */
+  parent_resume_version_name: string | null;
   engine_version: string;
   approved_count: number;
   skipped_count: number;
@@ -727,7 +730,13 @@ export async function createResumeImprovement(
   return data as ResumeImprovementResult;
 }
 
-export async function retryResumeImprovementRecheck(
+/**
+ * Runs the recheck for an existing improvement record. This is both the
+ * initial "Run recheck" action after a version is created and the retry
+ * after a failure — the backend treats them identically, because the
+ * version and the approvals are already durable in both cases.
+ */
+export async function runResumeImprovementRecheck(
   jobId: string,
   improvementId: string,
 ): Promise<ResumeImprovementResult> {

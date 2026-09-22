@@ -11,7 +11,7 @@ import {
   generateJobIntelligence,
   getJobEligibility,
   getJobs,
-  retryResumeImprovementRecheck,
+  runResumeImprovementRecheck,
   type AtsAlignmentResult,
   type AtsAlignmentStatus,
   type AtsRequirementResult,
@@ -535,7 +535,7 @@ function JobsPageInner() {
     }
   }
 
-  async function handleRetryRecheck(jobId: string, improvementId: string) {
+  async function handleRunRecheck(jobId: string, improvementId: string) {
     setImprovementRecheckingIds((current) => ({ ...current, [jobId]: true }));
     setImprovementErrors((current) => {
       const next = { ...current };
@@ -544,7 +544,7 @@ function JobsPageInner() {
     });
 
     try {
-      const result = await retryResumeImprovementRecheck(
+      const result = await runResumeImprovementRecheck(
         jobId,
         improvementId,
       );
@@ -888,15 +888,8 @@ function JobsPageInner() {
                   improvementRecheckingIds[job.id],
                 )}
                 improvementError={improvementErrors[job.id]}
-                improvementParentVersionName={
-                  resumeVersionState.options.find(
-                    (option) =>
-                      option.id ===
-                      improvements[job.id]?.parent_resume_version_id,
-                  )?.versionName
-                }
                 onApproveImprovements={handleApproveImprovements}
-                onRetryRecheck={handleRetryRecheck}
+                onRunRecheck={handleRunRecheck}
               />
             ))}
           </div>
@@ -1138,9 +1131,8 @@ function JobCard({
   isSubmittingImprovement,
   isRecheckingImprovement,
   improvementError,
-  improvementParentVersionName,
   onApproveImprovements,
-  onRetryRecheck,
+  onRunRecheck,
 }: {
   job: Job;
   application?: Application;
@@ -1169,13 +1161,12 @@ function JobCard({
   isSubmittingImprovement: boolean;
   isRecheckingImprovement: boolean;
   improvementError?: string;
-  improvementParentVersionName?: string;
   onApproveImprovements: (
     jobId: string,
     gapAnalysisId: string,
     decisions: ImprovementDecisionInput[],
   ) => void;
-  onRetryRecheck: (jobId: string, improvementId: string) => void;
+  onRunRecheck: (jobId: string, improvementId: string) => void;
 }) {
   const visibleMatches = [
     ...(match?.must_have_matches ?? []),
@@ -1439,9 +1430,8 @@ function JobCard({
             isSubmitting={isSubmittingImprovement}
             isRechecking={isRecheckingImprovement}
             error={improvementError}
-            parentVersionName={improvementParentVersionName}
             onApprove={onApproveImprovements}
-            onRetryRecheck={onRetryRecheck}
+            onRunRecheck={onRunRecheck}
           />
 
           {/* MATCH DETAILS */}

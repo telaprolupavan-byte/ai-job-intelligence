@@ -65,6 +65,7 @@ function makeImprovement(
     parent_resume_version_id: "version-1",
     child_resume_version_id: "version-2",
     child_resume_version_name: "Improved 1",
+    parent_resume_version_name: "Original",
     engine_version: "1.0",
     approved_count: 1,
     skipped_count: 0,
@@ -135,7 +136,7 @@ function renderSection(props: Partial<
   React.ComponentProps<typeof ResumeImprovementSection>
 > = {}) {
   const onApprove = vi.fn();
-  const onRetryRecheck = vi.fn();
+  const onRunRecheck = vi.fn();
 
   render(
     <ResumeImprovementSection
@@ -143,12 +144,12 @@ function renderSection(props: Partial<
       isSubmitting={false}
       isRechecking={false}
       onApprove={onApprove}
-      onRetryRecheck={onRetryRecheck}
+      onRunRecheck={onRunRecheck}
       {...props}
     />,
   );
 
-  return { onApprove, onRetryRecheck };
+  return { onApprove, onRunRecheck };
 }
 
 function approve(requirementText: string) {
@@ -445,7 +446,7 @@ describe("ResumeImprovementSection", () => {
   });
 
   it("states the new version is safe when the recheck failed, and offers a retry", () => {
-    const { onRetryRecheck } = renderSection({
+    const { onRunRecheck } = renderSection({
       gapAnalysis: makeGapAnalysis([makeGap()]),
       result: makeImprovement({
         recheck_status: "failed",
@@ -467,7 +468,7 @@ describe("ResumeImprovementSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /retry recheck/i }));
 
-    expect(onRetryRecheck).toHaveBeenCalledWith("job-1", "improvement-1");
+    expect(onRunRecheck).toHaveBeenCalledWith("job-1", "improvement-1");
   });
 
   it("lets the user reopen the review list without losing the created version", () => {
@@ -507,7 +508,7 @@ describe("ResumeImprovementSection", () => {
         isSubmitting={false}
         isRechecking={false}
         onApprove={vi.fn()}
-        onRetryRecheck={vi.fn()}
+        onRunRecheck={vi.fn()}
       />,
     );
 
@@ -523,7 +524,7 @@ describe("ResumeImprovementSection", () => {
       gapAnalysis: makeGapAnalysis([makeGap()]),
       isRechecking: false,
       onApprove: vi.fn(),
-      onRetryRecheck: vi.fn(),
+      onRunRecheck: vi.fn(),
     };
 
     rerender(
@@ -547,7 +548,7 @@ describe("ResumeImprovementSection", () => {
       gapAnalysis: makeGapAnalysis([makeGap()]),
       isRechecking: false,
       onApprove: vi.fn(),
-      onRetryRecheck: vi.fn(),
+      onRunRecheck: vi.fn(),
     };
 
     const { rerender } = render(
@@ -685,7 +686,6 @@ describe("ResumeImprovementSection", () => {
     renderSection({
       gapAnalysis: makeGapAnalysis([makeGap()]),
       result: makeImprovement(),
-      parentVersionName: "Original",
     });
 
     expect(screen.getByText("Version history")).toBeInTheDocument();
@@ -736,7 +736,6 @@ describe("ResumeImprovementSection", () => {
     renderSection({
       gapAnalysis: makeGapAnalysis([makeGap()]),
       result: makeImprovement(),
-      parentVersionName: "Original",
     });
 
     expect(screen.getByText("What changed")).toBeInTheDocument();
@@ -807,6 +806,197 @@ describe("ResumeImprovementSection", () => {
     expect(
       screen.getByText(/Original resume version remains available in version history/i),
     ).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------
+  // Correction 1: the displayed delta must match the displayed scores
+  // -------------------------------------------------------------------
+
+  it("derives the shown delta from the rounded scores, not the raw value", () => {
+    const improvement = makeImprovement();
+    improvement.comparison = {
+      ...improvement.comparison!,
+      baseline_score: 16.66,
+      recheck_score: 33.32,
+      // The API's exact value; the badge must not show this.
+      score_delta: 16.66,
+    };
+
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: improvement,
+    });
+
+    // 17% -> 33% is +16, and that is what the user must see.
+    expect(screen.getByText("17%")).toBeInTheDocument();
+    expect(screen.getByText("33%")).toBeInTheDocument();
+    expect(screen.getByText("+16 ATS")).toBeInTheDocument();
+    expect(screen.queryByText(/16\.66/)).not.toBeInTheDocument();
+  });
+
+  it("shows a consistent negative delta when the score drops", () => {
+    const improvement = makeImprovement();
+    improvement.comparison = {
+      ...improvement.comparison!,
+      baseline_score: 70.4,
+      recheck_score: 64.5,
+      score_delta: -5.9,
+    };
+
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: improvement,
+    });
+
+    // 70% -> 65% is -5.
+    expect(screen.getByText("-5 ATS")).toBeInTheDocument();
+  });
+
+  it("shows no-change when the rounded scores are equal", () => {
+    const improvement = makeImprovement();
+    improvement.comparison = {
+      ...improvement.comparison!,
+      baseline_score: 61.2,
+      recheck_score: 61.4,
+      score_delta: 0.2,
+    };
+
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: improvement,
+    });
+
+    expect(screen.getByText("No ATS change")).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------
+  // Correction 2: version identity is dynamic, never hardcoded
+  // -------------------------------------------------------------------
+
+  it("renders the actual source and new version names from the record", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: makeImprovement({
+        parent_resume_version_name: "Senior SRE CV",
+        child_resume_version_name: "Improved 3",
+      }),
+    });
+
+    expect(
+      screen.getByText(/Improved 3 · based on Senior SRE CV/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Senior SRE CV")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Improved 3 · Approved improvement/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Based on Senior SRE CV · 1 approved change/),
+    ).toBeInTheDocument();
+
+    // No hardcoded Figma sample identities leak through.
+    expect(screen.queryByText(/\bv3\b/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\bv4\b/)).not.toBeInTheDocument();
+  });
+
+  it("describes the lineage without inventing a name when none is recorded", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: makeImprovement({ parent_resume_version_name: null }),
+    });
+
+    expect(
+      screen.getByText(/based on the source version/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Source version")).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------
+  // Correction 3: Run recheck is an explicit action
+  // -------------------------------------------------------------------
+
+  it("offers Run recheck — not a failure — for a freshly created version", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: makeImprovement({
+        recheck_status: "pending",
+        recheck_ats_alignment_id: null,
+        comparison: null,
+      }),
+    });
+
+    expect(
+      screen.getByText("New resume version created"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("What changed")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /run recheck/i }),
+    ).toBeInTheDocument();
+
+    // A version that has simply not been rechecked yet is not a failure.
+    expect(screen.queryByText("Recheck failed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recheck results")).not.toBeInTheDocument();
+  });
+
+  it("calls the recheck handler with the record id when Run recheck is clicked", () => {
+    const { onRunRecheck } = renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: makeImprovement({
+        recheck_status: "pending",
+        recheck_ats_alignment_id: null,
+        comparison: null,
+      }),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /run recheck/i }));
+
+    expect(onRunRecheck).toHaveBeenCalledWith("job-1", "improvement-1");
+    expect(onRunRecheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a recheck loading state while the recheck is running", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      isRechecking: true,
+      result: makeImprovement({
+        recheck_status: "pending",
+        recheck_ats_alignment_id: null,
+        comparison: null,
+      }),
+    });
+
+    expect(screen.getByText("Recheck in progress")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Rechecking your new version against this same job/i),
+    ).toBeInTheDocument();
+    // The trigger is replaced by the loading state, not duplicated.
+    expect(
+      screen.queryByRole("button", { name: /run recheck/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the created version visible in every recheck state", () => {
+    for (const result of [
+      makeImprovement({
+        recheck_status: "pending",
+        recheck_ats_alignment_id: null,
+        comparison: null,
+      }),
+      makeImprovement({
+        recheck_status: "failed",
+        recheck_error: "Temporarily unavailable.",
+        recheck_ats_alignment_id: null,
+        comparison: null,
+      }),
+      makeImprovement(),
+    ]) {
+      cleanup();
+      renderSection({ gapAnalysis: makeGapAnalysis([makeGap()]), result });
+
+      expect(
+        screen.getByText("New resume version created"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Version history")).toBeInTheDocument();
+    }
   });
 
   it("marks the current workflow step", () => {
