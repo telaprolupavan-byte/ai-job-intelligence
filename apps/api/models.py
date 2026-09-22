@@ -220,8 +220,38 @@ class ResumeVersion(Base):
         String(255),
     )
 
-    storage_path: Mapped[str] = mapped_column(
+    # Nullable since AJI-021: an uploaded version always has a stored
+    # file, but a version created from approved Resume Improvement
+    # suggestions is generated from its parent's text and has no source
+    # document on disk. `GET /resumes/versions/{id}/file` 404s for those
+    # rather than inventing a file. Existing rows are unaffected (the
+    # column is only widened).
+    storage_path: Mapped[str | None] = mapped_column(
         String(500),
+        nullable=True,
+    )
+
+    # AJI-021 lineage: the exact ResumeVersion this one was derived from.
+    # NULL for every uploaded version (including every row that existed
+    # before this column). A child version NEVER replaces or mutates its
+    # parent - the parent row, its text, its file, and its `is_master`
+    # flag are all left exactly as they were.
+    parent_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("resume_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # "upload" (the user uploaded a document) or "improvement" (generated
+    # by AJI-021 from user-approved, user-authored improvement content).
+    # Never inferred from `parent_version_id` being set, so provenance
+    # stays legible even if a parent row is later deleted.
+    source: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="upload",
+        server_default="upload",
     )
 
     is_master: Mapped[bool] = mapped_column(
@@ -1417,4 +1447,194 @@ class GapAnalysis(Base):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
+    )
+
+class ResumeImprovement(Base):
+    """One Resume Improvement Approval & Recheck record (AJI-021): the
+    user's explicit approve/skip decisions over an exact `GapAnalysis`
+    result, the child `ResumeVersion` those approvals produced, and the
+    recheck of that child version against the same job.
+
+    What this table is *not*: it is not a second Gap Analysis, not a
+    second ATS scoring path, and not a resume editor. Every gap it
+    references is read verbatim from `gap_analysis_id`'s stored result,
+    and both the baseline and the recheck are ordinary
+    `AtsAlignmentResult` rows produced by the existing, unmodified
+    `calculate_ats_alignment()` (see docs/ARCHITECTURE.md's AJI-021
+    section). No scoring formula is duplicated or changed here.
+
+    Safety invariants this row is the audit trail for:
+
+    - **Approval is mandatory.** A row only ever exists because the user
+      explicitly approved at least one suggestion; nothing is applied
+      automatically.
+    - **`ADD_IF_TRUE` required explicit truth confirmation.** Every
+      approved `ADD_IF_TRUE` decision in `result["decisions"]` carries
+      `truth_confirmed = true`; the service rejects the request
+      otherwise. `suggestion_type` is always read from the stored
+      `GapAnalysis` row, never from the request body, so a client cannot
+      relabel an `ADD_IF_TRUE` gap to dodge that check.
+    - **Nothing is fabricated.** `applied_text` on every approved
+      decision is the user's own text, verbatim. The system never
+      contributes a qualification, an achievement, or an evidence claim
+      of its own - see
+      apps/api/services/resume_improvement/engine.py.
+    - **The original is never overwritten.**
+      `parent_resume_version_id` is left completely untouched;
+      `child_resume_version_id` is a new, additional `ResumeVersion`
+      whose `parent_version_id` points back at it.
+
+    Uniqueness: `(user_id, gap_analysis_id, approval_fingerprint)` is
+    unique, so re-submitting the same approval set for the same Gap
+    Analysis returns the existing row instead of creating a second child
+    version - enforced in the database, not only in application code, so
+    two concurrent requests cannot both win.
+
+    Mutability: unlike the purely insert-only analysis artifacts, the
+    recheck fields (`recheck_status`, `recheck_error`,
+    `recheck_ats_alignment_id`) are refreshed by a retry of a failed
+    recheck. That transition is one-way: once
+    `recheck_ats_alignment_id` is set it is never re-pointed, and the
+    decisions, the fingerprint, and the child version are never
+    mutated at all. A failed recheck therefore never costs the user the
+    version they approved.
+    """
+
+    __tablename__ = "resume_improvements"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # The exact AJI-015 Gap Analysis result the user reviewed. Every
+    # approved decision must reference a requirement_id present in this
+    # row's stored gaps.
+    gap_analysis_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("gap_analyses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # The AJI-013 result the Gap Analysis itself was derived from - the
+    # "before" side of the comparison, so Compare never needs to
+    # recompute anything.
+    baseline_ats_alignment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ats_alignment_results.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    parent_resume_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("resume_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    child_resume_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("resume_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # SHA-256 over the canonicalized approved decision set plus the
+    # parent version and Gap Analysis identity - see
+    # apps/api/services/resume_improvement/engine.py::
+    # compute_approval_fingerprint.
+    approval_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    # Resume Improvement is purely deterministic (it assembles text the
+    # user wrote; it makes no AI call of its own), so it follows the
+    # single `engine_version` convention - like `JobMatchResult` and
+    # `AtsAlignmentResult`, not the analysis/analyzer/prompt split used
+    # by AI-derived artifacts.
+    engine_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    approved_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    skipped_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    # "complete" (the recheck ran and produced an AtsAlignmentResult) or
+    # "failed" (it did not). Never blocks or undoes the child version -
+    # see the class docstring's mutability note.
+    recheck_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="complete",
+    )
+
+    recheck_error: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    recheck_ats_alignment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ats_alignment_results.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # The full decision record plus the before/after comparison: see
+    # apps/api/services/resume_improvement/contracts.py::
+    # ResumeImprovementResult for the exact shape.
+    result: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "gap_analysis_id",
+            "approval_fingerprint",
+            name="uq_resume_improvement_user_gap_fingerprint",
+        ),
     )

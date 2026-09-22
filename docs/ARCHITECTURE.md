@@ -2311,3 +2311,231 @@ each `requirement_results` entry gains `hard_requirement`/`ambiguous`/
   row purely for lineage even though its content no longer drives
   scoring (see "Integration boundary" above) — a deliberate, disclosed
   minimal-blast-radius choice, not an oversight.
+
+## Resume Improvement Approval & Recheck (AJI-021)
+
+This is the stage that finally *acts* on everything the earlier
+artifacts produced, and it is the first one that writes to a user's
+resume library at all:
+
+| | Question it answers |
+|---|---|
+| ATS Alignment (AJI-013/020) | "How well does this exact resume demonstrate this exact JD?" |
+| Gap Analysis (AJI-015) | "Why is each unmet requirement a gap, and what could the candidate truthfully do about it?" |
+| **Resume Improvement (this section)** | **"Which of those suggestions did the user explicitly approve, what did applying them produce, and did the score actually move?"** |
+
+The full workflow: Analyze (ATS Alignment) → Review (Gap Analysis) →
+Approve/Skip (new) → Create New Resume Version (new) → Recheck (existing
+ATS engine, new version) → Compare (new).
+
+### Canonical sources (reused, never reimplemented)
+
+- **Which suggestions exist** comes entirely from an existing AJI-015
+  `GapAnalysis` row, read by id. Nothing here re-selects gaps, re-runs
+  `generate_gap_analysis()`, or calls a Gap Analysis AI provider. The
+  referenced row is never mutated.
+- **The baseline ("before") score** is the `AtsAlignmentResult` that Gap
+  Analysis row was already derived from
+  (`GapAnalysis.ats_alignment_id`). No "before" analysis is recomputed.
+- **The recheck ("after") score** is produced by calling the existing,
+  unmodified `calculate_ats_alignment()` with the *same* `job_id` and
+  the newly created child `resume_version_id`. Nothing under
+  `services/ats_alignment/` was touched by this ticket: the scoring
+  formula, `weights.SCORING_VERSION`, and `engine.ENGINE_VERSION` are
+  exactly what AJI-020 left them as. `tests/test_resume_improvement_
+  service.py::test_the_recheck_is_an_ordinary_ats_alignment_row` pins
+  that the baseline and the recheck share an engine version, a scoring
+  version, and a Requirement Intelligence snapshot — only the resume
+  version differs.
+- **Compare** is arithmetic over those two stored rows (subtractions and
+  a status-rank comparison). It has no score of its own and reads no
+  ATS weight or threshold.
+
+### There is no AI stage
+
+Unlike Gap Analysis, Resume Improvement makes no AI call at all. The
+only text it contributes to a resume is a fixed section heading and a
+`- ` bullet prefix; everything else is the user's own words. This is
+what makes "never fabricate qualifications or evidence" a structural
+property rather than a prompt instruction, so it follows the single
+`engine_version` convention (like `JobMatchResult`) rather than the
+analysis/analyzer/prompt/model split used by AI-derived artifacts.
+
+### The safety rules, and where each is actually enforced
+
+All of these live in
+`apps/api/services/resume_improvement/engine.py::validate_decisions`
+and are enforced server-side. The frontend mirrors them for ergonomics,
+but the frontend is never the guarantee.
+
+- **Approval is mandatory.** A submission with zero approvals is
+  rejected (`no_approvals`). Nothing is applied because a user merely
+  viewed a suggestion.
+- **`ADD_IF_TRUE` requires explicit truth confirmation.** An approved
+  `ADD_IF_TRUE` decision without `truth_confirmed = true` is rejected
+  (`truth_confirmation_required`). Critically, `suggestion_type` is read
+  from the *stored* `GapAnalysis` row, never from the request body —
+  and `ImprovementDecisionInput` is `extra="forbid"`, so a client that
+  tries to relabel an `ADD_IF_TRUE` gap as `REPHRASE_EXISTING` to escape
+  the check gets a 422 for the extra field instead.
+- **Nothing is fabricated.** Every approved decision must carry
+  non-empty `user_content`, and `build_improved_content` writes only
+  that text. The requirement text, the JD evidence, and the Gap Analysis
+  `suggestion_text`/`explanation` — the places an unverified claim could
+  otherwise come from — are never written into a resume version.
+- **The original is never overwritten.** The child's `content_text` is
+  the parent's text verbatim plus an appended block; the parent row is
+  read and never written (its text, file, name, and `is_master` flag are
+  untouched), and the child is always `is_master = False`, so approving
+  suggestions for one job never silently repoints the user's master
+  resume.
+- **Ownership is enforced server-side.** The Gap Analysis is looked up
+  filtered by `user_id` *and* `job_id`, and the parent `ResumeVersion`
+  is then re-verified through `Resume.user_id` rather than trusted
+  because a user-scoped row referenced it. Not-owned returns the same
+  404 as nonexistent, so existence is never leaked.
+
+### Why the appended block uses a recognized `experience` heading
+
+`apps/api/services/resume_ai/deterministic.py::detect_sections` only
+recognizes headings in its own alias table, and an *unrecognized*
+heading does not close the preceding section. Appending under a made-up
+heading would therefore let new content fall inside a trailing "Skills"
+section, where `analyze_skill_evidence` counts it as `skills_only` —
+which the ATS engine scores `partial` rather than `matched`. So
+`IMPROVEMENT_SECTION_HEADING` is deliberately an exact
+`SECTION_ALIASES["experience"]` alias, and a unit test pins that it
+stays one. This is a decision about *where text is placed*; it changes
+no scoring rule and modifies no file under `services/ats_alignment/`.
+
+Note the consequence: a resume that already has a "PROFESSIONAL
+EXPERIENCE" heading gets a second one. `detect_sections` handles that
+correctly (two section entries with the same name), but it is visible in
+the version's text. Extending `SECTION_ALIASES` to add a dedicated
+heading would be the cleaner fix and was deliberately not done here — it
+would change the deterministic analyzer that Resume Intelligence, Job
+Match, and ATS Structure & Parseability all read, which is a far wider
+blast radius than this ticket's scope.
+
+### Duplicate prevention
+
+`compute_approval_fingerprint` is a SHA-256 over the canonicalized
+approved decision set plus the Gap Analysis and parent version identity.
+Skipped decisions are excluded on purpose: skipping a suggestion and
+never seeing it produce the same resume, so two submissions approving
+the same content must collide even if the user toggled an unrelated
+suggestion in between — otherwise "prevent duplicate version creation"
+would be trivially defeated. Ordering is normalized too.
+
+`ResumeImprovement` then carries a `UniqueConstraint("user_id",
+"gap_analysis_id", "approval_fingerprint")`, so this is enforced in the
+database and not only in application code: two concurrent requests
+cannot both create a child version. The `IntegrityError` path rolls the
+child version back with the record (they are added in one transaction,
+so no orphan version is left behind) and returns the winner's record.
+
+A submission whose generated content would equal the parent's is
+rejected with `no_change` rather than creating a duplicate-content
+version.
+
+### Recheck ordering, and why a failed recheck costs nothing
+
+The child `ResumeVersion` and the `ResumeImprovement` row are committed
+**before** the recheck is attempted (`recheck_status = "pending"`). The
+recheck then runs as a separate step whose every failure path only
+writes `recheck_status`/`recheck_error` onto the already-durable row.
+`POST /jobs/{job_id}/resume-improvement/{id}/recheck` retries it without
+creating a version or re-applying decisions.
+
+One non-obvious detail: the recheck attempt runs inside an explicit
+`SAVEPOINT`, and a failure rolls back *that savepoint* rather than
+calling `Session.rollback()`. `Session.rollback()` unwinds the
+outermost session transaction, which in any caller that has joined the
+session to an enclosing transaction would discard the just-committed
+child version along with the failed attempt's leftovers — exactly the
+outcome this rule forbids. This was caught by
+`tests/test_resume_improvement_service.py::
+test_the_new_version_survives_a_failed_recheck`.
+
+`recheck_error` surfaces `ATSAlignmentServiceError` text (the same
+user-facing strings the ATS endpoints already return) and replaces
+anything else with a generic message, so an unexpected internal failure
+is logged but never echoed to the client.
+
+### Mutability (a documented deviation)
+
+Unlike the strictly insert-only analysis artifacts, `ResumeImprovement`'s
+recheck fields are updated by a retry. The transition is one-way: once
+`recheck_ats_alignment_id` is set it is never re-pointed (so a
+comparison the user was shown cannot silently change underneath them),
+and the decisions, the fingerprint, and the child version are never
+mutated at all.
+
+### Schema changes to existing tables
+
+- `resume_versions.parent_version_id` (nullable self-FK) and
+  `resume_versions.source` (`"upload"`/`"improvement"`, defaulted) are
+  additive; every pre-existing row keeps its exact current meaning.
+  `source` is stored rather than inferred from `parent_version_id` so
+  provenance survives a parent being deleted.
+- `resume_versions.storage_path` was widened to nullable. An uploaded
+  version always has a stored file; a generated version has no source
+  document on disk. `GET /resumes/versions/{id}/file` 404s explicitly
+  for those rather than serving the parent's file under a child's name —
+  that file's contents are not the child's text.
+
+### API
+
+- `GET /jobs/{job_id}/resume-improvement` — the user's newest record,
+  never applying anything, never calling the ATS engine. Accepts the
+  same optional `resume_version_id` parameter as `/ats` and
+  `/gap-analysis` (here it pins the *parent* version).
+- `POST /jobs/{job_id}/resume-improvement` — approve, create, recheck.
+  Idempotent per approval fingerprint. A failed recheck is a 200 with
+  `recheck_status: "failed"`, because the version was created and kept.
+- `POST /jobs/{job_id}/resume-improvement/{id}/recheck` — retry a failed
+  recheck.
+
+This feature's own errors return `detail: {code, message}` rather than a
+bare string, so the UI can distinguish "you still need to confirm this
+is true" from a transport failure without matching on prose. The
+existing endpoints' `detail` shape is unchanged.
+
+### Frontend
+
+`apps/web/components/app/resume-improvement-section.tsx` renders the
+approve/skip review list, the truth-confirmation gate, the blocked-state
+reasons, the progress state, the before/after comparison, and the
+"your version was saved, only the recheck failed" state. The content box
+is deliberately **not** pre-filled with the Gap Analysis suggestion —
+pre-filling it would make the system the author of resume content, which
+is the exact thing this ticket forbids. `resume_evidence` is shown as
+read-only context instead; it is the analyzer's description of the
+resume ("Resume lists X in a skills section…"), not verbatim resume
+text, so it would be wrong to insert either.
+
+A negative `score_delta` renders as a regression badge rather than being
+hidden. The recheck runs the same unmodified engine over a longer
+resume, and the honest answer is whatever it returns.
+
+### Testing
+
+`tests/test_resume_improvement_engine.py` unit-tests the pure engine
+with no database: each safety rule, that the generated block contains
+only user text plus the fixed heading, that the parent's text survives
+verbatim, fingerprint stability/sensitivity, and — importantly — that
+appended content is still scored as *demonstrated* evidence when the
+parent resume ends with a Skills section.
+`tests/test_resume_improvement_service.py` covers the DB-level
+guarantees: the original is never modified, the parent/child link is
+real, duplicate approvals never create a second version (including at
+the database constraint), a rejected submission creates no version at
+all, ownership, and that a failed recheck preserves the version and can
+be retried.
+`tests/test_jobs_resume_improvement_api.py` covers the HTTP surface:
+auth, 404s, the full approve→create→recheck→compare flow, that a
+client-supplied `suggestion_type` or `applied_text` is rejected
+outright, user isolation (including that another user's resume content
+never leaks), and that the public `/jobs` listing never exposes any of
+it. All pre-existing ATS Alignment, Gap Analysis, Job Intelligence, and
+Job Match tests pass unchanged.

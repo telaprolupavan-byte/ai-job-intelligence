@@ -385,6 +385,13 @@ def list_resume_versions(
             is_master=version.is_master,
             has_analysis=version.id in analyzed_version_ids,
             created_at=version.created_at.isoformat(),
+            parent_version_id=(
+                str(version.parent_version_id)
+                if version.parent_version_id
+                else None
+            ),
+            source=version.source,
+            has_file=version.storage_path is not None,
         )
         for version in sorted(
             resume.versions,
@@ -416,6 +423,20 @@ def get_resume_version_file(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Resume version not found.",
+        )
+
+    # A version generated from approved improvements (AJI-021) has no
+    # uploaded source document. Serving its parent's file under this
+    # version's name would hand the user a document whose contents are
+    # not this version's text, so it 404s with an explicit reason
+    # instead.
+    if version.storage_path is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "This resume version was generated from approved "
+                "improvements and has no uploaded file."
+            ),
         )
 
     file_path = resolve_stored_file(version.storage_path)

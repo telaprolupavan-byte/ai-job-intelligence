@@ -151,6 +151,14 @@ class ResumeVersionResponse(BaseModel):
     has_analysis: bool
     created_at: str
 
+    # AJI-021 lineage. `parent_version_id` is None for every uploaded
+    # version; `source` is "upload" or "improvement"; `has_file` is False
+    # for a version generated from approved improvements, which has no
+    # uploaded document to download.
+    parent_version_id: str | None = None
+    source: str = "upload"
+    has_file: bool = True
+
 
 class ResumeUploadResponse(BaseModel):
     id: str

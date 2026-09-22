@@ -542,3 +542,221 @@ export async function calculateGapAnalysis(
 
   return data as GapAnalysisResult;
 }
+
+// ---------------------------------------------------------------------------
+// Resume Improvement Approval & Recheck (AJI-021)
+// ---------------------------------------------------------------------------
+
+export type ImprovementDecisionAction = "approve" | "skip";
+
+/**
+ * One submitted decision. There is deliberately no `suggestion_type` or
+ * `applied_text` field: the backend reads the suggestion type from the
+ * stored Gap Analysis row and writes only `user_content`, and rejects a
+ * request carrying either field outright.
+ */
+export type ImprovementDecisionInput = {
+  requirement_id: string;
+  action: ImprovementDecisionAction;
+  truth_confirmed?: boolean;
+  user_content?: string | null;
+};
+
+export type ImprovementDecisionRecord = {
+  requirement_id: string;
+  requirement_text: string;
+  category: AtsRequirementCategory;
+  suggestion_type: GapSuggestionType;
+  action: ImprovementDecisionAction;
+  truth_confirmed: boolean;
+  applied_text: string | null;
+  content_source: "user" | "none";
+};
+
+export type RequirementTransitionDirection =
+  | "improved"
+  | "unchanged"
+  | "regressed"
+  | "added"
+  | "removed";
+
+export type RequirementTransition = {
+  requirement_id: string;
+  requirement_text: string;
+  category: AtsRequirementCategory;
+  before_status: AtsAlignmentStatus | null;
+  after_status: AtsAlignmentStatus | null;
+  direction: RequirementTransitionDirection;
+  was_approved: boolean;
+};
+
+export type ImprovementComparison = {
+  baseline_ats_alignment_id: string;
+  baseline_resume_version_id: string;
+  baseline_score: number;
+  baseline_must_have_matched: number;
+  baseline_must_have_total: number;
+  baseline_preferred_matched: number;
+  baseline_preferred_total: number;
+  recheck_ats_alignment_id: string;
+  recheck_resume_version_id: string;
+  recheck_score: number;
+  recheck_must_have_matched: number;
+  recheck_must_have_total: number;
+  recheck_preferred_matched: number;
+  recheck_preferred_total: number;
+  score_delta: number;
+  must_have_delta: number;
+  preferred_delta: number;
+  improved_count: number;
+  unchanged_count: number;
+  regressed_count: number;
+  transitions: RequirementTransition[];
+};
+
+export type ResumeImprovementResult = {
+  id: string;
+  job_id: string;
+  gap_analysis_id: string;
+  baseline_ats_alignment_id: string;
+  parent_resume_version_id: string;
+  child_resume_version_id: string;
+  child_resume_version_name: string;
+  /** The source version's real name, recorded server-side at creation.
+   *  Null only for records written before this field existed. */
+  parent_resume_version_name: string | null;
+  engine_version: string;
+  approved_count: number;
+  skipped_count: number;
+  recheck_status: "pending" | "complete" | "failed";
+  recheck_error: string | null;
+  recheck_ats_alignment_id: string | null;
+  decisions: ImprovementDecisionRecord[];
+  // null whenever the recheck has not produced a result - the created
+  // version is still reported in full, because a failed recheck never
+  // costs the user the version they approved.
+  comparison: ImprovementComparison | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * The backend returns `{ code, message }` for this feature's own errors
+ * so the UI can distinguish "you still need to confirm this is true"
+ * from a transport failure without matching on prose.
+ */
+export class ResumeImprovementError extends Error {
+  code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "ResumeImprovementError";
+    this.code = code;
+  }
+}
+
+function toImprovementError(data: unknown, fallback: string): Error {
+  const detail = (data as { detail?: unknown } | null)?.detail;
+
+  if (detail && typeof detail === "object" && "message" in detail) {
+    const { message, code } = detail as { message?: string; code?: string };
+    return new ResumeImprovementError(message || fallback, code || "error");
+  }
+
+  if (typeof detail === "string") {
+    return new ResumeImprovementError(detail, "error");
+  }
+
+  return new ResumeImprovementError(fallback, "error");
+}
+
+export async function getResumeImprovement(
+  jobId: string,
+  resumeVersionId?: string,
+): Promise<ResumeImprovementResult> {
+  const searchParams = new URLSearchParams();
+  if (resumeVersionId) {
+    searchParams.set("resume_version_id", resumeVersionId);
+  }
+  const query = searchParams.toString();
+
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/resume-improvement${query ? `?${query}` : ""}`,
+    {
+      headers: authHeaders(),
+      cache: "no-store",
+    },
+  );
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw toImprovementError(data, "Unable to load your approved improvements.");
+  }
+
+  return data as ResumeImprovementResult;
+}
+
+export async function createResumeImprovement(
+  jobId: string,
+  gapAnalysisId: string,
+  decisions: ImprovementDecisionInput[],
+): Promise<ResumeImprovementResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/resume-improvement`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({
+        gap_analysis_id: gapAnalysisId,
+        decisions,
+      }),
+      cache: "no-store",
+    },
+  );
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw toImprovementError(
+      data,
+      "Unable to apply your approved improvements.",
+    );
+  }
+
+  return data as ResumeImprovementResult;
+}
+
+/**
+ * Runs the recheck for an existing improvement record. This is both the
+ * initial "Run recheck" action after a version is created and the retry
+ * after a failure — the backend treats them identically, because the
+ * version and the approvals are already durable in both cases.
+ */
+export async function runResumeImprovementRecheck(
+  jobId: string,
+  improvementId: string,
+): Promise<ResumeImprovementResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/resume-improvement/${improvementId}/recheck`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw toImprovementError(data, "Unable to recheck your new version.");
+  }
+
+  return data as ResumeImprovementResult;
+}
