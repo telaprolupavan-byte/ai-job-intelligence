@@ -356,8 +356,13 @@ describe("ResumeImprovementSection", () => {
       isSubmitting: true,
     });
 
+    // Figma 09.1 "APPROVAL IN PROGRESS" card.
+    expect(screen.getByText("Approval in progress")).toBeInTheDocument();
     expect(
-      screen.getByText(/creating your new version and rechecking/i),
+      screen.getByText("Applying approved improvement…"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Original resume remains unchanged."),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /create new version/i }),
@@ -447,10 +452,12 @@ describe("ResumeImprovementSection", () => {
     });
 
     expect(screen.getByText("Improved 1 created")).toBeInTheDocument();
-    expect(screen.getByText("Recheck didn't finish")).toBeInTheDocument();
+    // Figma 09.1 "RECHECK FAILED" card leads with what was preserved.
+    expect(screen.getByText("Recheck failed")).toBeInTheDocument();
     expect(
-      screen.getByText(/your new version was saved and is safe/i),
+      screen.getByText("Your new resume version was preserved"),
     ).toBeInTheDocument();
+    expect(screen.getByText(/no changes were lost/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /retry recheck/i }));
 
@@ -630,6 +637,54 @@ describe("ResumeImprovementSection", () => {
         user_content: "Wrote reporting SQL against a 2TB warehouse.",
       },
     ]);
+  });
+
+  it("labels an ADD_IF_TRUE card with the raw token and the Figma confirmation copy", () => {
+    renderSection({ gapAnalysis: makeGapAnalysis([makeGap()]) });
+
+    expect(screen.getByText("ADD IF TRUE")).toBeInTheDocument();
+
+    approve("Kubernetes");
+
+    expect(
+      screen.getByText("Confirm this is true for your experience"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/NERO found no supporting evidence in the selected resume/i),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("I confirm this is true")).toBeInTheDocument();
+  });
+
+  it("labels a rephrase card with the REPHRASE_EXISTING token", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([
+        makeGap({
+          status: "partial",
+          suggestion_type: "REPHRASE_EXISTING",
+          resume_evidence: "Resume lists Kubernetes in a skills section.",
+        }),
+      ]),
+    });
+
+    expect(screen.getByText("REPHRASE_EXISTING")).toBeInTheDocument();
+  });
+
+  it("renders the Figma version-history relationship after a successful cycle", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: makeImprovement(),
+      parentVersionName: "Original",
+    });
+
+    expect(screen.getByText("Version history")).toBeInTheDocument();
+    expect(screen.getByText("Unchanged and recoverable")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Improved 1 · Approved improvement/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Based on Original · 1 approved change/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Recheck uses the same job")).toBeInTheDocument();
   });
 
   it("marks the current workflow step", () => {

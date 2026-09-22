@@ -45,6 +45,10 @@ type ResumeImprovementSectionProps = {
   isSubmitting: boolean;
   isRechecking: boolean;
   error?: string;
+  /** Display name of the parent version, for the Figma 09.1 version
+   *  history block. Resolved by the caller from the resume-version list
+   *  it already loads, so this needs no extra API field. */
+  parentVersionName?: string;
   onApprove: (
     jobId: string,
     gapAnalysisId: string,
@@ -72,6 +76,7 @@ export default function ResumeImprovementSection({
   isSubmitting,
   isRechecking,
   error,
+  parentVersionName,
   onApprove,
   onRetryRecheck,
 }: ResumeImprovementSectionProps) {
@@ -250,6 +255,7 @@ export default function ResumeImprovementSection({
         <CompareView
           jobId={jobId}
           result={result}
+          parentVersionName={parentVersionName}
           isRechecking={isRechecking}
           onRetryRecheck={onRetryRecheck}
           onReviewMore={() => setIsReviewing(true)}
@@ -341,13 +347,20 @@ function SuggestionDecisionCard({
         isApproved ? "border-app-blue bg-app-blue-soft/30" : "border-app-border"
       }`}
     >
+      {/* Figma 09.1 labels each review card with the raw suggestion-type
+          token (`ADD IF TRUE` in amber, `REPHRASE_EXISTING` in green)
+          rather than the humanized form used by the Gap Analysis card
+          above — the token is what the approval rules key off, so it is
+          shown verbatim. */}
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={`font-mono text-[9px] font-semibold uppercase tracking-[0.12em] ${
-            gap.status === "partial" ? "text-app-blue" : "text-app-red"
+            needsTruth ? "text-app-amber" : "text-app-success"
           }`}
         >
-          {gap.status === "partial" ? "Improve" : "Missing"}
+          {gap.suggestion_type
+            ? gap.suggestion_type.replace(/_/g, needsTruth ? " " : "_")
+            : "SUGGESTION"}
         </span>
         {gap.category === "must_have" && (
           <span className="font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
@@ -421,11 +434,23 @@ function SuggestionDecisionCard({
             for you.
           </p>
 
+          {/* Figma 09.1, "ADD IF TRUE" card: a titled confirmation block
+              stating that no supporting evidence was found, then a short
+              "I confirm this is true" checkbox. */}
           {needsTruth && (
             <div className="mt-3 rounded-lg border border-app-amber/40 bg-app-amber-soft/40 p-3">
+              <p className="break-words text-xs font-semibold text-app-text">
+                Confirm this is true for your experience
+              </p>
+              <p className="mt-1 break-words text-[11px] leading-5 text-app-body">
+                NERO found no supporting evidence in the selected resume.
+                Only continue if you genuinely used {title} in the way you
+                describe above.
+              </p>
+
               <label
                 htmlFor={confirmId}
-                className="flex cursor-pointer items-start gap-2"
+                className="mt-3 flex cursor-pointer items-start gap-2"
               >
                 <input
                   id={confirmId}
@@ -437,17 +462,9 @@ function SuggestionDecisionCard({
                   className="app-focus-ring mt-0.5 h-4 w-4 shrink-0 accent-app-blue"
                 />
                 <span className="min-w-0 text-[11px] leading-5 text-app-body">
-                  I confirm this is accurate and true of my own
-                  experience.
+                  I confirm this is true
                 </span>
               </label>
-
-              {!decision.truthConfirmed && (
-                <p className="mt-2 text-[10px] leading-4 text-app-amber">
-                  Your resume has no evidence for this yet, so it can only
-                  be added once you confirm it.
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -546,12 +563,14 @@ function ApprovalFooter({
 function CompareView({
   jobId,
   result,
+  parentVersionName,
   isRechecking,
   onRetryRecheck,
   onReviewMore,
 }: {
   jobId: string;
   result: ResumeImprovementResult;
+  parentVersionName?: string;
   isRechecking: boolean;
   onRetryRecheck: (jobId: string, improvementId: string) => void;
   onReviewMore: () => void;
@@ -577,15 +596,25 @@ function CompareView({
           role="status"
           className="mt-3 rounded-lg border border-app-danger-border bg-app-danger-bg p-4"
         >
+          {/* Figma 09.1, "RECHECK FAILED" card: the headline leads with
+              what was preserved, not with the failure, so the user's
+              first read is that nothing was lost. */}
           <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-red">
-            Recheck didn&apos;t finish
+            Recheck failed
           </div>
-          <p className="mt-2 break-words text-xs leading-5 text-app-danger-text">
-            {result.recheck_error ||
-              "The recheck against this job didn't complete."}{" "}
-            Your new version was saved and is safe — only the comparison
-            is missing.
+          <p className="mt-1 break-words text-sm font-semibold text-app-text">
+            Your new resume version was preserved
           </p>
+          <p className="mt-2 break-words text-xs leading-5 text-app-danger-text">
+            The recheck could not complete against the same job. No
+            changes were lost. You can retry the recheck without
+            re-approving anything.
+          </p>
+          {result.recheck_error && (
+            <p className="mt-2 break-words text-[11px] leading-5 text-app-danger-text">
+              {result.recheck_error}
+            </p>
+          )}
           <div className="mt-3">
             <AppButton
               variant="secondary"
@@ -651,10 +680,66 @@ function CompareView({
         </>
       )}
 
+      <VersionHistory result={result} parentVersionName={parentVersionName} />
+
       <div className="mt-4">
         <AppButton variant="ghost" size="sm" onClick={onReviewMore}>
           Review suggestions again
         </AppButton>
+      </div>
+    </div>
+  );
+}
+
+// Figma 09.1, "Version history": the parent/child relationship shown as
+// two cards joined by an arrow — the original labelled as unchanged and
+// recoverable, the child labelled with what it was based on, how many
+// approved changes it carries, and that the recheck used the same job.
+function VersionHistory({
+  result,
+  parentVersionName,
+}: {
+  result: ResumeImprovementResult;
+  parentVersionName?: string;
+}) {
+  const parentLabel = parentVersionName ?? "Original";
+
+  return (
+    <div className="mt-4">
+      <h4 className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+        Version history
+      </h4>
+
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+        <div className="min-w-0 flex-1 rounded-lg border border-app-border p-3">
+          <p className="break-words text-xs font-semibold text-app-text">
+            {parentLabel}
+          </p>
+          <p className="mt-1 break-words text-[11px] leading-5 text-app-faint">
+            Unchanged and recoverable
+          </p>
+        </div>
+
+        <div
+          aria-hidden="true"
+          className="flex shrink-0 items-center justify-center text-app-success sm:px-1"
+        >
+          <span className="hidden sm:inline">&rarr;</span>
+          <span className="sm:hidden">&darr;</span>
+        </div>
+
+        <div className="min-w-0 flex-1 rounded-lg border border-app-blue p-3">
+          <p className="break-words text-xs font-semibold text-app-text">
+            {result.child_resume_version_name} &middot; Approved improvement
+          </p>
+          <p className="mt-1 break-words text-[11px] leading-5 text-app-faint">
+            Based on {parentLabel} &middot; {result.approved_count} approved{" "}
+            {result.approved_count === 1 ? "change" : "changes"}
+          </p>
+          <p className="mt-1 break-words text-[11px] leading-5 text-app-faint">
+            Recheck uses the same job
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -761,12 +846,28 @@ function TransitionRow({ transition }: { transition: RequirementTransition }) {
 // Shared states
 // ---------------------------------------------------------------------------
 
+// Figma 09.1, "APPROVAL IN PROGRESS" card: the status label, the
+// "Applying approved improvement…" headline, and — emphasised — the
+// reassurance that the original is untouched while the write happens.
 function SubmittingState() {
   return (
     <div aria-live="polite" className="mt-4">
-      <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-        Creating your new version and rechecking this job…
-      </p>
+      <div className="rounded-lg border border-app-border p-4">
+        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-success">
+          Approval in progress
+        </div>
+        <p className="mt-1 break-words text-sm font-semibold text-app-text">
+          Applying approved improvement…
+        </p>
+        <p className="mt-2 break-words text-xs leading-5 text-app-faint">
+          NERO is creating a new resume version from the suggestions you
+          approved, then rechecking it against this job.
+        </p>
+        <p className="mt-2 break-words text-xs font-semibold leading-5 text-app-text">
+          Original resume remains unchanged.
+        </p>
+      </div>
+
       <div className="mt-3 space-y-3">
         {Array.from({ length: 2 }).map((_, index) => (
           <div key={index} className="rounded-lg border border-app-border p-4">

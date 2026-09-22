@@ -888,6 +888,13 @@ function JobsPageInner() {
                   improvementRecheckingIds[job.id],
                 )}
                 improvementError={improvementErrors[job.id]}
+                improvementParentVersionName={
+                  resumeVersionState.options.find(
+                    (option) =>
+                      option.id ===
+                      improvements[job.id]?.parent_resume_version_id,
+                  )?.versionName
+                }
                 onApproveImprovements={handleApproveImprovements}
                 onRetryRecheck={handleRetryRecheck}
               />
@@ -1131,6 +1138,7 @@ function JobCard({
   isSubmittingImprovement,
   isRecheckingImprovement,
   improvementError,
+  improvementParentVersionName,
   onApproveImprovements,
   onRetryRecheck,
 }: {
@@ -1161,6 +1169,7 @@ function JobCard({
   isSubmittingImprovement: boolean;
   isRecheckingImprovement: boolean;
   improvementError?: string;
+  improvementParentVersionName?: string;
   onApproveImprovements: (
     jobId: string,
     gapAnalysisId: string,
@@ -1430,6 +1439,7 @@ function JobCard({
             isSubmitting={isSubmittingImprovement}
             isRechecking={isRecheckingImprovement}
             error={improvementError}
+            parentVersionName={improvementParentVersionName}
             onApprove={onApproveImprovements}
             onRetryRecheck={onRetryRecheck}
           />
