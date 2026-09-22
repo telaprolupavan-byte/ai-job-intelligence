@@ -397,7 +397,9 @@ describe("ResumeImprovementSection", () => {
       result: makeImprovement(),
     });
 
-    expect(screen.getByText("Improved 1 created")).toBeInTheDocument();
+    expect(
+      screen.getByText("New resume version created"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Before")).toBeInTheDocument();
     // Rendered with the `%` unit, matching the approved ATS Alignment
     // card that shows the same value on this page.
@@ -406,6 +408,8 @@ describe("ResumeImprovementSection", () => {
     expect(screen.getByText("78%")).toBeInTheDocument();
     expect(screen.getByText("+17 ATS")).toBeInTheDocument();
     expect(screen.getByText("1 improved")).toBeInTheDocument();
+    expect(screen.getByText("1 remained")).toBeInTheDocument();
+    expect(screen.getByText("Recheck results")).toBeInTheDocument();
     expect(screen.getByText("missing → matched")).toBeInTheDocument();
   });
 
@@ -451,7 +455,9 @@ describe("ResumeImprovementSection", () => {
       }),
     });
 
-    expect(screen.getByText("Improved 1 created")).toBeInTheDocument();
+    expect(
+      screen.getByText("New resume version created"),
+    ).toBeInTheDocument();
     // Figma 09.1 "RECHECK FAILED" card leads with what was preserved.
     expect(screen.getByText("Recheck failed")).toBeInTheDocument();
     expect(
@@ -485,7 +491,9 @@ describe("ResumeImprovementSection", () => {
       screen.getByRole("button", { name: /back to comparison/i }),
     );
 
-    expect(screen.getByText("Improved 1 created")).toBeInTheDocument();
+    expect(
+      screen.getByText("New resume version created"),
+    ).toBeInTheDocument();
   });
 
   it("returns to the comparison once a resubmission from the review list finishes", () => {
@@ -527,7 +535,9 @@ describe("ResumeImprovementSection", () => {
       <ResumeImprovementSection {...props} result={result} isSubmitting={false} />,
     );
 
-    expect(screen.getByText("Improved 1 created")).toBeInTheDocument();
+    expect(
+      screen.getByText("New resume version created"),
+    ).toBeInTheDocument();
   });
 
   it("stays on the review list when a resubmission fails, keeping the notes", () => {
@@ -578,7 +588,9 @@ describe("ResumeImprovementSection", () => {
       }),
     ).not.toThrow();
 
-    expect(screen.getByText("Improved 1 created")).toBeInTheDocument();
+    expect(
+      screen.getByText("New resume version created"),
+    ).toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------
@@ -642,7 +654,7 @@ describe("ResumeImprovementSection", () => {
   it("labels an ADD_IF_TRUE card with the raw token and the Figma confirmation copy", () => {
     renderSection({ gapAnalysis: makeGapAnalysis([makeGap()]) });
 
-    expect(screen.getByText("ADD IF TRUE")).toBeInTheDocument();
+    expect(screen.getByText("ADD_IF_TRUE")).toBeInTheDocument();
 
     approve("Kubernetes");
 
@@ -685,6 +697,116 @@ describe("ResumeImprovementSection", () => {
       screen.getByText(/Based on Original · 1 approved change/),
     ).toBeInTheDocument();
     expect(screen.getByText("Recheck uses the same job")).toBeInTheDocument();
+  });
+
+  it("renders the Figma 09 review header, count badge and safety blocks", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap(), makeGap({ requirement_id: "req-2" })]),
+    });
+
+    expect(
+      screen.getByText("Review NERO's improvement suggestions"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 suggestions")).toBeInTheDocument();
+    expect(screen.getByText("Review before apply")).toBeInTheDocument();
+    expect(screen.getByText("Safety and evidence")).toBeInTheDocument();
+    expect(screen.getByText("NERO safety rule")).toBeInTheDocument();
+    expect(
+      screen.getByText(/never invent skills, experience, credentials, employers, metrics, or education/i),
+    ).toBeInTheDocument();
+  });
+
+  it("gives Approve primary weight and Skip secondary weight", () => {
+    renderSection({ gapAnalysis: makeGapAnalysis([makeGap()]) });
+
+    const group = screen.getByRole("group", { name: "Decision for Kubernetes" });
+    const approveButton = within(group).getByRole("button", { name: "Approve" });
+    const skipButton = within(group).getByRole("button", { name: "Skip" });
+
+    // Skip is the default choice, but only Approve ever takes the
+    // filled blue treatment — the consequential action stays dominant.
+    expect(approveButton.className).toContain("border-app-blue");
+    expect(skipButton.className).not.toContain("bg-app-blue");
+
+    fireEvent.click(approveButton);
+    expect(approveButton.className).toContain("bg-app-blue");
+  });
+
+  it("lists WHAT CHANGED from the user's own approved wording", () => {
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: makeImprovement(),
+      parentVersionName: "Original",
+    });
+
+    expect(screen.getByText("What changed")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Operated Kubernetes clusters at Acme\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Improved 1 · based on Original · 1 approved improvement applied/),
+    ).toBeInTheDocument();
+  });
+
+  it("uses the Figma 09 recheck-results vocabulary", () => {
+    const improvement = makeImprovement();
+    improvement.comparison = {
+      ...improvement.comparison!,
+      transitions: [
+        {
+          requirement_id: "a",
+          requirement_text: "Cloud platform evidence",
+          category: "must_have",
+          before_status: "partial",
+          after_status: "matched",
+          direction: "improved",
+          was_approved: true,
+        },
+        {
+          requirement_id: "b",
+          requirement_text: "Kubernetes",
+          category: "must_have",
+          before_status: "missing",
+          after_status: "missing",
+          direction: "unchanged",
+          was_approved: false,
+        },
+        {
+          requirement_id: "c",
+          requirement_text: "Exact keyword coverage",
+          category: "preferred",
+          before_status: null,
+          after_status: "partial",
+          direction: "added",
+          was_approved: false,
+        },
+        {
+          requirement_id: "d",
+          requirement_text: "Legacy requirement",
+          category: "preferred",
+          before_status: "matched",
+          after_status: null,
+          direction: "removed",
+          was_approved: false,
+        },
+      ],
+    };
+
+    renderSection({
+      gapAnalysis: makeGapAnalysis([makeGap()]),
+      result: improvement,
+    });
+
+    expect(screen.getByText("Improved")).toBeInTheDocument();
+    expect(screen.getByText("Remained")).toBeInTheDocument();
+    expect(screen.getByText("Not determined")).toBeInTheDocument();
+    expect(screen.getByText("Disappeared")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Same job · new resume version · compare before vs after/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Original resume version remains available in version history/i),
+    ).toBeInTheDocument();
   });
 
   it("marks the current workflow step", () => {

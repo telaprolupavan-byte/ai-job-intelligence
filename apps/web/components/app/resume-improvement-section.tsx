@@ -198,20 +198,33 @@ export default function ResumeImprovementSection({
           >
             Resume Improvement
           </h3>
+          {/* Figma 09 panel header. */}
+          <p className="mt-1 break-words text-sm font-semibold text-app-text">
+            Review NERO&apos;s improvement suggestions
+          </p>
           <p className="mt-1 text-xs leading-5 text-app-faint">
-            Approve the suggestions you want, and NERO builds a new
-            version and rechecks it against this job.
+            Approve or skip evidence-backed improvements. NERO only
+            applies changes you approve.
           </p>
         </div>
 
-        {result && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Badge tone="neutral-soft">{result.child_resume_version_name}</Badge>
-            {result.recheck_status === "complete" && result.comparison && (
-              <ScoreDeltaBadge delta={result.comparison.score_delta} />
-            )}
-          </div>
-        )}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {gaps.length > 0 && !showCompare && (
+            <Badge tone="blue-soft">
+              {gaps.length} {gaps.length === 1 ? "suggestion" : "suggestions"}
+            </Badge>
+          )}
+          {result && (
+            <>
+              <Badge tone="neutral-soft">
+                {result.child_resume_version_name}
+              </Badge>
+              {result.recheck_status === "complete" && result.comparison && (
+                <ScoreDeltaBadge delta={result.comparison.score_delta} />
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       <StepTrail
@@ -226,11 +239,14 @@ export default function ResumeImprovementSection({
         }
       />
 
+      {/* Figma 09: "Review before apply" callout, above the suggestions. */}
       <div className="mt-3 rounded-md border border-app-border px-3 py-2">
-        <p className="text-[11px] leading-5 text-app-faint">
-          NERO never edits your resume on its own and never writes content
-          for you. Your original version is always kept — approving
-          creates a new version alongside it.
+        <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
+          Review before apply
+        </p>
+        <p className="mt-1 break-words text-[11px] leading-5 text-app-faint">
+          Approve only changes you want NERO to apply. ADD IF TRUE
+          requires explicit confirmation.
         </p>
       </div>
 
@@ -308,6 +324,31 @@ export default function ResumeImprovementSection({
             ))}
           </ul>
 
+          {/* Figma 09: the two safety blocks sit between the suggestion
+              list and the approval action. */}
+          <div className="mt-4 rounded-lg border border-app-blue p-4">
+            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
+              Safety and evidence
+            </p>
+            <p className="mt-1 break-words text-xs leading-5 text-app-body">
+              NERO creates a new version only from approved,
+              evidence-backed changes. Your original resume remains
+              unchanged.
+            </p>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-app-border bg-app-panel p-4">
+            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+              NERO safety rule
+            </p>
+            <p className="mt-1 break-words text-[11px] leading-5 text-app-faint">
+              NERO may only apply approved evidence-backed changes. ADD IF
+              TRUE requires explicit user confirmation. It must never
+              invent skills, experience, credentials, employers, metrics,
+              or education.
+            </p>
+          </div>
+
           <ApprovalFooter
             approvedCount={approvedGaps.length}
             skippedCount={gaps.length - approvedGaps.length}
@@ -347,20 +388,15 @@ function SuggestionDecisionCard({
         isApproved ? "border-app-blue bg-app-blue-soft/30" : "border-app-border"
       }`}
     >
-      {/* Figma 09.1 labels each review card with the raw suggestion-type
-          token (`ADD IF TRUE` in amber, `REPHRASE_EXISTING` in green)
-          rather than the humanized form used by the Gap Analysis card
-          above — the token is what the approval rules key off, so it is
-          shown verbatim. */}
+      {/* Figma 09 labels each review card with the raw suggestion-type
+          token, underscores intact and in blue for both types — the
+          token is what the approval rules key off, so it is shown
+          verbatim rather than humanized. (09.1's amber "ADD IF TRUE" is
+          the *state* label on the confirmation block below, not this
+          card token.) */}
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`font-mono text-[9px] font-semibold uppercase tracking-[0.12em] ${
-            needsTruth ? "text-app-amber" : "text-app-success"
-          }`}
-        >
-          {gap.suggestion_type
-            ? gap.suggestion_type.replace(/_/g, needsTruth ? " " : "_")
-            : "SUGGESTION"}
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-app-blue">
+          {gap.suggestion_type || "SUGGESTION"}
         </span>
         {gap.category === "must_have" && (
           <span className="font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
@@ -373,20 +409,19 @@ function SuggestionDecisionCard({
         {title}
       </h4>
 
+      {/* Figma 09: the suggestion sentence is the card's primary line,
+          with the evidence note dimmed beneath it. */}
       {gap.suggestion_text && (
-        <p className="mt-2 break-words text-xs leading-5 text-app-muted">
-          <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-app-blue">
-            NERO suggests:{" "}
-          </span>
+        <p className="mt-2 break-words text-xs leading-5 text-app-body">
           {gap.suggestion_text}
         </p>
       )}
 
-      {gap.resume_evidence && (
-        <p className="mt-2 break-words text-[11px] leading-5 text-app-dim">
-          What your resume shows today: {gap.resume_evidence}
-        </p>
-      )}
+      <p className="mt-2 break-words text-[11px] leading-5 text-app-dim">
+        {gap.resume_evidence
+          ? gap.resume_evidence
+          : `No supporting ${title} evidence was found in the selected resume.`}
+      </p>
 
       {/* DECISION CONTROLS */}
       <div
@@ -397,11 +432,13 @@ function SuggestionDecisionCard({
         <DecisionToggle
           selected={isApproved}
           label="Approve"
+          emphasis="primary"
           onClick={() => onChange({ action: "approve" })}
         />
         <DecisionToggle
           selected={decision.action === "skip"}
           label="Skip"
+          emphasis="secondary"
           onClick={() =>
             onChange({ action: "skip", truthConfirmed: false })
           }
@@ -473,25 +510,40 @@ function SuggestionDecisionCard({
   );
 }
 
+// Figma 09 gives Approve primary weight and Skip secondary weight. The
+// pressed state stays a filled pill so the user can still see which of
+// the two they picked — the hierarchy changes, the toggle semantics do
+// not.
 function DecisionToggle({
   selected,
   label,
+  emphasis,
   onClick,
 }: {
   selected: boolean;
   label: string;
+  emphasis: "primary" | "secondary";
   onClick: () => void;
 }) {
+  // Only Approve ever takes the filled blue treatment. Skip is the
+  // default choice, so filling it would make the no-op action the
+  // loudest thing on the card — the inverse of Figma 09's hierarchy —
+  // and it still reads as chosen via the neutral fill and aria-pressed.
+  const className =
+    emphasis === "primary"
+      ? selected
+        ? "border-app-blue bg-app-blue text-black"
+        : "border-app-blue text-app-blue hover:bg-app-blue-soft"
+      : selected
+        ? "border-app-border-strong bg-app-panel-strong text-app-text"
+        : "border-app-border text-app-muted hover:border-app-border-strong hover:text-app-text";
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`app-focus-ring rounded-lg border px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors ${
-        selected
-          ? "border-app-blue bg-app-blue text-black"
-          : "border-app-border text-app-muted hover:border-app-border-strong hover:text-app-text"
-      }`}
+      className={`app-focus-ring rounded-lg border px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors ${className}`}
     >
       {label}
     </button>
@@ -576,18 +628,54 @@ function CompareView({
   onReviewMore: () => void;
 }) {
   const comparison = result.comparison;
+  const appliedDecisions = result.decisions.filter(
+    (decision) => decision.action === "approve" && decision.applied_text,
+  );
 
   return (
     <div className="mt-4">
-      <div className="rounded-lg border border-app-success/40 bg-app-success-soft/40 p-4">
-        <p className="break-words text-sm font-semibold text-app-text">
-          {result.child_resume_version_name} created
+      {/* Figma 09: "New resume version created" — the lineage line, then
+          a WHAT CHANGED list naming each approved requirement and the
+          wording the user supplied for it. */}
+      <div className="rounded-lg border border-app-blue p-4">
+        <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
+          New resume version created
         </p>
-        <p className="mt-1 break-words text-xs leading-5 text-app-faint">
-          Built from {result.approved_count}{" "}
-          {result.approved_count === 1 ? "approval" : "approvals"} you
-          confirmed. Your original version is untouched and still your
-          master resume.
+        <p className="mt-1 break-words text-xs leading-5 text-app-body">
+          {result.child_resume_version_name} &middot; based on{" "}
+          {parentVersionName ?? "your original version"} &middot;{" "}
+          {result.approved_count} approved{" "}
+          {result.approved_count === 1 ? "improvement" : "improvements"}{" "}
+          applied
+        </p>
+
+        <div className="mt-3 border-t border-app-border pt-3">
+          <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+            What changed
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {appliedDecisions.length === 0 && (
+              <li className="break-words text-[11px] leading-5 text-app-faint">
+                No changes were applied.
+              </li>
+            )}
+            {appliedDecisions.map((decision) => (
+              <li
+                key={decision.requirement_id}
+                className="break-words text-[11px] leading-5 text-app-body"
+              >
+                <span className="text-app-text">
+                  {decision.requirement_text}
+                </span>{" "}
+                &rarr; {decision.applied_text}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="mt-3 break-words text-[11px] leading-5 text-app-faint">
+          Your original version is untouched and still your master
+          resume.
         </p>
       </div>
 
@@ -630,6 +718,17 @@ function CompareView({
 
       {comparison && (
         <>
+          {/* Figma 09: "Recheck results" panel heading. */}
+          <div className="mt-3">
+            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
+              Recheck results
+            </p>
+            <p className="mt-1 break-words text-[11px] leading-5 text-app-faint">
+              Same job &middot; new resume version &middot; compare before
+              vs after
+            </p>
+          </div>
+
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <ScoreCard
               label="Before"
@@ -660,7 +759,7 @@ function CompareView({
               {comparison.improved_count} improved
             </Badge>
             <Badge tone="neutral-soft">
-              {comparison.unchanged_count} unchanged
+              {comparison.unchanged_count} remained
             </Badge>
             {comparison.regressed_count > 0 && (
               <Badge tone="red-soft">
@@ -678,6 +777,12 @@ function CompareView({
             ))}
           </ul>
         </>
+      )}
+
+      {comparison && (
+        <p className="mt-3 break-words text-[11px] leading-5 text-app-faint">
+          Original resume version remains available in version history.
+        </p>
       )}
 
       <VersionHistory result={result} parentVersionName={parentVersionName} />
@@ -798,19 +903,23 @@ function ScoreDeltaBadge({ delta }: { delta: number }) {
   return <Badge tone="neutral-soft">No ATS change</Badge>;
 }
 
+// Figma 09 "Recheck results" vocabulary: IMPROVED / REMAINED /
+// DISAPPEARED / NOT DETERMINED. `regressed` keeps its own label — a
+// requirement that got worse is a real outcome the engine can produce
+// and folding it into REMAINED would misreport it.
 const DIRECTION_LABEL: Record<RequirementTransition["direction"], string> = {
   improved: "Improved",
-  unchanged: "Unchanged",
+  unchanged: "Remained",
   regressed: "Regressed",
-  added: "New requirement",
-  removed: "No longer listed",
+  added: "Not determined",
+  removed: "Disappeared",
 };
 
 const DIRECTION_COLOR: Record<RequirementTransition["direction"], string> = {
   improved: "text-app-success",
   unchanged: "text-app-faint",
   regressed: "text-app-red",
-  added: "text-app-blue",
+  added: "text-app-faint",
   removed: "text-app-faint",
 };
 
