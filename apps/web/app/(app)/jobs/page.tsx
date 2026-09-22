@@ -7,17 +7,21 @@ import {
   calculateAtsAlignment,
   calculateGapAnalysis,
   calculateJobMatch,
+  createResumeImprovement,
   generateJobIntelligence,
   getJobEligibility,
   getJobs,
+  retryResumeImprovementRecheck,
   type AtsAlignmentResult,
   type AtsAlignmentStatus,
   type AtsRequirementResult,
   type GapAnalysisResult,
+  type ImprovementDecisionInput,
   type Job,
   type JobEligibilityResult,
   type JobIntelligenceData,
   type JobMatchResult,
+  type ResumeImprovementResult,
 } from "@/lib/jobs";
 import { getResumes, getResumeVersions } from "@/lib/resumes";
 import {
@@ -39,6 +43,7 @@ import ResumeVersionSelector, {
   type ResumeVersionOption,
 } from "@/components/app/resume-version-selector";
 import GapAnalysisSection from "@/components/app/gap-analysis-section";
+import ResumeImprovementSection from "@/components/app/resume-improvement-section";
 
 type JobFilters = {
   search: string;
@@ -138,6 +143,18 @@ function JobsPageInner() {
     Record<string, boolean>
   >({});
   const [gapAnalysisErrors, setGapAnalysisErrors] = useState<
+    Record<string, string>
+  >({});
+  const [improvements, setImprovements] = useState<
+    Record<string, ResumeImprovementResult>
+  >({});
+  const [improvementSubmittingIds, setImprovementSubmittingIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [improvementRecheckingIds, setImprovementRecheckingIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [improvementErrors, setImprovementErrors] = useState<
     Record<string, string>
   >({});
 
@@ -475,6 +492,83 @@ function JobsPageInner() {
     }
   }
 
+  // AJI-021 — the user's approved improvements for a job. The request
+  // body carries only the decisions; which ResumeVersion is improved
+  // comes from the Gap Analysis record server-side, so this never needs
+  // to (and never should) re-assert the selected version itself.
+  async function handleApproveImprovements(
+    jobId: string,
+    gapAnalysisId: string,
+    decisions: ImprovementDecisionInput[],
+  ) {
+    setImprovementSubmittingIds((current) => ({ ...current, [jobId]: true }));
+    setImprovementErrors((current) => {
+      const next = { ...current };
+      delete next[jobId];
+      return next;
+    });
+
+    try {
+      const result = await createResumeImprovement(
+        jobId,
+        gapAnalysisId,
+        decisions,
+      );
+
+      setImprovements((current) => ({ ...current, [jobId]: result }));
+    } catch (err) {
+      console.error(err);
+
+      setImprovementErrors((current) => ({
+        ...current,
+        [jobId]:
+          err instanceof Error
+            ? err.message
+            : "Unable to apply your approved improvements.",
+      }));
+    } finally {
+      setImprovementSubmittingIds((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
+    }
+  }
+
+  async function handleRetryRecheck(jobId: string, improvementId: string) {
+    setImprovementRecheckingIds((current) => ({ ...current, [jobId]: true }));
+    setImprovementErrors((current) => {
+      const next = { ...current };
+      delete next[jobId];
+      return next;
+    });
+
+    try {
+      const result = await retryResumeImprovementRecheck(
+        jobId,
+        improvementId,
+      );
+
+      setImprovements((current) => ({ ...current, [jobId]: result }));
+    } catch (err) {
+      console.error(err);
+
+      setImprovementErrors((current) => ({
+        ...current,
+        [jobId]:
+          err instanceof Error
+            ? err.message
+            : "Unable to recheck your new version.",
+      }));
+    } finally {
+      setImprovementRecheckingIds((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
+    }
+  }
+
   async function handleCheckEligibility(jobId: string) {
     setEligibilityLoadingIds((current) => ({ ...current, [jobId]: true }));
     setEligibilityErrors((current) => {
@@ -786,6 +880,16 @@ function JobsPageInner() {
                 )}
                 gapAnalysisError={gapAnalysisErrors[job.id]}
                 onCalculateGapAnalysis={handleCalculateGapAnalysis}
+                improvement={improvements[job.id]}
+                isSubmittingImprovement={Boolean(
+                  improvementSubmittingIds[job.id],
+                )}
+                isRecheckingImprovement={Boolean(
+                  improvementRecheckingIds[job.id],
+                )}
+                improvementError={improvementErrors[job.id]}
+                onApproveImprovements={handleApproveImprovements}
+                onRetryRecheck={handleRetryRecheck}
               />
             ))}
           </div>
@@ -1023,6 +1127,12 @@ function JobCard({
   isCalculatingGapAnalysis,
   gapAnalysisError,
   onCalculateGapAnalysis,
+  improvement,
+  isSubmittingImprovement,
+  isRecheckingImprovement,
+  improvementError,
+  onApproveImprovements,
+  onRetryRecheck,
 }: {
   job: Job;
   application?: Application;
@@ -1047,6 +1157,16 @@ function JobCard({
   isCalculatingGapAnalysis: boolean;
   gapAnalysisError?: string;
   onCalculateGapAnalysis: (jobId: string) => void;
+  improvement?: ResumeImprovementResult;
+  isSubmittingImprovement: boolean;
+  isRecheckingImprovement: boolean;
+  improvementError?: string;
+  onApproveImprovements: (
+    jobId: string,
+    gapAnalysisId: string,
+    decisions: ImprovementDecisionInput[],
+  ) => void;
+  onRetryRecheck: (jobId: string, improvementId: string) => void;
 }) {
   const visibleMatches = [
     ...(match?.must_have_matches ?? []),
@@ -1300,6 +1420,18 @@ function JobCard({
             isLoading={isCalculatingGapAnalysis}
             error={gapAnalysisError}
             onCalculate={onCalculateGapAnalysis}
+          />
+
+          {/* RESUME IMPROVEMENT APPROVAL & RECHECK (AJI-021) */}
+          <ResumeImprovementSection
+            jobId={job.id}
+            gapAnalysis={gapAnalysis}
+            result={improvement}
+            isSubmitting={isSubmittingImprovement}
+            isRechecking={isRecheckingImprovement}
+            error={improvementError}
+            onApprove={onApproveImprovements}
+            onRetryRecheck={onRetryRecheck}
           />
 
           {/* MATCH DETAILS */}
