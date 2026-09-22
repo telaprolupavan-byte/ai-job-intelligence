@@ -182,3 +182,87 @@ def test_skill_in_both_required_and_preferred_rejected():
             deterministic=deterministic,
             ai_semantics=None,
         )
+
+
+# ---------------------------------------------------------------------------
+# An out-of-contract `*_confidence` from the AI is a rejected field, not
+# a silently-persisted value and not a crash.
+#
+# The contract's Confidence is Literal["high","medium","low"]. Before
+# these were screened, the two AI confidence paths failed in two
+# different ways:
+#
+#   - identity.*_confidence is set by *assignment* onto an already-built
+#     JobIdentity, which Pydantic does not re-validate - so "super-high"
+#     was persisted into structured_intelligence and served to the UI as
+#     if it were a contract value.
+#   - domain_confidence is passed to the DomainInfo *constructor*, which
+#     raised a raw pydantic ValidationError straight past the service's
+#     JobIntelligenceValidationError handler - a 500 not only here but on
+#     Job Match / ATS Alignment / Gap Analysis, which all generate Job
+#     Intelligence on demand.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "confidence", ["super-high", "very high", "", "  ", "0.9", 0.9, None, [], {}]
+)
+def test_out_of_contract_identity_confidence_falls_back_to_medium(confidence):
+    result = build_job_intelligence_result(
+        job_id="job-1",
+        analysis_version="1.0",
+        raw_title="Senior AI Engineer",
+        raw_text=RAW_TEXT,
+        deterministic=_deterministic(),
+        ai_semantics={
+            "normalized_title": "AI Engineer",
+            "normalized_title_evidence": "Senior AI Engineer",
+            "normalized_title_confidence": confidence,
+        },
+    )
+
+    # The evidence-backed value itself is still accepted...
+    assert result.identity.normalized_title == "AI Engineer"
+    # ...only the unrepresentable confidence is replaced.
+    assert result.identity.normalized_title_confidence == "medium"
+
+
+@pytest.mark.parametrize(
+    "confidence", ["super-high", "very high", "", "0.9", 0.9, None, [], {}]
+)
+def test_out_of_contract_domain_confidence_does_not_raise(confidence):
+    result = build_job_intelligence_result(
+        job_id="job-1",
+        analysis_version="1.0",
+        raw_title="Senior AI Engineer",
+        raw_text=RAW_TEXT + " Machine learning domain.",
+        deterministic=_deterministic(),
+        ai_semantics={
+            "domain": "Machine learning",
+            "domain_evidence": "Machine learning",
+            "domain_confidence": confidence,
+        },
+    )
+
+    assert result.domain.value == "Machine learning"
+    assert result.domain.confidence == "medium"
+
+
+@pytest.mark.parametrize(
+    ("returned", "expected"),
+    [("high", "high"), ("High", "high"), ("  LOW  ", "low"), ("Medium", "medium")],
+)
+def test_valid_confidence_is_accepted_case_insensitively(returned, expected):
+    result = build_job_intelligence_result(
+        job_id="job-1",
+        analysis_version="1.0",
+        raw_title="Senior AI Engineer",
+        raw_text=RAW_TEXT,
+        deterministic=_deterministic(),
+        ai_semantics={
+            "normalized_title": "AI Engineer",
+            "normalized_title_evidence": "Senior AI Engineer",
+            "normalized_title_confidence": returned,
+        },
+    )
+
+    assert result.identity.normalized_title_confidence == expected

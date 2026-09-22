@@ -35,6 +35,33 @@ class JobIntelligenceValidationError(RuntimeError):
     not be persisted."""
 
 
+# The only values the contract's `Confidence` literal accepts. An AI that
+# answers "High", "very high" or `0.9` is returning something this
+# contract cannot represent; like any other rejected AI field it falls
+# back to the default instead of being handed to Pydantic. That matters
+# in two different ways here: a confidence set by *assignment* onto an
+# already-built `JobIdentity` is not re-validated by Pydantic at all (so
+# an out-of-contract value would be persisted and served as if it were
+# valid), while one passed to a *constructor* (`DomainInfo`) raises and
+# would take down the whole snapshot - and with it Job Match, ATS
+# Alignment and Gap Analysis, which all generate Job Intelligence on
+# demand. Case is normalized rather than rejected: "High" means "high".
+_ALLOWED_CONFIDENCE = ("high", "medium", "low")
+_DEFAULT_CONFIDENCE = "medium"
+
+
+def _validated_confidence(value: Any) -> str:
+    if not isinstance(value, str):
+        return _DEFAULT_CONFIDENCE
+
+    normalized = value.strip().lower()
+
+    if normalized in _ALLOWED_CONFIDENCE:
+        return normalized
+
+    return _DEFAULT_CONFIDENCE
+
+
 def _normalize_for_comparison(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
@@ -73,7 +100,7 @@ def _build_identity(
     ):
         identity.normalized_title = normalized_title
         identity.normalized_title_confidence = (
-            ai_semantics.get("normalized_title_confidence") or "medium"
+            _validated_confidence(ai_semantics.get("normalized_title_confidence"))
         )
 
     role_family = ai_semantics.get("role_family")
@@ -82,7 +109,7 @@ def _build_identity(
     ):
         identity.role_family = role_family
         identity.role_family_confidence = (
-            ai_semantics.get("role_family_confidence") or "medium"
+            _validated_confidence(ai_semantics.get("role_family_confidence"))
         )
 
     # Deterministic title-keyword seniority always wins; the AI only
@@ -94,7 +121,7 @@ def _build_identity(
         ):
             identity.seniority = seniority
             identity.seniority_confidence = (
-                ai_semantics.get("seniority_confidence") or "medium"
+                _validated_confidence(ai_semantics.get("seniority_confidence"))
             )
 
     return identity
@@ -114,7 +141,7 @@ def _build_domain(
     if value and _evidence_supported(evidence, raw_text):
         return DomainInfo(
             value=value,
-            confidence=ai_semantics.get("domain_confidence") or "medium",
+            confidence=_validated_confidence(ai_semantics.get("domain_confidence")),
             evidence_text=evidence,
         )
 
@@ -164,28 +191,40 @@ def build_job_intelligence_result(
     `JobIntelligenceValidationError` rather than returning a malformed
     result if validation fails.
     """
-    result = JobIntelligenceResult(
-        analysis_version=analysis_version,
-        job_id=job_id,
-        identity=_build_identity(
-            raw_title=raw_title,
-            deterministic=deterministic,
-            raw_text=raw_text,
-            ai_semantics=ai_semantics,
-        ),
-        employment=deterministic.employment,
-        location=deterministic.location,
-        required_skills=deterministic.required_skills,
-        preferred_skills=deterministic.preferred_skills,
-        required_experience=deterministic.required_experience,
-        preferred_experience=deterministic.preferred_experience,
-        education=deterministic.education,
-        certifications=deterministic.certifications,
-        responsibilities=deterministic.responsibilities,
-        authorization=deterministic.authorization,
-        compensation=deterministic.compensation,
-        domain=_build_domain(raw_text=raw_text, ai_semantics=ai_semantics),
-    )
+    # Assembling the contract is guarded so that an AI value this module
+    # has not explicitly screened surfaces as
+    # `JobIntelligenceValidationError` - which the service turns into a
+    # controlled 503 - rather than escaping as a raw Pydantic
+    # `ValidationError`. An unhandled one here becomes a 500 not just on
+    # this endpoint but on Job Match, ATS Alignment and Gap Analysis,
+    # which all generate Job Intelligence on demand.
+    try:
+        result = JobIntelligenceResult(
+            analysis_version=analysis_version,
+            job_id=job_id,
+            identity=_build_identity(
+                raw_title=raw_title,
+                deterministic=deterministic,
+                raw_text=raw_text,
+                ai_semantics=ai_semantics,
+            ),
+            employment=deterministic.employment,
+            location=deterministic.location,
+            required_skills=deterministic.required_skills,
+            preferred_skills=deterministic.preferred_skills,
+            required_experience=deterministic.required_experience,
+            preferred_experience=deterministic.preferred_experience,
+            education=deterministic.education,
+            certifications=deterministic.certifications,
+            responsibilities=deterministic.responsibilities,
+            authorization=deterministic.authorization,
+            compensation=deterministic.compensation,
+            domain=_build_domain(raw_text=raw_text, ai_semantics=ai_semantics),
+        )
+    except JobIntelligenceValidationError:
+        raise
+    except Exception as exc:
+        raise JobIntelligenceValidationError(str(exc)) from exc
 
     _validate_no_duplicate_or_overlapping_skills(result)
 

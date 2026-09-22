@@ -1060,23 +1060,32 @@ class JobMatchResult(Base):
         default=uuid.uuid4,
     )
 
+    # `ondelete="CASCADE"` on all three, matching every sibling analysis
+    # table (`AtsAlignmentResult`, `GapAnalysis`, `JobEligibilityResult`,
+    # `RequirementIntelligence`, `ResumeAIAnalysis`). Without it this was
+    # the only such table whose rows blocked deleting the user, job or
+    # resume version they were derived from: Postgres raised a
+    # ForeignKeyViolation instead, so an account or a retired job could
+    # not be removed once any Job Match had been calculated for it. A
+    # derived, recomputable analysis row must never outlive - or pin -
+    # the record it describes.
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
 
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("jobs.id"),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
 
     resume_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("resume_versions.id"),
+        ForeignKey("resume_versions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

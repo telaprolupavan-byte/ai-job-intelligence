@@ -43,13 +43,6 @@ router = APIRouter(
 )
 
 
-@router.get("/test")
-def auth_test():
-    return {
-        "message": "Authentication router is working"
-    }
-
-
 @router.post(
     "/register",
     response_model=UserResponse,

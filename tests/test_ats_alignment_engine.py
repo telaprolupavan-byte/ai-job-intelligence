@@ -1,5 +1,7 @@
 """Unit tests for the pure, DB-free ATS Alignment engine (AJI-013)."""
 
+import pytest
+
 from services.ats_alignment.contracts import (
     JobRequirementItem,
     RequirementRelationshipGroup,
@@ -293,6 +295,109 @@ def test_education_no_degree_mentioned_is_missing():
     resume = make_resume(raw_text="Experienced software engineer.")
 
     result = evaluate_ats_alignment([requirement], resume)
+
+    assert result.requirement_results[0].status == "missing"
+
+
+# A JD writes "Bachelor's degree"; a resume almost always writes the
+# degree out in full ("Bachelor of Science in Computer Science"). Only
+# matching the possessive/abbreviated forms scored every spelled-out
+# degree as missing - depressing the ATS score of a candidate who plainly
+# meets the requirement and making Gap Analysis suggest they add a degree
+# already on their resume.
+
+@pytest.mark.parametrize(
+    "resume_text",
+    [
+        "Bachelor of Science in Computer Science, State University, 2019",
+        "Bachelor of Arts in Economics",
+        "Bachelor of Engineering, Mechanical",
+        "Bachelor of Technology in Information Technology",
+        "BSc Computer Science",
+        "B.Sc. in Computer Science",
+        "BTech, Computer Engineering",
+    ],
+)
+def test_spelled_out_bachelor_degree_satisfies_a_bachelor_requirement(
+    resume_text,
+):
+    requirement = education_requirement("Bachelor's")
+
+    result = evaluate_ats_alignment([requirement], make_resume(raw_text=resume_text))
+
+    assert result.requirement_results[0].status == "matched"
+
+
+@pytest.mark.parametrize(
+    "resume_text",
+    [
+        "Master of Science in Data Science",
+        "Master of Arts in Linguistics",
+        "Master of Business Administration, 2020",
+        "Master of Engineering in Robotics",
+        "MSc Artificial Intelligence",
+        "M.Sc. Statistics",
+    ],
+)
+def test_spelled_out_master_degree_satisfies_a_bachelor_requirement(resume_text):
+    requirement = education_requirement("Bachelor's")
+
+    result = evaluate_ats_alignment([requirement], make_resume(raw_text=resume_text))
+
+    assert result.requirement_results[0].status == "matched"
+
+
+@pytest.mark.parametrize(
+    "resume_text", ["Doctor of Philosophy in Statistics", "D.Phil. in Physics"]
+)
+def test_spelled_out_doctorate_satisfies_a_master_requirement(resume_text):
+    requirement = education_requirement("Master's")
+
+    result = evaluate_ats_alignment([requirement], make_resume(raw_text=resume_text))
+
+    assert result.requirement_results[0].status == "matched"
+
+
+def test_spelled_out_bachelor_below_a_master_requirement_is_partial():
+    requirement = education_requirement("Master's")
+
+    result = evaluate_ats_alignment(
+        [requirement],
+        make_resume(raw_text="Bachelor of Science in Computer Science"),
+    )
+
+    assert result.requirement_results[0].status == "partial"
+
+
+def test_spelled_out_degree_with_wrong_field_is_partial():
+    requirement = education_requirement(
+        "Bachelor's", field_of_study="Mechanical Engineering"
+    )
+
+    result = evaluate_ats_alignment(
+        [requirement],
+        make_resume(raw_text="Bachelor of Science in Computer Science"),
+    )
+
+    assert result.requirement_results[0].status == "partial"
+
+
+@pytest.mark.parametrize(
+    "resume_text",
+    [
+        # Two-letter abbreviations are deliberately NOT treated as
+        # degrees: crediting a degree nobody claimed is the one failure
+        # this grounded-keyword engine must never produce.
+        "Skilled in MS SQL Server, MS Office and MS Excel",
+        "Built the BA reporting dashboard",
+        "Worked at BSCorp; handled absconding-employee reports",
+        "Experienced software engineer with no degree listed",
+    ],
+)
+def test_no_false_positive_degree_match(resume_text):
+    requirement = education_requirement("Bachelor's")
+
+    result = evaluate_ats_alignment([requirement], make_resume(raw_text=resume_text))
 
     assert result.requirement_results[0].status == "missing"
 

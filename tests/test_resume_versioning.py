@@ -7,6 +7,7 @@ caching, and master-version preservation.
 """
 from __future__ import annotations
 
+from functools import lru_cache
 from io import BytesIO
 from uuid import uuid4
 
@@ -95,7 +96,21 @@ manual audit time significantly.
 """
 
 
+@lru_cache(maxsize=None)
 def make_docx_bytes(text: str) -> bytes:
+    """Build a .docx for `text` - memoized so the same text always gives
+    back the identical bytes.
+
+    A .docx is a ZIP, and python-docx stamps each entry header with the
+    current wall-clock time at 2-second DOS granularity. The file-download
+    tests below upload these bytes and then assert the response equals
+    `make_docx_bytes(<same text>)`; regenerating meant the two calls
+    disagreed whenever they landed either side of a 2-second boundary,
+    which the full suite hits intermittently under load but a single test
+    file almost never does. Memoizing makes the comparison test what it
+    is meant to test - that the stored file round-trips byte-for-byte -
+    instead of whether the generator was called twice in the same tick.
+    """
     document = Document()
 
     for line in text.split("\n"):

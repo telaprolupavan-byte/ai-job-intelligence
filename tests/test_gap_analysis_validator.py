@@ -3,6 +3,8 @@
 evidence-grounding enforcement. No database, no real AI provider.
 """
 
+import pytest
+
 from apps.api.services.gap_analysis.engine import GapCandidate
 from apps.api.services.gap_analysis.validator import build_gap_analysis_result
 
@@ -272,3 +274,84 @@ def test_empty_candidates_produce_empty_result():
     assert result.gaps == []
     assert result.must_have_gap_count == 0
     assert result.preferred_gap_count == 0
+
+
+# ---------------------------------------------------------------------------
+# An out-of-contract `confidence` from the AI is a rejected field, not a
+# crash.
+#
+# `GapSuggestion.confidence` is a Literal["high","medium","low"]. Handing
+# it anything else (an LLM answering "very high", "High", `0.9`, or a
+# non-string) used to raise a raw pydantic ValidationError out of
+# build_gap_analysis_result() - past the service's
+# GapAnalysisValidationError handler and the router's
+# GapAnalysisServiceError handler - so one malformed field discarded an
+# otherwise-valid deterministic result and returned HTTP 500. The
+# module's contract is that a rejected AI field falls back to the
+# deterministic default instead.
+# ---------------------------------------------------------------------------
+
+def _ai_with_confidence(confidence):
+    return {
+        "gaps": [
+            {
+                "requirement_id": "skill:rust",
+                "explanation": "Rust is a hard requirement you don't show.",
+                "explanation_evidence": "5+ years of Rust required.",
+                "suggestion_text": "Add Rust if you have used it.",
+                "confidence": confidence,
+            }
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "confidence",
+    ["very-high", "VERY HIGH", "", "  ", "unknown", "0.9", "none"],
+)
+def test_out_of_contract_confidence_string_falls_back_to_medium(confidence):
+    result = _build([_missing_candidate()], _ai_with_confidence(confidence))
+
+    assert result.gaps[0].confidence == "medium"
+
+
+@pytest.mark.parametrize("confidence", [0.9, 1, None, [], {}, True])
+def test_non_string_confidence_falls_back_to_medium(confidence):
+    result = _build([_missing_candidate()], _ai_with_confidence(confidence))
+
+    assert result.gaps[0].confidence == "medium"
+
+
+@pytest.mark.parametrize(
+    ("returned", "expected"),
+    [
+        ("high", "high"),
+        ("High", "high"),
+        ("HIGH", "high"),
+        ("  low  ", "low"),
+        ("Medium", "medium"),
+    ],
+)
+def test_valid_confidence_is_accepted_case_insensitively(returned, expected):
+    result = _build([_missing_candidate()], _ai_with_confidence(returned))
+
+    assert result.gaps[0].confidence == expected
+
+
+def test_bad_confidence_does_not_discard_the_rest_of_the_result():
+    """The whole point: one bad AI field must not cost the user their
+    otherwise-valid analysis."""
+    result = _build(
+        [_missing_candidate(), _partial_candidate()],
+        _ai_with_confidence("extremely high"),
+    )
+
+    assert len(result.gaps) == 2
+    assert result.must_have_gap_count == 1
+    assert result.preferred_gap_count == 1
+
+    # The AI's *validated* explanation is still used - only the
+    # out-of-contract confidence was dropped.
+    assert result.gaps[0].explanation_source == "ai"
+    assert result.gaps[0].confidence == "medium"
+    assert result.gaps[0].suggestion_type == "ADD_IF_TRUE"

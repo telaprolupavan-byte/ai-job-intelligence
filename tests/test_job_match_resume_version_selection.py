@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from apps.api.main import app
 from apps.api.dependencies import get_db
@@ -313,3 +314,97 @@ def test_api_accepts_explicit_resume_version_id(client, db):
 
     assert response.status_code == 200
     assert response.json()["resume_version_id"] == str(python_version.id)
+
+
+# ---------------------------------------------------------------------------
+# JobMatchResult must not pin the records it is derived from.
+#
+# Its user_id/job_id/resume_version_id foreign keys were the only ones in
+# the analysis tables created without ON DELETE CASCADE, so a persisted
+# match raised ForeignKeyViolation on any attempt to delete the user, job
+# or resume version behind it - blocking account deletion and job
+# retirement alike. Every sibling table (ats_alignment_results,
+# gap_analyses, job_eligibility_results, requirement_intelligence,
+# resume_ai_analyses) already cascaded.
+# ---------------------------------------------------------------------------
+
+def _match_row_exists(db, match_id) -> bool:
+    """Ask the database, not the session.
+
+    ON DELETE CASCADE runs inside Postgres, so SQLAlchemy's identity map
+    still holds the deleted object; `db.get()` would return it from cache
+    and the assertion would pass whether or not the constraint cascades.
+    """
+    return db.execute(
+        select(JobMatchResult.id).where(JobMatchResult.id == match_id)
+    ).first() is not None
+
+
+def _persist_match(db, *, user, job, resume_version) -> JobMatchResult:
+    record = JobMatchResult(
+        id=uuid4(),
+        user_id=user.id,
+        job_id=job.id,
+        resume_version_id=resume_version.id,
+        engine_version="1.0.0",
+        score=75.0,
+        confidence="medium",
+        result={"score": 75.0},
+    )
+    db.add(record)
+    db.flush()
+    return record
+
+
+def test_deleting_a_job_cascades_to_its_job_match_results(db):
+    user = make_user(db, label="cascade-job")
+    job = make_job(db)
+    version = make_resume_version(
+        db,
+        user=user,
+        content_text="Python and Docker experience.",
+        name="cascade",
+        is_master=True,
+    )
+    record = _persist_match(db, user=user, job=job, resume_version=version)
+
+    db.delete(job)
+    db.flush()
+
+    assert not _match_row_exists(db, record.id)
+
+
+def test_deleting_a_user_cascades_to_their_job_match_results(db):
+    user = make_user(db, label="cascade-user")
+    job = make_job(db)
+    version = make_resume_version(
+        db,
+        user=user,
+        content_text="Python and Docker experience.",
+        name="cascade",
+        is_master=True,
+    )
+    record = _persist_match(db, user=user, job=job, resume_version=version)
+
+    db.delete(user)
+    db.flush()
+
+    assert not _match_row_exists(db, record.id)
+
+
+def test_deleting_a_resume_version_cascades_to_its_job_match_results(db):
+    user = make_user(db, label="cascade-version")
+    job = make_job(db)
+    version = make_resume_version(
+        db,
+        user=user,
+        content_text="Python and Docker experience.",
+        name="cascade",
+        is_master=True,
+    )
+    record = _persist_match(db, user=user, job=job, resume_version=version)
+
+    db.delete(version)
+    db.flush()
+
+    assert not _match_row_exists(db, record.id)
