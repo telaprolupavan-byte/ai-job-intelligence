@@ -38,3 +38,28 @@ def get_current_user(
         )
 
     return user
+
+optional_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        optional_bearer_scheme
+    ),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """The authenticated user on a public endpoint, or None.
+
+    A missing, invalid, or expired token means "anonymous" rather than a
+    401: the endpoint is public, so a stale token in the browser must not
+    break it - it just gets the anonymous view.
+    """
+    if credentials is None:
+        return None
+
+    try:
+        user_uuid = UUID(decode_access_token(credentials.credentials))
+    except (ValueError, TypeError):
+        return None
+
+    return db.query(User).filter(User.id == user_uuid).first()

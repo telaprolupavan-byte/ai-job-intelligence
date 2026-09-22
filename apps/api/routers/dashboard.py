@@ -36,6 +36,7 @@ from apps.api.models import (
     User,
 )
 from apps.api.services.application_service import count_active_applications
+from apps.api.services.job_access import visible_jobs_filter
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -113,7 +114,10 @@ def get_dashboard(
 
     today = datetime.utcnow().date()
 
-    active_jobs = db.query(Job).filter(Job.is_active.is_(True))
+    # AJI-022: discovered jobs plus this user's own submissions only.
+    visible = visible_jobs_filter(current_user.id)
+
+    active_jobs = db.query(Job).filter(Job.is_active.is_(True), visible)
 
     jobs_today_count = active_jobs.filter(
         func.date(Job.first_seen_at) == today
@@ -130,7 +134,7 @@ def get_dashboard(
     recent_rows = (
         db.query(Job, Company.name)
         .outerjoin(Company, Job.company_id == Company.id)
-        .filter(Job.is_active.is_(True))
+        .filter(Job.is_active.is_(True), visible)
         .order_by(Job.first_seen_at.desc())
         .limit(RECENT_JOBS_LIMIT)
         .all()

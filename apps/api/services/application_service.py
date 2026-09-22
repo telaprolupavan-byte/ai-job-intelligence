@@ -14,8 +14,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, joinedload
 
-from apps.api.models import ApplicationStatusEvent, Job, SavedJob, User
+from apps.api.models import ApplicationStatusEvent, SavedJob, User
 from apps.api.schemas import APPLICATION_STATUSES
+from apps.api.services.job_access import get_visible_job
 
 
 class ApplicationServiceError(Exception):
@@ -58,7 +59,8 @@ def create_application(
     except ValueError:
         raise JobNotFoundError()
 
-    job = db.query(Job).filter(Job.id == job_uuid).first()
+    # AJI-022: another user's private submitted job is "not found" too.
+    job = get_visible_job(db, job_id=job_uuid, user_id=current_user.id)
 
     if job is None:
         raise JobNotFoundError()

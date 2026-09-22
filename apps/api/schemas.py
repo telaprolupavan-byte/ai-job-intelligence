@@ -231,3 +231,24 @@ class ApplicationResponse(BaseModel):
 
 class ApplicationDetailResponse(ApplicationResponse):
     status_history: list[ApplicationStatusEventResponse]
+
+
+# =========================
+# Job Submission (AJI-022)
+# =========================
+
+# Generous for a real posting (the longest real JDs are ~15-20k chars),
+# while bounding what one request can push through two AI pipelines.
+JOB_SUBMISSION_MAX_CONTENT_LENGTH = 50_000
+
+
+class JobSubmissionRequest(BaseModel):
+    """Pasted job content. Validated here only for shape/size - the text
+    itself is untrusted data, never interpreted as instructions."""
+
+    content: str = Field(
+        min_length=1,
+        max_length=JOB_SUBMISSION_MAX_CONTENT_LENGTH,
+    )
+    title: str | None = Field(default=None, max_length=500)
+    company: str | None = Field(default=None, max_length=255)

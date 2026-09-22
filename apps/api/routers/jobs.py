@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,8 +8,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from apps.api.database import get_db
-from apps.api.dependencies import get_current_user
+from apps.api.dependencies import get_current_user, get_optional_current_user
 from apps.api.models import Company, Job, User
+from apps.api.schemas import JobSubmissionRequest
 from apps.api.services.ats_alignment_service import (
     ATSAlignmentServiceError,
     calculate_ats_alignment,
@@ -27,6 +29,7 @@ from apps.api.services.job_intelligence.service import (
     generate_job_intelligence,
     get_latest_job_intelligence,
 )
+from apps.api.services.job_access import get_visible_job, visible_jobs_filter
 from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
@@ -35,6 +38,10 @@ from apps.api.services.requirement_intelligence.persistence_service import (
     RequirementIntelligencePersistenceError,
     generate_requirement_intelligence,
     get_latest_requirement_intelligence,
+)
+from apps.api.services.job_submission.service import (
+    JobSubmissionServiceError,
+    submit_job,
 )
 from apps.api.services.resume_improvement.contracts import (
     ResumeImprovementRequest,
@@ -61,6 +68,59 @@ router = APIRouter(
 )
 
 
+def _get_visible_job_or_404(db: Session, job_id: str, current_user: User) -> Job:
+    """The job, or the same 404 for a malformed id, a missing job, and
+    another user's private submission (AJI-022) - so a private job's
+    existence is never confirmed to anyone but its owner."""
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    job = get_visible_job(db, job_id=job_uuid, user_id=current_user.id)
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    return job
+
+
+def _job_to_response(job: Job, company_name: str | None) -> dict:
+    return {
+        "id": str(job.id),
+        "title": job.title,
+        "company": company_name,
+        "location": job.location,
+        "country": job.country,
+        "remote_type": job.remote_type,
+        "employment_type": job.employment_type,
+        "salary_min": job.salary_min,
+        "salary_max": job.salary_max,
+        "salary_currency": job.salary_currency,
+        "contract_duration": job.contract_duration,
+        "contract_worker_type": job.contract_worker_type,
+        "description": job.description,
+        "requirements": job.requirements,
+        "responsibilities": job.responsibilities,
+        "posting_date": (
+            job.posting_date.isoformat()
+            if job.posting_date
+            else None
+        ),
+        "source": job.source,
+        "source_url": job.source_url,
+        "application_url": job.application_url,
+        "first_seen_at": job.first_seen_at.isoformat(),
+        "last_seen_at": job.last_seen_at.isoformat(),
+    }
+
+
 @router.get("")
 def list_jobs(
     db: Session = Depends(get_db),
@@ -70,11 +130,23 @@ def list_jobs(
     location: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    # Annotated so a direct Python call (existing tests) defaults to the
+    # anonymous view instead of receiving the Depends marker itself.
+    current_user: Annotated[
+        User | None, Depends(get_optional_current_user)
+    ] = None,
 ):
     query = (
         select(Job, Company.name)
         .outerjoin(Company, Job.company_id == Company.id)
         .where(Job.is_active.is_(True))
+        # AJI-022: discovered jobs for everyone; a signed-in user also
+        # sees their own submitted jobs, never anyone else's.
+        .where(
+            visible_jobs_filter(
+                current_user.id if current_user is not None else None
+            )
+        )
     )
 
     if search:
@@ -121,33 +193,7 @@ def list_jobs(
     results = db.execute(query).all()
 
     jobs = [
-        {
-            "id": str(job.id),
-            "title": job.title,
-            "company": company_name,
-            "location": job.location,
-            "country": job.country,
-            "remote_type": job.remote_type,
-            "employment_type": job.employment_type,
-            "salary_min": job.salary_min,
-            "salary_max": job.salary_max,
-            "salary_currency": job.salary_currency,
-            "contract_duration": job.contract_duration,
-            "contract_worker_type": job.contract_worker_type,
-            "description": job.description,
-            "requirements": job.requirements,
-            "responsibilities": job.responsibilities,
-            "posting_date": (
-                job.posting_date.isoformat()
-                if job.posting_date
-                else None
-            ),
-            "source": job.source,
-            "source_url": job.source_url,
-            "application_url": job.application_url,
-            "first_seen_at": job.first_seen_at.isoformat(),
-            "last_seen_at": job.last_seen_at.isoformat(),
-        }
+        _job_to_response(job, company_name)
         for job, company_name in results
     ]
 
@@ -163,6 +209,85 @@ def list_jobs(
                 else 0
             ),
         },
+    }
+
+
+@router.post("/submissions")
+def create_job_submission(
+    payload: JobSubmissionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Submit pasted job content (AJI-022) and analyze it synchronously.
+
+    Creates a job private to the authenticated user (`source =
+    "user_submitted"`), keeping the complete raw paste, then runs the
+    existing Job Intelligence (AJI-012) and Requirement Intelligence
+    (AJI-020A/B) pipelines on it. The pasted text is treated purely as
+    untrusted job-description data. Resubmitting identical content reuses
+    the same job rather than creating a duplicate, so retrying after a
+    failed analysis is safe.
+
+    No URL ingestion or scraping: only the pasted text is ever read.
+    """
+    try:
+        result = submit_job(
+            db,
+            current_user=current_user,
+            content=payload.content,
+            title=payload.title,
+            company=payload.company,
+        )
+    except JobSubmissionServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={
+                "message": str(exc),
+                "job_id": str(exc.job_id) if exc.job_id else None,
+            },
+        ) from exc
+
+    job = result.job
+    company_name = job.company.name if job.company is not None else None
+
+    return {
+        "job": {
+            **_job_to_response(job, company_name),
+            "raw_submitted_content": job.raw_submitted_content,
+        },
+        "intelligence": _job_intelligence_to_response(
+            result.job_intelligence
+        ),
+        "requirement_intelligence": _requirement_intelligence_to_response(
+            result.requirement_intelligence
+        ),
+        "security": {
+            "prompt_injection_detected": bool(result.injection_signals),
+            "signals": [
+                signal.model_dump() for signal in result.injection_signals
+            ],
+        },
+    }
+
+
+@router.get("/{job_id}")
+def get_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    A single job the authenticated user can see: any discovered job, or
+    one of their own submitted jobs (AJI-022). Another user's submitted
+    job 404s exactly like a job that does not exist.
+    """
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    company_name = job.company.name if job.company is not None else None
+
+    return {
+        **_job_to_response(job, company_name),
+        "raw_submitted_content": job.raw_submitted_content,
     }
 
 
@@ -184,13 +309,8 @@ def calculate_job_match(
     ResumeVersion.
     """
 
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     parsed_resume_version_id: UUID | None = None
 
@@ -288,21 +408,8 @@ def get_job_eligibility(
     browsing (GET /jobs) never exposes this personalized data; this
     endpoint always requires authentication.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-
-    if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     result, record = evaluate_and_persist_job_eligibility(
         db=db,
@@ -351,21 +458,8 @@ def get_job_intelligence(
     but this endpoint still requires authentication like the rest of the
     per-job API surface, and never triggers an AI call on read.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-
-    if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     record = get_latest_job_intelligence(db, job_id=job_uuid)
 
@@ -390,13 +484,8 @@ def create_job_intelligence(
     and the analyzer/prompt pipeline version are unchanged; otherwise
     produces a new, additional snapshot without overwriting history.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     try:
         record = generate_job_intelligence(db, job_id=job_uuid)
@@ -441,21 +530,8 @@ def get_requirement_intelligence(
     apps/api/models.py's `RequirementIntelligence` docstring) — a user
     can only ever read their own snapshots, never another user's.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-
-    if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     record = get_latest_requirement_intelligence(
         db, user_id=current_user.id, job_id=job_uuid
@@ -485,13 +561,8 @@ def create_requirement_intelligence(
     provider/model are all unchanged; otherwise produces a new,
     additional snapshot without overwriting history.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     try:
         record = generate_requirement_intelligence(
@@ -572,21 +643,8 @@ def get_ats_alignment(
     different resumes/users) — a user can only ever read their own
     results, never another user's.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-
-    if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     parsed_resume_version_id = _parse_optional_resume_version_id(
         resume_version_id
@@ -630,13 +688,8 @@ def create_ats_alignment(
     unchanged; otherwise produces a new, additional result without
     overwriting history.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     parsed_resume_version_id = _parse_optional_resume_version_id(
         resume_version_id
@@ -695,21 +748,8 @@ def get_gap_analysis(
     be analyzed against different resumes/users) — a user can only ever
     read their own results, never another user's.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-
-    if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     parsed_resume_version_id = _parse_optional_resume_version_id(
         resume_version_id
@@ -752,13 +792,8 @@ def create_gap_analysis(
     prompt pipeline version are all unchanged; otherwise produces a new,
     additional result without overwriting history.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     parsed_resume_version_id = _parse_optional_resume_version_id(
         resume_version_id
@@ -836,21 +871,8 @@ def get_resume_improvement(
     based on that exact parent version, mirroring the same parameter on
     /jobs/{job_id}/ats and /jobs/{job_id}/gap-analysis.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    job = db.query(Job).filter(Job.id == job_uuid).first()
-
-    if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     parsed_resume_version_id = _parse_optional_resume_version_id(
         resume_version_id
@@ -905,13 +927,8 @@ def create_job_resume_improvement(
     is already committed here, so it stays persisted and recoverable
     even if the recheck is never run.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     try:
         gap_analysis_uuid = UUID(payload.gap_analysis_id)
@@ -961,13 +978,8 @@ def retry_resume_improvement_recheck(
     re-scored, so the comparison the user was shown cannot silently
     change underneath them.
     """
-    try:
-        job_uuid = UUID(job_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+    job = _get_visible_job_or_404(db, job_id, current_user)
+    job_uuid = job.id
 
     try:
         improvement_uuid = UUID(improvement_id)

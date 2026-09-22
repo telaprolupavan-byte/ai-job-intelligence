@@ -2539,3 +2539,112 @@ outright, user isolation (including that another user's resume content
 never leaks), and that the public `/jobs` listing never exposes any of
 it. All pre-existing ATS Alignment, Gap Analysis, Job Intelligence, and
 Job Match tests pass unchanged.
+
+## User Job Submission (AJI-022)
+
+A signed-in user can paste a job posting (optional title/company) and
+have NERO analyze it with the **existing** pipelines. There is no second
+Job Intelligence engine: a submission becomes an ordinary `Job` row, and
+AJI-012 Job Intelligence and AJI-020A/B Requirement Intelligence run on
+it through their unchanged `generate_*` functions, including their
+validators, evidence-substring checks, prompt-injection diagnostics, and
+snapshot/idempotency behavior.
+
+### Ownership: one nullable column, one access rule
+
+`Job.submitted_by_user_id` (nullable, FK to `users`, `ON DELETE
+CASCADE`, indexed): `NULL` is a discovered job shared with everyone,
+which is what every pre-existing row already is. A user id marks a
+private submission. `apps/api/services/job_access.py` is the only place
+the visibility rule lives (`visible_jobs_filter()` /
+`get_visible_job()`), and it is applied to:
+
+- every per-job endpoint in `routers/jobs.py`, through one
+  `_get_visible_job_or_404` helper that runs before any service is
+  called (intelligence, requirement-intelligence, eligibility, match,
+  ats, gap-analysis, resume-improvement, recheck, and the new
+  `GET /jobs/{job_id}`);
+- `POST /applications` (a user cannot track someone else's job);
+- `GET /jobs`: anonymous callers get discovered jobs only (unchanged). A
+  valid bearer token also adds the caller's own submissions. An
+  invalid or expired token is treated as anonymous rather than a 401,
+  because the endpoint is public;
+- the dashboard's job counts and recent-jobs list.
+
+Another user's private job returns the same `404 "Job not found"` as a
+job that does not exist, so its existence is never confirmed.
+
+### Raw content and normalization
+
+`Job.raw_submitted_content` keeps the paste byte-for-byte. The existing
+pipelines read `description`/`requirements`/`responsibilities`, so
+`job_submission/normalizer.py` splits the paste deterministically:
+lines move only under an explicitly recognized section heading, heading
+lines are kept (so "Preferred Qualifications" still switches AJI-012 to
+preferred), and a posting with no recognized heading is stored whole
+as the description. No section is ever invented. The one intentional
+omission is a responsibilities heading line: both pipelines treat every
+line of that column as a responsibility item, so "What you'll do" would
+otherwise appear as a fake responsibility. The split cannot recreate
+the original ordering, which is why the raw column exists.
+
+Other fields: `source = "user_submitted"`; `country = ""` (unknown,
+never the column's `"USA"` default; the JI adapter reports it as
+`null`); a missing title falls back to the paste's first line when it
+is short and not a heading, otherwise `"Untitled job"` (JI requires a
+non-empty title). There is no URL ingestion; a pasted URL is just text.
+
+### Processing and idempotency
+
+`POST /jobs/submissions` is synchronous: it validates, commits the job,
+runs JI then RI, and returns the job, both snapshots, and a `security`
+block. The UI states (default, analyzing, ready/error) are simply the
+lifecycle of that one request; there is no worker, queue, or status
+table. The job row is keyed by `identity_fingerprint` over (user,
+title, company, content), scoped to `source = "user_submitted"`, so it
+never collides with discovery's own use of that column. Resubmitting
+identical content (including "Try again" after a failure) reuses the
+same job. A failed analysis returns 503 but keeps the committed job, so
+the paste is never lost.
+
+### Prompt-injection handling
+
+Pasted content is untrusted data, same as a scraped JD. The existing
+defenses apply unchanged: RI's system-prompt rule, the evidence-substring
+check that drops any AI claim not literally present in the source, and
+`detect_prompt_injection_signals()`. The submission response also scans
+the title and company, which RI's own scan does not cover. Detection is
+diagnostic only; nothing is stripped or blocked. **AJI-012 change:** JI's
+system prompt did not have RI's "JD is data, never instructions" rule.
+It was ported as rule 6, and `job_intelligence.interpreter.PROMPT_VERSION`
+moved from 1.0 to 1.1 per the versioning convention above. Existing JI
+snapshots are never modified. The next `POST .../intelligence` for a
+job creates one new snapshot under 1.1.
+
+### Frontend
+
+`/jobs/submit` implements Figma 133:72 (default), 133:164 (analyzing),
+133:197 (error), and 133:239 (mobile), using new
+`NeroCharacterState` (component 25:50) and `NeroErrorCard` (component
+25:62). The "Add a job" button (133:266/267) is in the Jobs header. On
+success, the user lands on `/jobs?job=<id>`: that job's existing
+`JobCard` with Job Intelligence loaded, which is the implemented
+counterpart of Job Understanding (34:104). App-nav items now also stay
+active on nested routes (`isNavItemActive`), as the approved designs
+show Jobs active on the submit screen.
+
+### Testing
+
+`tests/test_job_submission_normalizer.py` covers heading detection,
+verbatim splitting, the no-invention guarantees, title resolution, and
+that the split still produces correct AJI-012 required/preferred/
+responsibility output. `tests/test_job_submission_api.py` covers:
+request validation; raw-content preservation; idempotency; per-user
+separation; AI failure degrading to partial; deterministic failure
+returning 503 while keeping the job, with retry reusing it; prompt
+injection (flagged, and fabricated AI claims dropped); a 404 on every
+per-job endpoint for other users that looks identical to a missing
+job; listing, dashboard, and application isolation; cascade on user
+delete; and unchanged discovered-job behavior. Web:
+`jobs/submit/submit-job.test.tsx` (all three states and retry) and
+`jobs/submitted-job-focus.test.tsx` (entry point and destination).
