@@ -46,10 +46,17 @@ import {
 } from "@/lib/applications";
 import { ApiError } from "@/lib/api";
 import {
+  employmentTypeTone,
+  formatEmploymentType,
+  formatJobOrigin,
+  formatValue,
+} from "@/lib/job-format";
+import {
   buildJobDecision,
   type NextStepKey,
   type StageKey,
 } from "@/lib/job-decision";
+import { getJobPriority, type JobPriorityResponse } from "@/lib/job-priority";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import Container from "@/components/app/container";
 import Panel, { PanelHeader } from "@/components/app/panel";
@@ -64,6 +71,9 @@ import ResumeVersionSelector, {
 import GapAnalysisSection from "@/components/app/gap-analysis-section";
 import ResumeImprovementSection from "@/components/app/resume-improvement-section";
 import JobDecisionPanel from "@/components/app/job-decision-panel";
+import JobPriorityList, {
+  type JobPriorityListStatus,
+} from "@/components/app/job-priority-list";
 import NeroErrorCard from "@/components/app/nero-error-card";
 
 type JobFilters = {
@@ -101,6 +111,14 @@ function filtersFromParams(params: URLSearchParams): JobFilters {
   };
 }
 
+// AJI-025: "all" is the existing listing (unchanged, the default);
+// "priority" is the user's analyzed jobs in priority order.
+type JobsView = "all" | "priority";
+
+function viewFromParams(params: URLSearchParams): JobsView {
+  return params.get("view") === "priority" ? "priority" : "all";
+}
+
 function pageFromParams(params: URLSearchParams): number {
   const raw = Number(params.get("page"));
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
@@ -123,6 +141,9 @@ function JobsPageInner() {
 
   const [page, setPage] = useState(initialPage);
   const [results, setResults] = useState<JobResults>(EMPTY_RESULTS);
+  const [view, setView] = useState<JobsView>(() =>
+    viewFromParams(searchParams),
+  );
 
   // AJI-022: `?job=<id>` is where a successful job submission lands - that
   // one job's card, with its Job Intelligence loaded, instead of the
@@ -322,6 +343,7 @@ function JobsPageInner() {
     if (appliedFilters.location)
       params.set("location", appliedFilters.location);
     if (page > 1) params.set("page", String(page));
+    if (view === "priority") params.set("view", "priority");
     if (focusedJobId) params.set("job", focusedJobId);
 
     const query = params.toString();
@@ -329,7 +351,7 @@ function JobsPageInner() {
       scroll: false,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilters, page, focusedJobId]);
+  }, [appliedFilters, page, view, focusedJobId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -434,6 +456,104 @@ function JobsPageInner() {
   // from a version other than the one the selector names.
   const effectiveResumeVersionId =
     selectedResumeVersionId ?? resumeVersionState.defaultOptionId;
+
+  // AJI-025: the Priority view. Pinned to the ResumeVersion the selector
+  // shows, scoped by the same filters as the listing, and refetched every
+  // time the view is shown again - including on return from a job where
+  // Match or ATS was just calculated - so it never shows an order built
+  // from results that have since changed. Keyed like savedResults below,
+  // so a late response for an old key is never shown.
+  const [priorityPage, setPriorityPage] = useState(1);
+  const [priorityReloadKey, setPriorityReloadKey] = useState(0);
+  const [priorityFetch, setPriorityFetch] = useState<{
+    key: string | null;
+    loading: boolean;
+    result: JobPriorityResponse | null;
+    error: string | null;
+  }>({ key: null, loading: false, result: null, error: null });
+
+  const priorityKey =
+    view === "priority" && !focusedJobId && resumeVersionState.status === "ready"
+      ? JSON.stringify([
+          effectiveResumeVersionId,
+          appliedFilters,
+          priorityPage,
+          priorityReloadKey,
+        ])
+      : null;
+
+  useEffect(() => {
+    if (priorityKey === null) return;
+
+    let cancelled = false;
+    const key = priorityKey;
+
+    setPriorityFetch({ key, loading: true, result: null, error: null });
+
+    getJobPriority({
+      resumeVersionId: effectiveResumeVersionId ?? undefined,
+      search: appliedFilters.search || undefined,
+      employment_type: appliedFilters.employmentType || undefined,
+      remote_type: appliedFilters.remoteType || undefined,
+      location: appliedFilters.location || undefined,
+      page: priorityPage,
+      page_size: 20,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setPriorityFetch({ key, loading: false, result, error: null });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setPriorityFetch({
+          key,
+          loading: false,
+          result: null,
+          error:
+            err instanceof Error ? err.message : "Unable to load job priority.",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // priorityKey already encodes every input this request reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priorityKey]);
+
+  let priorityStatus: JobPriorityListStatus;
+  let priorityError: string | null = null;
+
+  if (resumeVersionState.status === "loading") {
+    priorityStatus = "loading";
+  } else if (resumeVersionState.status === "empty") {
+    priorityStatus = "no_resume";
+  } else if (resumeVersionState.status === "error") {
+    priorityStatus = "error";
+    priorityError =
+      "Your resume versions couldn't be loaded, so priority can't be tied to one. Please try again.";
+  } else if (priorityFetch.key !== priorityKey || priorityFetch.loading) {
+    priorityStatus = "loading";
+  } else if (priorityFetch.error) {
+    priorityStatus = "error";
+    priorityError = priorityFetch.error;
+  } else {
+    priorityStatus = "ready";
+  }
+
+  function retryPriority() {
+    if (resumeVersionState.status === "error") {
+      loadResumeVersions();
+      return;
+    }
+    setPriorityReloadKey((key) => key + 1);
+  }
+
+  function selectResumeVersion(id: string | null) {
+    setSelectedResumeVersionId(id);
+    setPriorityPage(1);
+  }
 
   const [savedResults, setSavedResults] = useState<{
     key: string | null;
@@ -544,6 +664,17 @@ function JobsPageInner() {
     };
   }, []);
 
+  const applicationStatusByJobId = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(applicationsByJobId).map(([jobId, application]) => [
+          jobId,
+          application.status,
+        ]),
+      ),
+    [applicationsByJobId],
+  );
+
   function handleApplicationChange(
     jobId: string,
     application: Application | null,
@@ -563,12 +694,14 @@ function JobsPageInner() {
     event.preventDefault();
     setAppliedFilters(filterForm);
     setPage(1);
+    setPriorityPage(1);
   }
 
   function clearFilters() {
     setFilterForm(EMPTY_FILTERS);
     setAppliedFilters(EMPTY_FILTERS);
     setPage(1);
+    setPriorityPage(1);
   }
 
   const activeFilterCount = Object.values(appliedFilters).filter(
@@ -1234,21 +1367,58 @@ function JobsPageInner() {
               </AppButton>
             </div>
           ) : (
-            <div>
+            <div className="min-w-0">
               <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-app-blue">
                 Discovery Results
               </div>
 
               <h2 className="mt-1 text-xl font-semibold">
-                Available Opportunities
+                {view === "priority"
+                  ? "Your Priority Order"
+                  : "Available Opportunities"}
               </h2>
 
-              {!isPending && (
+              {view === "all" && !isPending && (
                 <p className="mt-1 text-xs text-app-faint">
                   {results.totalJobs} results · Resume choice applies to the
                   next intelligence calculation.
                 </p>
               )}
+
+              {view === "priority" && (
+                <p className="mt-1 text-xs text-app-faint">
+                  The jobs you&apos;ve analyzed, ordered for your attention ·
+                  Resume choice changes the order.
+                </p>
+              )}
+
+              {/* AJI-025: the listing stays the default; Priority is opt-in. */}
+              <div
+                role="group"
+                aria-label="Jobs view"
+                className="mt-3 inline-flex rounded-lg border border-app-border bg-app-panel p-1"
+              >
+                {(
+                  [
+                    ["all", "All jobs"],
+                    ["priority", "Priority order"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={view === key}
+                    onClick={() => setView(key)}
+                    className={
+                      view === key
+                        ? "rounded-md bg-app-blue-soft px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-app-blue"
+                        : "rounded-md px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-app-muted hover:text-app-text"
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1257,7 +1427,7 @@ function JobsPageInner() {
             options={resumeVersionState.options}
             defaultOptionId={resumeVersionState.defaultOptionId}
             selectedId={selectedResumeVersionId}
-            onSelect={setSelectedResumeVersionId}
+            onSelect={selectResumeVersion}
             onRetry={loadResumeVersions}
           />
         </div>
@@ -1331,8 +1501,21 @@ function JobsPageInner() {
 
         {focusedJobId && focusedJob && renderJobCard(focusedJob, true)}
 
+        {/* PRIORITY VIEW (AJI-025) */}
+        {!focusedJobId && view === "priority" && (
+          <JobPriorityList
+            status={priorityStatus}
+            result={priorityFetch.result}
+            error={priorityError}
+            onRetry={retryPriority}
+            onOpenJob={openJob}
+            onPageChange={setPriorityPage}
+            applicationStatusByJobId={applicationStatusByJobId}
+          />
+        )}
+
         {/* LOADING */}
-        {!focusedJobId && isPending && (
+        {!focusedJobId && view === "all" && isPending && (
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, index) => (
               <div
@@ -1354,6 +1537,7 @@ function JobsPageInner() {
 
         {/* EMPTY — no discovery source connected (AJI-024) */}
         {!focusedJobId &&
+          view === "all" &&
           !isPending &&
           !error &&
           results.jobs.length === 0 &&
@@ -1373,6 +1557,7 @@ function JobsPageInner() {
 
         {/* EMPTY */}
         {!focusedJobId &&
+          view === "all" &&
           !isPending &&
           !error &&
           results.jobs.length === 0 &&
@@ -1395,14 +1580,14 @@ function JobsPageInner() {
         )}
 
         {/* JOB LIST */}
-        {!focusedJobId && !isPending && results.jobs.length > 0 && (
+        {!focusedJobId && view === "all" && !isPending && results.jobs.length > 0 && (
           <div className="space-y-4">
             {results.jobs.map((job) => renderJobCard(job))}
           </div>
         )}
 
         {/* PAGINATION */}
-        {!focusedJobId && !isPending && results.totalPages > 1 && (
+        {!focusedJobId && view === "all" && !isPending && results.totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-5">
             <AppButton
               variant="ghost"
@@ -2616,47 +2801,6 @@ function formatEvidenceType(value: string): string {
 function formatEvidenceStatus(value: string): string {
   return value
     .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-// AJI-024: Full-Time and Contract must stay distinguishable at a glance,
-// so each gets its own chip treatment; contract length rides on the chip.
-function employmentTypeTone(
-  employmentType: string,
-): "blue-soft" | "neutral-soft" | "neutral" {
-  if (employmentType === "full_time") return "blue-soft";
-  if (employmentType === "contract") return "neutral-soft";
-  return "neutral";
-}
-
-function formatEmploymentType(job: Job): string {
-  if (job.employment_type === "full_time") return "Full-Time";
-
-  if (job.employment_type === "contract") {
-    return job.contract_duration
-      ? `Contract · ${job.contract_duration}`
-      : "Contract";
-  }
-
-  return formatValue(job.employment_type ?? "");
-}
-
-// AJI-024: discovered (shared) vs. the user's own private submission
-// (AJI-022), without leaking internal source identifiers for the latter.
-function formatJobOrigin(job: Job): string {
-  if (job.origin === "user_submitted" || job.source === "user_submitted") {
-    return "Added by you · private";
-  }
-
-  if (job.is_test_data) return "Discovered · test fixture";
-
-  return `Discovered · ${formatValue(job.source)}`;
-}
-
-function formatValue(value: string): string {
-  return value
-    .replace(/_/g, " ")
-    .replace(/-/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 

@@ -114,7 +114,7 @@ ATS Alignment               (AJI-013, not yet implemented)
         |
 Job Match                  <- services/job_matching (existing, unchanged)
         |
-Priority Ranking            (not yet implemented)
+Priority Ranking           <- services/priority_ranking (AJI-025, see that section)
 ```
 
 Hard Eligibility is a deterministic **pre-filter**, not a score. It
@@ -2796,3 +2796,206 @@ labelled "deterministic extraction only", never presented as AI-verified),
 and access denied. A 404 on the job (missing, or another user's private
 submission, which the API makes identical) shows `NeroErrorCard` with no
 retry. Other failures show a retry.
+
+## Job Priority Ranking (AJI-025)
+
+| | Question it answers |
+|---|---|
+| Hard Eligibility | "Can this job even be considered?" |
+| Job Match | "How well does this job fit?" |
+| ATS Alignment | "How well does this exact resume demonstrate this exact JD?" |
+| **Priority Ranking (this section)** | **"Given the analyses NERO already has, in what order do these jobs deserve my attention?"** |
+
+Priority is a new, read-only layer over existing results. It never
+predicts interviews, offers or hiring, never overwrites or changes any
+existing score, never computes a missing analysis, and never touches
+application tracking. The user decides; NERO never applies.
+
+### Why an ordering, not a score
+
+A weighted "priority score" would blend Job Match and ATS Alignment into
+one number, which "Job Match vs. ATS Alignment" above forbids, and
+AJI-014 records that no combining formula was ever approved. No
+"strong/weak" band for either score has been approved either (the only
+thresholds in the repo are the landing page's illustrative ones). So
+priority is a **lexicographic ordering** with no weights and no
+thresholds, applied in the AJI-023 workflow's own order
+(`services/priority_ranking/engine.py`):
+
+1. **Hard Eligibility gate.** `INELIGIBLE` → state `excluded`, never
+   ranked, whatever its Match/ATS. Among the rest, `ELIGIBLE` jobs come
+   before `UNKNOWN` ones. `UNKNOWN` is never converted: it stays
+   `eligibility_status: "unknown"` with the engine's own unknown-check
+   reasons quoted as cautions.
+2. **Job Match score**, highest first.
+3. **ATS Alignment score**, highest first. It only decides between exactly
+   equal Job Match scores, so it can never lift a job above one with a
+   higher Job Match. A missing ATS sorts after a present one only inside
+   such a tie.
+4. **Posting date** (newest first, undated last), then **job id**. This is
+   the `/jobs` listing's own order.
+
+The ordering keys ship on every response as `ordering`, and the rule is
+versioned by `services.priority_ranking.engine.ENGINE_VERSION` (`1.0.0`).
+It is a purely deterministic artifact, so it has a single
+`engine_version` per the versioning convention above.
+
+### States
+
+| State | Meaning | Rank |
+|---|---|---|
+| `ranked` | Not ineligible; current Job Match and current ATS Alignment for the pinned resume version. | 1..N |
+| `partial` | Ordered by Job Match, but ATS Alignment is missing or an analysis is out of date (a caution says which). | 1..N |
+| `not_ready` | Not ineligible, but no Job Match for this resume version, so there is nothing to order it by. Listed after every ranked job; never scored as zero, never called low priority. | none |
+| `excluded` | Hard Eligibility `INELIGIBLE`. | none |
+
+A visible job with **no** Job Match and no ATS Alignment for the pinned
+version is not listed at all. It is counted as `counts.unanalyzed`.
+Priority never triggers an AI call to fill a gap.
+
+### Inputs (and what is deliberately not an input)
+
+| Input | Scope | Used for |
+|---|---|---|
+| Hard Eligibility | user × job, deterministic | Gate + ELIGIBLE/UNKNOWN grouping. Evaluated **fresh** per request via `evaluate_jobs_eligibility()` (criteria built once, pure, no writes), never read from the upsert cache `JobEligibilityResult`. |
+| Job Match | user × job × resume version × Job Intelligence snapshot | Primary ordering key. |
+| ATS Alignment | user × job × resume version × JI × RI snapshots | Tie-break key. |
+| Latest Job Intelligence / Requirement Intelligence ids | job / user × job | Only to tell whether a stored Match/ATS is still current. Their content is not read. |
+
+Not inputs, by decision: **Gap Analysis** (derived from ATS Alignment,
+so using it would count the same evidence twice; its explanations are
+AI-authored), **Resume Improvement** (it acts through the resume version
+the user selects), **Application Tracking status** (no approved rule for
+it. A saved/applied/rejected job orders exactly like an untracked one,
+and the UI shows its status as context only), and **raw preferences /
+salary** (preferences already reach priority through Eligibility (hard)
+and Job Match (soft). Reading them again would be a second, parallel
+preference-scoring system).
+
+### Resume versions
+
+One resume version per ranking: the explicit `resume_version_id`, or the
+default Job Match itself uses. `job_match_service._resolve_resume_version`
+is reused (not copied), so there is no second selection rule. An unowned
+version is a 404, as everywhere else. Match and ATS are both read for
+that version only, so results from different versions never mix. The
+Jobs UI always passes the version its selector shows. Having no resume at
+all is a 200 with `resume_version: null` and no items.
+
+### Explainability
+
+Every result carries `reasons` (`evidence` = a fact the ordering used,
+`caution` = a limitation of it) and `blocking_factors`, each with a
+stable `code`, its `source` (`eligibility` | `job_match` |
+`ats_alignment`), and a message built only from the same inputs the
+ordering read. Eligibility messages quote the eligibility engine's own
+check reasons verbatim. There are no adjectives like "strong", since
+there are no thresholds behind them. Excluded jobs deliberately get no
+score reasons. `inputs` returns the exact Match/ATS ids, scores, engine
+versions and a `current` flag, so any result can be reconciled with the
+job's own `/match` and `/ats` results.
+
+### Staleness and recomputation
+
+Nothing is persisted: no table, no migration, no background job. Priority
+is recomputed on every request, which is cheap and deterministic, so
+there is no stored ranking to invalidate, and the ranking cannot leak
+into shared job data. Its *inputs* can age, and that is made explicit:
+
+- Eligibility is always fresh, so preference, profile and job edits apply
+  immediately.
+- A stored Match/ATS is **current** exactly when recalculating it now
+  would return that same row, i.e. it matches the existing idempotency
+  keys. For Match that is the latest JI snapshot and Match
+  `ENGINE_VERSION`. For ATS it is the latest JI snapshot, the latest RI
+  snapshot and the ATS `ENGINE_VERSION`; legacy rows lacking JI/RI
+  lineage count as not current. A non-current result still orders the
+  job (discarding real evidence would be worse), but the job becomes
+  `partial` with a caution naming what changed.
+- **Known limitation:** Job Match's soft components also read
+  `Preference`/`Profile` at calculation time, and neither table records
+  when it changed. So a Match calculated before a preference edit cannot
+  be detected as out of date. Eligibility, which is always fresh, catches
+  the hard-constraint side of such an edit.
+
+### API
+
+`GET /jobs/priority` (authenticated; declared before `GET /jobs/{job_id}`
+so "priority" is never read as a job id). Query: `resume_version_id`,
+the same `search`/`employment_type`/`remote_type`/`location` filters as
+`GET /jobs`, and `page`/`page_size`. Ranks are global to the filtered
+set; pages slice them. Response: `engine_version`, `ordering`,
+`generated_at`, `user_id`, `resume_version`, `counts` (per state +
+`unanalyzed`), `items` (each: the job in the listing's own shape, `rank`,
+`state`, `eligibility_status`, `reasons`, `blocking_factors`, `inputs`),
+`pagination`.
+
+It is a separate endpoint rather than a `GET /jobs` option because
+`GET /jobs` is public and, by the AJI-011 rule and its tests, never
+carries personalized data. It is not a second listing system:
+`list_jobs`'s query builder was extracted unchanged into
+`apps/api/services/job_listing.py::job_listing_query`, and both endpoints
+use it, so active/visibility/test-mode/filter semantics are identical.
+
+### Privacy
+
+Candidates are exactly the rows `job_listing_query` returns for the caller
+(discovered jobs, the caller's own submissions, test-fixture jobs only in
+test mode, active only), intersected with the caller's own analyses.
+Every Match/ATS/RI query filters on the caller's `user_id` *and* the
+caller-owned resume version. Either filter alone would isolate users; both
+are kept and each is pinned by a test. Another user's private job,
+resume version, scores or ids can never appear.
+
+### Performance
+
+A fixed number of queries per request (13 in the tests, for 1 or 7
+ranked jobs alike): one `DISTINCT ON (job_id)` query each for latest
+Match, latest ATS, latest JI id and latest RI id, one job load, one count,
+plus resume/auth/preference lookups. Nothing runs one query per job, no AI
+call is made, and eligibility is a pure function over already-loaded rows.
+
+### Frontend
+
+The Jobs page gains an opt-in **All jobs / Priority order** toggle
+(`?view=priority`). "All jobs" is the unchanged default listing.
+`components/app/job-priority-list.tsx` renders the server's order:
+ranked jobs with "Priority N of M", then "Not ranked yet", then
+"Excluded by your hard requirements". Each card shows state and
+eligibility badges, Job Match and ATS Alignment as **two separately
+labelled values** (never combined), and the evidence, cautions and
+blocking reasons. "Open job" leads to the unchanged AJI-023 workflow. The
+view refetches whenever it is shown again, so returning from a job where
+Match/ATS was just calculated never shows an outdated order. The shared
+label helpers moved unchanged to `lib/job-format.ts`. No
+"recommended" language is used, and tracking status is shown as context
+only.
+
+### Not included (intentionally)
+
+A priority score or any Match/ATS blend; score thresholds/tiers;
+application-status effects; salary or other raw-preference signals; Gap
+Analysis counts; persistence or background recomputation; AI calls or
+AI-written explanations; `RequirementIntelligence` relationship/
+`hard_requirement` semantics (still an open product decision, see
+AJI-020C); priority inside the opened-job view; any change to the
+Eligibility, Job Match, ATS, Gap Analysis or Resume Improvement engines.
+
+### Testing
+
+`tests/test_priority_ranking_engine.py` (pure) covers determinism
+(including input-order independence), versioning, contiguous ranks, the
+absence of any score field, the eligibility gate, UNKNOWN staying
+UNKNOWN, Match-then-ATS ordering and tie rules, listing-order fallback,
+missing/partial/not-ready states with no fabricated values, every
+out-of-date code, and explanation text. `tests/test_jobs_priority_api.py`
+(real DB) covers auth, contract shape, fresh eligibility, resume-version
+pinning and non-mixing, the default version, no-resume/unowned-version
+handling, user isolation (including a corrupted cross-user row), private
+and test-fixture jobs, inactive jobs, Full-Time/Contract, discovered vs.
+submitted, filters, pagination, zero writes and zero AI calls,
+application state untouched and non-ordering, the public listing staying
+unpersonalized, a constant query count, and an end-to-end run over real
+Job Match and ATS Alignment results. Web: `lib/job-priority.test.ts`,
+`components/app/job-priority-list.test.tsx`, and
+`app/(app)/jobs/job-priority-view.test.tsx`.
