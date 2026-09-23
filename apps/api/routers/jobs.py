@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from apps.api.database import get_db
 from apps.api.dependencies import get_current_user, get_optional_current_user
-from apps.api.models import Company, Job, User
+from apps.api.models import Job, User
 from apps.api.schemas import JobSubmissionRequest
 from apps.api.services.ats_alignment_service import (
     ATSAlignmentServiceError,
@@ -29,11 +30,17 @@ from apps.api.services.job_intelligence.service import (
     generate_job_intelligence,
     get_latest_job_intelligence,
 )
-from apps.api.services.job_access import get_visible_job, visible_jobs_filter
+from apps.api.services.job_access import get_visible_job
+from apps.api.services.job_listing import job_listing_query
 from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
     get_latest_job_match,
+)
+from apps.api.services.priority_ranking_service import (
+    PriorityItem,
+    PriorityRankingServiceError,
+    build_job_priority,
 )
 from apps.api.services.requirement_intelligence.persistence_service import (
     RequirementIntelligencePersistenceError,
@@ -63,6 +70,10 @@ from apps.api.models import (
 )
 from services.eligibility.contracts import EligibilityResult
 from services.job_discovery.sources.test_fixture import TEST_FIXTURE_SOURCE
+from services.priority_ranking.engine import (
+    ENGINE_VERSION as PRIORITY_ENGINE_VERSION,
+    ORDERING as PRIORITY_ORDERING,
+)
 
 
 router = APIRouter(
@@ -148,41 +159,15 @@ def list_jobs(
         User | None, Depends(get_optional_current_user)
     ] = None,
 ):
-    query = (
-        select(Job, Company.name)
-        .outerjoin(Company, Job.company_id == Company.id)
-        .where(Job.is_active.is_(True))
-        # AJI-022: discovered jobs for everyone; a signed-in user also
-        # sees their own submitted jobs, never anyone else's.
-        .where(
-            visible_jobs_filter(
-                current_user.id if current_user is not None else None
-            )
-        )
+    # AJI-022 visibility + the optional filters, shared with the AJI-025
+    # priority view so both scope jobs identically.
+    query = job_listing_query(
+        user_id=current_user.id if current_user is not None else None,
+        search=search,
+        employment_type=employment_type,
+        remote_type=remote_type,
+        location=location,
     )
-
-    if search:
-        search_pattern = f"%{search.strip()}%"
-
-        query = query.where(
-            Job.title.ilike(search_pattern)
-            | Company.name.ilike(search_pattern)
-        )
-
-    if employment_type:
-        query = query.where(
-            Job.employment_type == employment_type
-        )
-
-    if remote_type:
-        query = query.where(
-            Job.remote_type == remote_type
-        )
-
-    if location:
-        query = query.where(
-            Job.location.ilike(f"%{location.strip()}%")
-        )
 
     count_query = select(func.count()).select_from(
         query.subquery()
@@ -279,6 +264,174 @@ def create_job_submission(
             "signals": [
                 signal.model_dump() for signal in result.injection_signals
             ],
+        },
+    }
+
+
+def _priority_item_to_response(item: PriorityItem) -> dict:
+    result = item.result
+    match = item.job_match
+    ats = item.ats_alignment
+
+    return {
+        "job": _job_to_response(item.job, item.company_name),
+        "rank": result.rank,
+        "state": result.state.value,
+        "eligibility_status": result.eligibility_status,
+        "reasons": [
+            {
+                "code": reason.code,
+                "source": reason.source,
+                "kind": reason.kind,
+                "message": reason.message,
+            }
+            for reason in result.reasons
+        ],
+        "blocking_factors": [
+            {
+                "code": factor.code,
+                "source": factor.source,
+                "message": factor.message,
+            }
+            for factor in result.blocking_factors
+        ],
+        # The exact inputs the ordering read, so a result can always be
+        # traced to (and reconciled with) the job's own Match/ATS results.
+        "inputs": {
+            "eligibility": {
+                "status": item.eligibility.status.value,
+                "engine_version": item.eligibility.engine_version,
+                "failed_constraints": item.eligibility.failed_constraints,
+                "unknown_constraints": item.eligibility.unknown_constraints,
+            },
+            "job_match": (
+                {
+                    "id": str(match.id),
+                    "score": match.score,
+                    "confidence": match.confidence,
+                    "engine_version": match.engine_version,
+                    "job_intelligence_id": (
+                        str(match.job_intelligence_id)
+                        if match.job_intelligence_id
+                        else None
+                    ),
+                    "current": result.job_match_current,
+                    "created_at": match.created_at.isoformat(),
+                }
+                if match is not None
+                else None
+            ),
+            "ats_alignment": (
+                {
+                    "id": str(ats.id),
+                    "overall_score": ats.overall_score,
+                    "confidence": ats.confidence,
+                    "must_have_matched": ats.result.get("must_have_matched"),
+                    "must_have_total": ats.result.get("must_have_total"),
+                    "engine_version": ats.engine_version,
+                    "requirement_intelligence_id": (
+                        str(ats.requirement_intelligence_id)
+                        if ats.requirement_intelligence_id
+                        else None
+                    ),
+                    "current": result.ats_alignment_current,
+                    "created_at": ats.created_at.isoformat(),
+                }
+                if ats is not None
+                else None
+            ),
+        },
+    }
+
+
+# Declared before GET /{job_id} so "priority" is never read as a job id.
+@router.get("/priority")
+def get_job_priority(
+    resume_version_id: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+    employment_type: str | None = Query(default=None),
+    remote_type: str | None = Query(default=None),
+    location: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Order the authenticated user's analyzed jobs for their attention
+    (AJI-025). Read-only and deterministic: it never calculates a missing
+    analysis, never calls an AI provider, and never changes an
+    application.
+
+    Hard Eligibility (evaluated fresh) is a gate - an ineligible job is
+    `excluded` and never ranked. The rest are ordered by Job Match, then
+    ATS Alignment, for ONE resume version (`resume_version_id`, or the
+    same default Job Match uses), then by the listing's own order. Job
+    Match and ATS Alignment are never combined into one number; there is
+    no priority score. A job with no Job Match for that version is
+    `not_ready` and gets no rank.
+
+    Only jobs this user has a Job Match or ATS Alignment for (for that
+    resume version) are listed; the rest are counted in
+    `counts.unanalyzed`. Uses the same visibility and filters as GET /jobs,
+    so another user's private job can never appear. Personalized, so -
+    unlike GET /jobs - it always requires authentication.
+    """
+    parsed_resume_version_id = _parse_optional_resume_version_id(
+        resume_version_id
+    )
+
+    try:
+        outcome = build_job_priority(
+            db,
+            current_user=current_user,
+            resume_version_id=parsed_resume_version_id,
+            search=search,
+            employment_type=employment_type,
+            remote_type=remote_type,
+            location=location,
+            page=page,
+            page_size=page_size,
+        )
+    except PriorityRankingServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    resume_version = outcome.resume_version
+
+    return {
+        "engine_version": PRIORITY_ENGINE_VERSION,
+        "ordering": list(PRIORITY_ORDERING),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "user_id": str(current_user.id),
+        "resume_version": (
+            {
+                "id": str(resume_version.id),
+                "name": resume_version.name,
+                "resume_filename": resume_version.resume.filename,
+                "is_master": resume_version.is_master,
+            }
+            if resume_version is not None
+            else None
+        ),
+        "counts": {
+            **outcome.state_counts,
+            "unanalyzed": outcome.unanalyzed_count,
+        },
+        "items": [
+            _priority_item_to_response(item) for item in outcome.items
+        ],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": outcome.total,
+            "total_pages": (
+                (outcome.total + page_size - 1) // page_size
+                if outcome.total
+                else 0
+            ),
         },
     }
 
