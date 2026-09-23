@@ -108,6 +108,10 @@ export default function JobPriorityList({
   const { ordered, notReady, excluded } = splitPriorityItems(result.items);
   const counts = result.counts;
   const rankedTotal = counts.ranked + counts.partial;
+  // Every job in this view (same filters as All jobs), analyzed or not,
+  // so a position is never read as a place among every known job.
+  const jobsInView =
+    rankedTotal + counts.not_ready + counts.excluded + counts.unanalyzed;
   const resumeName = result.resume_version
     ? `${result.resume_version.name} (${result.resume_version.resume_filename})`
     : null;
@@ -122,13 +126,18 @@ export default function JobPriorityList({
           id="priority-explainer"
           className="mt-2 max-w-3xl text-xs leading-5 text-app-muted"
         >
-          Only jobs you have analyzed are ordered. Jobs your hard
-          requirements rule out are excluded. The rest are ordered by Job
-          Match, and ATS Alignment decides only between equal Job Match
-          scores. The two scores are shown separately and are never
-          combined. Priority is a starting point for your attention. It
-          doesn&apos;t predict interviews or offers, and NERO never applies
-          for you.
+          Priority ranks only the jobs that already have a Job Match for
+          this resume version, so &ldquo;Priority 1 of {rankedTotal}&rdquo;
+          means first among those {rankedTotal} ranked jobs, not among
+          every job NERO has found. Jobs your hard requirements rule out
+          are excluded. The rest are ordered by Job Match, with jobs
+          confirmed eligible ahead of jobs whose eligibility is unknown,
+          and ATS Alignment decides only between equal Job Match scores.
+          The two scores are shown separately and are never combined.
+          Your tracking status (saved, applied, rejected and so on)
+          doesn&apos;t change the order. Priority is a starting point for
+          your attention. It doesn&apos;t predict interviews or offers, and
+          NERO never applies for you.
         </p>
         {resumeName && (
           <p className="mt-2 break-words text-[11px] leading-5 text-app-faint">
@@ -139,6 +148,7 @@ export default function JobPriorityList({
           className="mt-3 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.12em] text-app-faint"
           aria-label="Priority summary"
         >
+          <span>{jobsInView} jobs in view</span>
           <span>{rankedTotal} ranked</span>
           <span>{counts.not_ready} not ranked yet</span>
           <span>{counts.excluded} excluded</span>
@@ -300,7 +310,7 @@ function PriorityJobCard({
                 className="font-mono text-[10px] uppercase tracking-[0.15em] text-app-blue"
                 data-testid="priority-position"
               >
-                Priority {item.rank} of {rankedTotal}
+                Priority {item.rank} of {rankedTotal} ranked
               </span>
             )}
             <Badge tone={state.tone}>{state.label}</Badge>

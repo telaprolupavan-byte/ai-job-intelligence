@@ -160,8 +160,8 @@ describe("JobPriorityList (AJI-025)", () => {
     const titles = within(ranked).getAllByRole("heading", { level: 4 });
     expect(titles.map((h) => h.textContent)).toEqual(["Job a", "Job b"]);
 
-    expect(within(card("Job a")).getByText("Priority 1 of 2")).toBeInTheDocument();
-    expect(within(card("Job b")).getByText("Priority 2 of 2")).toBeInTheDocument();
+    expect(within(card("Job a")).getByText("Priority 1 of 2 ranked")).toBeInTheDocument();
+    expect(within(card("Job b")).getByText("Priority 2 of 2 ranked")).toBeInTheDocument();
     expect(within(card("Job a")).getByText("Ranked")).toBeInTheDocument();
     expect(within(card("Job b")).getByText("Ranked · partial evidence")).toBeInTheDocument();
   });
@@ -271,7 +271,7 @@ describe("JobPriorityList (AJI-025)", () => {
     expect(within(article).getByText("Not ranked yet")).toBeInTheDocument();
     expect(within(article).getByText(/cannot be ordered by fit yet/)).toBeInTheDocument();
     // Only the one ranked job counts toward positions.
-    expect(within(card("Job a")).getByText("Priority 1 of 1")).toBeInTheDocument();
+    expect(within(card("Job a")).getByText("Priority 1 of 1 ranked")).toBeInTheDocument();
   });
 
   it("shows excluded jobs with the failed requirement and no scores", () => {
@@ -345,6 +345,40 @@ describe("JobPriorityList (AJI-025)", () => {
     expect(screen.getByText(/5 other jobs have/)).toBeInTheDocument();
     expect(screen.getByText(/doesn't predict interviews or offers/)).toBeInTheDocument();
     expect(document.body.textContent?.toLowerCase()).not.toMatch(/recommend/);
+  });
+
+  it("scopes a position to ranked jobs, not every job NERO knows about", () => {
+    const result = response([
+      item("a", { rank: 1 }),
+      item("b", { rank: 2 }),
+      item("n", { rank: null, state: "not_ready" }),
+      item("x", { rank: null, state: "excluded", eligibility_status: "ineligible" }),
+    ]);
+    result.counts.unanalyzed = 6;
+    renderList(result);
+
+    expect(within(card("Job a")).getByText("Priority 1 of 2 ranked")).toBeInTheDocument();
+    const summary = screen.getByLabelText("Priority summary");
+    // 2 ranked + 1 not ready + 1 excluded + 6 not analyzed.
+    expect(summary).toHaveTextContent("10 jobs in view");
+    expect(summary).toHaveTextContent("2 ranked");
+    expect(summary).toHaveTextContent("6 not analyzed");
+    const explainer = document.getElementById("priority-explainer");
+    expect(explainer).toHaveTextContent(
+      "first among those 2 ranked jobs, not among every job NERO has found",
+    );
+  });
+
+  it("states the unknown-eligibility and tracking-status rules it applies", () => {
+    renderList(response([item("a")]));
+
+    const explainer = document.getElementById("priority-explainer");
+    expect(explainer).toHaveTextContent(
+      "jobs confirmed eligible ahead of jobs whose eligibility is unknown",
+    );
+    expect(explainer).toHaveTextContent(
+      "Your tracking status (saved, applied, rejected and so on) doesn't change the order",
+    );
   });
 
   it("has an empty state when nothing is analyzed", () => {

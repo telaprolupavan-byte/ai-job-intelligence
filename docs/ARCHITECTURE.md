@@ -203,16 +203,29 @@ plainly as possible:
 | `excluded_locations` (new) | non-empty | No — hard-only |
 | `requires_sponsorship` / `is_us_citizen` / `has_security_clearance` (new) | set (not `None`) | No — hard-only |
 | `enforce_minimum_experience` (new) | `True` | No — hard-only |
-| `target_titles` | never | Yes — soft-only, unchanged |
+| `target_titles` | never | No — see the note below |
 | `minimum_salary` / `minimum_hourly_rate` | never | Not currently read by either engine |
+
+**`target_titles` source (documentation correction, AJI-025 review).**
+`target_titles` exists on both `Profile` and `Preference`, and the Settings
+page edits both. Job Match's title signal reads **`Profile.target_titles`**
+(`apps/api/services/job_match_service.py`, passed as `resume_titles`), and
+has done so since AJI-007. `Preference.target_titles` is stored and returned
+by `/preferences` but is not read by Job Match, Hard Eligibility or any
+other engine. Earlier versions of this table said Job Match reads
+`Preference.target_titles`. That was documentation drift, not a code
+change. The code was left unchanged on purpose, since switching the source
+would change existing Job Match scores. Which of the two fields should be
+authoritative is an open product decision.
 
 `employment_types`/`locations`/`remote_preference` are intentionally
 dual-purpose (reused, not duplicated) rather than adding a second parallel
 preference system: Job Match keeps treating them as soft signals exactly
 as before, while `services.eligibility` treats a non-empty/non-null value
 on those same fields as a hard restriction. Salary minimums and target
-titles are deliberately **not** modeled as hard constraints anywhere —
-they stay Job Match-only soft signals.
+titles are deliberately **not** modeled as hard constraints anywhere.
+Target titles stay a Job Match-only soft signal (read from `Profile`, see
+above).
 
 Experience is a hard constraint *only* when `enforce_minimum_experience`
 is explicitly enabled — the ticket's "do not automatically convert every
@@ -2960,8 +2973,13 @@ call is made, and eligibility is a pure function over already-loaded rows.
 The Jobs page gains an opt-in **All jobs / Priority order** toggle
 (`?view=priority`). "All jobs" is the unchanged default listing.
 `components/app/job-priority-list.tsx` renders the server's order:
-ranked jobs with "Priority N of M", then "Not ranked yet", then
-"Excluded by your hard requirements". Each card shows state and
+ranked jobs with "Priority N of M ranked", then "Not ranked yet", then
+"Excluded by your hard requirements". M counts only ranked jobs. The
+summary line also shows the total jobs in view (ranked + not ranked yet +
+excluded + not analyzed, under the same filters as All jobs), and the
+explainer spells out that a position is among ranked jobs only, never among
+every job NERO has found. The explainer also states the ELIGIBLE-before-
+UNKNOWN rule and that tracking status does not change the order. Each card shows state and
 eligibility badges, Job Match and ATS Alignment as **two separately
 labelled values** (never combined), and the evidence, cautions and
 blocking reasons. "Open job" leads to the unchanged AJI-023 workflow. The
@@ -2981,6 +2999,28 @@ AI-written explanations; `RequirementIntelligence` relationship/
 AJI-020C); priority inside the opened-job view; any change to the
 Eligibility, Job Match, ATS, Gap Analysis or Resume Improvement engines.
 
+### Open Product Owner decisions
+
+AJI-025 does not decide any of these. Each one keeps its current behavior
+until the Product Owner decides.
+
+1. **Should application status affect priority?** Currently it does not.
+   A job tracked as `rejected`, `withdrawn`, `offer` and so on keeps its
+   place, and can be "Priority 1". The UI shows the status as context and
+   says it doesn't change the order. This is pinned by
+   `test_no_tracking_status_changes_the_order`.
+2. **How should unanalyzed jobs be prioritized?** Currently they are not
+   listed, only counted (`counts.unanalyzed`). No bulk or background
+   analysis exists.
+3. **Should UNKNOWN eligibility be ordered after ELIGIBLE?** Currently,
+   yes, as part of the gate (step 1 above). An UNKNOWN job with a higher
+   Job Match sorts below every ELIGIBLE ranked job. No approved document
+   before AJI-025 specifies this. The alternative is to label UNKNOWN but
+   order it by Job Match alongside ELIGIBLE jobs.
+4. **Should `target_titles` live on `Profile` or `Preference`?** Job
+   Match reads `Profile.target_titles`. See "Hard constraints vs. soft
+   preferences".
+
 ### Testing
 
 `tests/test_priority_ranking_engine.py` (pure) covers determinism
@@ -2993,8 +3033,10 @@ out-of-date code, and explanation text. `tests/test_jobs_priority_api.py`
 pinning and non-mixing, the default version, no-resume/unowned-version
 handling, user isolation (including a corrupted cross-user row), private
 and test-fixture jobs, inactive jobs, Full-Time/Contract, discovered vs.
-submitted, filters, pagination, zero writes and zero AI calls,
-application state untouched and non-ordering, the public listing staying
+submitted, filters, pagination (including ranking before slicing when the
+listing order is the reverse of priority), repeat-request determinism, zero
+writes and zero AI calls, application state untouched and no tracking
+status reordering, the public listing staying
 unpersonalized, a constant query count, and an end-to-end run over real
 Job Match and ATS Alignment results. Web: `lib/job-priority.test.ts`,
 `components/app/job-priority-list.test.tsx`, and

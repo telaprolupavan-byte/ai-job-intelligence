@@ -781,6 +781,42 @@ def test_pagination_keeps_global_ranks(client, db):
     }
 
 
+def test_ranking_happens_before_pagination_not_per_page(client, db):
+    # The listing order (newest first) is the reverse of priority order
+    # here, so ranking each page separately would put the newest,
+    # lowest-Match job first on page 1.
+    user = make_user(db)
+    version = make_resume(db, user)[0]
+    base = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    oldest_best = make_job(db, title="Best", posting_date=base)
+    middle = make_job(db, title="Middle", posting_date=base + timedelta(days=1))
+    newest_worst = make_job(db, title="Worst", posting_date=base + timedelta(days=2))
+    analyze(db, user, oldest_best, version, match=90, ats=10)
+    analyze(db, user, middle, version, match=60, ats=60)
+    analyze(db, user, newest_worst, version, match=30, ats=99)
+
+    pages = [get_priority(client, user, page=n, page_size=1) for n in (1, 2, 3)]
+
+    assert [ids(p) for p in pages] == [
+        [str(oldest_best.id)], [str(middle.id)], [str(newest_worst.id)],
+    ]
+    assert [p["items"][0]["rank"] for p in pages] == [1, 2, 3]
+
+
+def test_same_inputs_return_the_same_order(client, db):
+    user = make_user(db)
+    version = make_resume(db, user)[0]
+    for score in (70, 70, 70, 50):
+        analyze(db, user, make_job(db), version, match=score, ats=40)
+
+    first = get_priority(client, user)
+    second = get_priority(client, user)
+
+    first.pop("generated_at")
+    second.pop("generated_at")
+    assert first == second
+
+
 # ---------------------------------------------------------------------------
 # Read-only: no writes, no AI, no application changes
 # ---------------------------------------------------------------------------
@@ -847,6 +883,35 @@ def test_application_state_is_untouched_and_does_not_reorder(client, db):
     assert db.scalar(
         select(func.count()).select_from(SavedJob).where(SavedJob.user_id == user.id)
     ) == 2
+
+
+@pytest.mark.parametrize(
+    "status",
+    ["saved", "applied", "interviewing", "offer", "rejected", "withdrawn"],
+)
+def test_no_tracking_status_changes_the_order(client, db, status):
+    # Documents the current behavior: tracking status is not a priority
+    # input (no approved rule), so even a rejected or withdrawn job keeps
+    # its place. Whether it should is an open Product Owner decision.
+    user = make_user(db)
+    version = make_resume(db, user)[0]
+    tracked = make_job(db, title="Tracked")
+    untracked = make_job(db, title="Untracked")
+    analyze(db, user, tracked, version, match=90, ats=90)
+    analyze(db, user, untracked, version, match=50, ats=50)
+    before = get_priority(client, user)
+
+    headers = auth(user)
+    app_id = client.post(
+        "/applications", json={"job_id": str(tracked.id)}, headers=headers
+    ).json()["id"]
+    client.patch(f"/applications/{app_id}", json={"status": status}, headers=headers)
+
+    after = get_priority(client, user)
+
+    assert ids(after) == ids(before) == [str(tracked.id), str(untracked.id)]
+    assert item_for(after, tracked)["rank"] == 1
+    assert item_for(after, tracked)["state"] == "ranked"
 
 
 def test_public_listing_never_includes_priority(client, db):
