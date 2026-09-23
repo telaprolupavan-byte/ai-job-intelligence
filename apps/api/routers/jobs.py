@@ -33,6 +33,7 @@ from apps.api.services.job_access import get_visible_job, visible_jobs_filter
 from apps.api.services.job_match_service import (
     JobMatchServiceError,
     calculate_job_match as calculate_job_match_service,
+    get_latest_job_match,
 )
 from apps.api.services.requirement_intelligence.persistence_service import (
     RequirementIntelligencePersistenceError,
@@ -56,6 +57,7 @@ from apps.api.models import (
     AtsAlignmentResult,
     GapAnalysis,
     JobIntelligence,
+    JobMatchResult,
     RequirementIntelligence,
     ResumeImprovement,
 )
@@ -291,6 +293,70 @@ def get_job(
     }
 
 
+def _job_match_to_response(match_record: JobMatchResult) -> dict:
+    result_data = match_record.result
+
+    return {
+        "id": str(match_record.id),
+        "job_id": str(match_record.job_id),
+        "resume_version_id": str(match_record.resume_version_id),
+        "job_intelligence_id": (
+            str(match_record.job_intelligence_id)
+            if match_record.job_intelligence_id
+            else None
+        ),
+        "score": match_record.score,
+        "confidence": match_record.confidence,
+        "engine_version": match_record.engine_version,
+        "strengths": result_data["strengths"],
+        "skill_gaps": result_data["skill_gaps"],
+        "components": result_data["components"],
+        "must_have_matches": result_data["must_have_matches"],
+        "must_have_gaps": result_data["must_have_gaps"],
+        "preferred_matches": result_data["preferred_matches"],
+        "preferred_gaps": result_data["preferred_gaps"],
+    }
+
+
+@router.get("/{job_id}/match")
+def get_job_match(
+    job_id: str,
+    resume_version_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return the authenticated user's most recently calculated Job Match
+    for a job, without recomputing it (AJI-023). 404s when no match has
+    been calculated yet (see POST /jobs/{job_id}/match).
+
+    The read counterpart of the POST, like GET /ats and GET /gap-analysis:
+    it lets the Jobs page show a job's existing Match next to its existing
+    ATS Alignment and Gap Analysis instead of recalculating to see them.
+    Job Match is user-specific - a user only ever reads their own rows.
+    """
+    job = _get_visible_job_or_404(db, job_id, current_user)
+
+    parsed_resume_version_id = _parse_optional_resume_version_id(
+        resume_version_id
+    )
+
+    record = get_latest_job_match(
+        db,
+        user_id=current_user.id,
+        job_id=job.id,
+        resume_version_id=parsed_resume_version_id,
+    )
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job Match has not been calculated for this job yet.",
+        )
+
+    return _job_match_to_response(record)
+
+
 @router.post("/{job_id}/match")
 def calculate_job_match(
     job_id: str,
@@ -336,28 +402,7 @@ def calculate_job_match(
             detail=str(exc),
         ) from exc
 
-    result_data = match_record.result
-
-    return {
-        "id": str(match_record.id),
-        "job_id": str(match_record.job_id),
-        "resume_version_id": str(match_record.resume_version_id),
-        "job_intelligence_id": (
-            str(match_record.job_intelligence_id)
-            if match_record.job_intelligence_id
-            else None
-        ),
-        "score": match_record.score,
-        "confidence": match_record.confidence,
-        "engine_version": match_record.engine_version,
-        "strengths": result_data["strengths"],
-        "skill_gaps": result_data["skill_gaps"],
-        "components": result_data["components"],
-        "must_have_matches": result_data["must_have_matches"],
-        "must_have_gaps": result_data["must_have_gaps"],
-        "preferred_matches": result_data["preferred_matches"],
-        "preferred_gaps": result_data["preferred_gaps"],
-    }
+    return _job_match_to_response(match_record)
 
 
 def _eligibility_result_to_response(

@@ -83,6 +83,30 @@ class JobMatchServiceError(RuntimeError):
         self.status_code = status_code
 
 
+def get_latest_job_match(
+    db: Session,
+    *,
+    user_id: UUID,
+    job_id: UUID,
+    resume_version_id: UUID | None = None,
+) -> JobMatchResult | None:
+    """
+    Read-only lookup of the newest Job Match result for this user and job
+    (optionally pinned to one exact resume version), mirroring
+    `ats_alignment_service.get_latest_ats_alignment`. Never recomputes and
+    never generates Job Intelligence, so reading can't trigger an AI call.
+    """
+    query = db.query(JobMatchResult).filter(
+        JobMatchResult.user_id == user_id,
+        JobMatchResult.job_id == job_id,
+    )
+
+    if resume_version_id is not None:
+        query = query.filter(JobMatchResult.resume_version_id == resume_version_id)
+
+    return query.order_by(JobMatchResult.created_at.desc()).first()
+
+
 def _resolve_resume_version(
     db: Session,
     *,

@@ -575,6 +575,7 @@ def test_pasted_content_reaches_the_model_only_as_job_description_data(
 
 PER_JOB_ENDPOINTS = [
     ("get", "/jobs/{job_id}", None),
+    ("get", "/jobs/{job_id}/match", None),
     ("post", "/jobs/{job_id}/match", None),
     ("get", "/jobs/{job_id}/eligibility", None),
     ("get", "/jobs/{job_id}/intelligence", None),

@@ -1,4 +1,4 @@
-import { apiRequest } from "./api";
+import { ApiError, apiRequest } from "./api";
 
 export type Job = {
   id: string;
@@ -207,7 +207,11 @@ export type JobIntelligenceResponse = {
   id: string;
   job_id: string;
   analysis_version: string;
+  /** "complete" when the AI stage enriched the deterministic extraction,
+   *  "partial" when only the deterministic stage ran (e.g. no AI provider
+   *  is configured). Never "complete" without a real AI result. */
   extraction_status: string;
+  model_provider?: string | null;
   created_at: string;
   intelligence: JobIntelligenceData;
 };
@@ -824,4 +828,68 @@ export async function getJob(jobId: string): Promise<SubmittedJob> {
     headers: authHeaders(),
     cache: "no-store",
   });
+}
+
+// ---------------------------------------------------------------------------
+// AJI-023 — read the latest persisted results for one job
+// ---------------------------------------------------------------------------
+
+/**
+ * GET a per-job, per-user result that may not exist yet. Resolves null on
+ * the 404 that means "never calculated" so callers can show an honest
+ * "not analyzed yet" state; every other failure still throws. Only ever
+ * called after the job itself loaded, so a 404 here can't be the job's.
+ */
+async function getLatestOrNull<T>(
+  path: string,
+  resumeVersionId?: string,
+): Promise<T | null> {
+  const query = resumeVersionId
+    ? `?${new URLSearchParams({ resume_version_id: resumeVersionId })}`
+    : "";
+
+  try {
+    return await apiRequest<T>(`${path}${query}`, {
+      headers: authHeaders(),
+      cache: "no-store",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return null;
+    }
+
+    throw err;
+  }
+}
+
+export type LatestJobResults = {
+  match: JobMatchResult | null;
+  ats: AtsAlignmentResult | null;
+  gapAnalysis: GapAnalysisResult | null;
+  improvement: ResumeImprovementResult | null;
+};
+
+/**
+ * The user's existing Job Match, ATS Alignment, Gap Analysis and Resume
+ * Improvement for one job and one exact ResumeVersion — read-only, so
+ * opening a job shows what was already calculated instead of
+ * recalculating (or showing nothing). Each artifact stays separate.
+ */
+export async function getLatestJobResults(
+  jobId: string,
+  resumeVersionId: string,
+): Promise<LatestJobResults> {
+  const base = `/jobs/${encodeURIComponent(jobId)}`;
+
+  const [match, ats, gapAnalysis, improvement] = await Promise.all([
+    getLatestOrNull<JobMatchResult>(`${base}/match`, resumeVersionId),
+    getLatestOrNull<AtsAlignmentResult>(`${base}/ats`, resumeVersionId),
+    getLatestOrNull<GapAnalysisResult>(`${base}/gap-analysis`, resumeVersionId),
+    getLatestOrNull<ResumeImprovementResult>(
+      `${base}/resume-improvement`,
+      resumeVersionId,
+    ),
+  ]);
+
+  return { match, ats, gapAnalysis, improvement };
 }

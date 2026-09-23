@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState, useTransition } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import {
@@ -12,6 +19,7 @@ import {
   getJob,
   getJobEligibility,
   getJobs,
+  getLatestJobResults,
   runResumeImprovementRecheck,
   type AtsAlignmentResult,
   type AtsAlignmentStatus,
@@ -32,6 +40,12 @@ import {
   updateApplicationStatus,
   type Application,
 } from "@/lib/applications";
+import { ApiError } from "@/lib/api";
+import {
+  buildJobDecision,
+  type NextStepKey,
+  type StageKey,
+} from "@/lib/job-decision";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import Container from "@/components/app/container";
 import Panel, { PanelHeader } from "@/components/app/panel";
@@ -45,6 +59,8 @@ import ResumeVersionSelector, {
 } from "@/components/app/resume-version-selector";
 import GapAnalysisSection from "@/components/app/gap-analysis-section";
 import ResumeImprovementSection from "@/components/app/resume-improvement-section";
+import JobDecisionPanel from "@/components/app/job-decision-panel";
+import NeroErrorCard from "@/components/app/nero-error-card";
 
 type JobFilters = {
   search: string;
@@ -111,7 +127,14 @@ function JobsPageInner() {
     searchParams.get("job"),
   );
   const [focusedJob, setFocusedJob] = useState<Job | null>(null);
-  const [focusedJobError, setFocusedJobError] = useState<string | null>(null);
+  const [focusedJobError, setFocusedJobError] = useState<{
+    message: string;
+    // AJI-023: a 404 is final (the job doesn't exist, or it is another
+    // user's private submission - the API makes the two identical), so it
+    // gets no retry; anything else is transient and can be retried.
+    notFound: boolean;
+  } | null>(null);
+  const [focusedJobReloadKey, setFocusedJobReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [matches, setMatches] = useState<Record<string, JobMatchResult>>({});
 
@@ -128,6 +151,11 @@ function JobsPageInner() {
     Record<string, boolean>
   >({});
   const [intelligenceErrors, setIntelligenceErrors] = useState<
+    Record<string, string>
+  >({});
+  // extraction_status per job ("complete" | "partial"), so the UI can say
+  // when Job Intelligence is deterministic-only (no AI provider result).
+  const [intelligenceStatuses, setIntelligenceStatuses] = useState<
     Record<string, string>
   >({});
   const [eligibility, setEligibility] = useState<
@@ -342,6 +370,9 @@ function JobsPageInner() {
 
     let cancelled = false;
 
+    setFocusedJob(null);
+    setFocusedJobError(null);
+
     getJob(focusedJobId)
       .then((job) => {
         if (cancelled) return;
@@ -352,21 +383,114 @@ function JobsPageInner() {
         // idempotent), so this renders the job's understanding, not a
         // second analysis.
         handleViewIntelligence(job.id);
+        // AJI-023: Hard Eligibility is deterministic and resume-free, so
+        // the opened job shows it straight away.
+        handleCheckEligibility(job.id);
       })
       .catch((err) => {
         if (cancelled) return;
 
         console.error(err);
         setFocusedJob(null);
-        setFocusedJobError(
-          err instanceof Error ? err.message : "Unable to load this job.",
-        );
+        setFocusedJobError({
+          message:
+            err instanceof Error ? err.message : "Unable to load this job.",
+          notFound: err instanceof ApiError && err.status === 404,
+        });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [focusedJobId]);
+  }, [focusedJobId, focusedJobReloadKey]);
+
+  // AJI-023: the ResumeVersion the resume-based results are shown for -
+  // the explicit selection, else the default the selector displays. The
+  // saved-results read is pinned to it, so the page never shows a result
+  // from a version other than the one the selector names.
+  const effectiveResumeVersionId =
+    selectedResumeVersionId ?? resumeVersionState.defaultOptionId;
+
+  const [savedResults, setSavedResults] = useState<{
+    key: string | null;
+    loading: boolean;
+    error: string | null;
+  }>({ key: null, loading: false, error: null });
+  const [savedResultsReloadKey, setSavedResultsReloadKey] = useState(0);
+
+  // AJI-023: opening a job shows its existing Job Match, ATS Alignment,
+  // Gap Analysis and Resume Improvement for that version (read-only GETs,
+  // nothing recalculated). "Nothing saved yet" is a normal outcome, shown
+  // as each stage's not-yet-run state. A result the user produced in this
+  // session is never overwritten by the read.
+  useEffect(() => {
+    const jobId = focusedJob?.id;
+
+    if (
+      !jobId ||
+      resumeVersionState.status !== "ready" ||
+      !effectiveResumeVersionId
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const key = `${jobId}:${effectiveResumeVersionId}`;
+
+    setSavedResults({ key, loading: true, error: null });
+
+    getLatestJobResults(jobId, effectiveResumeVersionId)
+      .then((latest) => {
+        if (cancelled) return;
+
+        const keepExisting = <T,>(
+          current: Record<string, T>,
+          value: T | null,
+        ): Record<string, T> =>
+          value === null || current[jobId] !== undefined
+            ? current
+            : { ...current, [jobId]: value };
+
+        setMatches((current) => keepExisting(current, latest.match));
+        setAtsResults((current) => keepExisting(current, latest.ats));
+        setGapAnalyses((current) => keepExisting(current, latest.gapAnalysis));
+        // An improvement is only meaningful next to the Gap Analysis it
+        // was approved from; otherwise the section starts from review.
+        if (
+          latest.improvement &&
+          latest.gapAnalysis &&
+          latest.improvement.gap_analysis_id === latest.gapAnalysis.id
+        ) {
+          setImprovements((current) =>
+            keepExisting(current, latest.improvement),
+          );
+        }
+
+        setSavedResults({ key, loading: false, error: null });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+
+        console.error(err);
+        setSavedResults({
+          key,
+          loading: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : "Unable to load your saved results.",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    focusedJob?.id,
+    resumeVersionState.status,
+    effectiveResumeVersionId,
+    savedResultsReloadKey,
+  ]);
 
   // Loaded once (not per-page/filter): this is the user's own tracking
   // state, independent of which page of job results is showing.
@@ -691,6 +815,10 @@ function JobsPageInner() {
         ...current,
         [jobId]: response.intelligence,
       }));
+      setIntelligenceStatuses((current) => ({
+        ...current,
+        [jobId]: response.extraction_status,
+      }));
     } catch (err) {
       console.error(err);
 
@@ -710,13 +838,16 @@ function JobsPageInner() {
     }
   }
 
-  function renderJobCard(job: Job) {
+  function renderJobCard(job: Job, focused = false) {
     return (
       <JobCard
         key={job.id}
         job={job}
         application={applicationsByJobId[job.id]}
         onApplicationChange={handleApplicationChange}
+        onOpen={focused ? undefined : openJob}
+        hideTracking={focused}
+        intelligenceStatus={intelligenceStatuses[job.id]}
         match={matches[job.id]}
         isMatching={Boolean(matchingJobIds[job.id])}
         matchError={matchErrors[job.id]}
@@ -759,6 +890,134 @@ function JobsPageInner() {
 
   function showAllJobs() {
     setFocusedJobId(null);
+  }
+
+  // AJI-023: a job's full workflow view - the same `?job=<id>` view a
+  // submitted job lands on (AJI-022), now reachable from any card.
+  function openJob(jobId: string) {
+    setFocusedJobId(jobId);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+    }
+  }
+
+  const focusedJobKey = focusedJob
+    ? `${focusedJob.id}:${effectiveResumeVersionId ?? ""}`
+    : null;
+  const savedResultsLoading =
+    savedResults.loading && savedResults.key === focusedJobKey;
+  const savedResultsError =
+    savedResults.key === focusedJobKey ? savedResults.error : null;
+
+  const focusedDecision = useMemo(() => {
+    if (!focusedJob) return null;
+
+    const id = focusedJob.id;
+    const gapAnalysis = gapAnalyses[id];
+    const improvement = improvements[id];
+
+    return buildJobDecision({
+      resume: resumeVersionState.status,
+      savedResultsLoading,
+      intelligence: intelligence[id],
+      intelligenceStatus: intelligenceStatuses[id],
+      intelligenceLoading: Boolean(intelligenceLoadingIds[id]),
+      intelligenceError: intelligenceErrors[id],
+      eligibility: eligibility[id],
+      eligibilityLoading: Boolean(eligibilityLoadingIds[id]),
+      eligibilityError: eligibilityErrors[id],
+      match: matches[id],
+      matchLoading: Boolean(matchingJobIds[id]),
+      matchError: matchErrors[id],
+      ats: atsResults[id],
+      atsLoading: Boolean(atsLoadingIds[id]),
+      atsError: atsErrors[id],
+      gapAnalysis,
+      gapLoading: Boolean(gapAnalysisLoadingIds[id]),
+      gapError: gapAnalysisErrors[id],
+      // Only the improvement approved from the Gap Analysis on screen
+      // belongs to this resume version's workflow.
+      improvement:
+        improvement && gapAnalysis && improvement.gap_analysis_id === gapAnalysis.id
+          ? improvement
+          : undefined,
+      improvementLoading: Boolean(
+        improvementSubmittingIds[id] || improvementRecheckingIds[id],
+      ),
+      improvementError: improvementErrors[id],
+      application: applicationsByJobId[id],
+    });
+  }, [
+    focusedJob,
+    resumeVersionState.status,
+    savedResultsLoading,
+    intelligence,
+    intelligenceStatuses,
+    intelligenceLoadingIds,
+    intelligenceErrors,
+    eligibility,
+    eligibilityLoadingIds,
+    eligibilityErrors,
+    matches,
+    matchingJobIds,
+    matchErrors,
+    atsResults,
+    atsLoadingIds,
+    atsErrors,
+    gapAnalyses,
+    gapAnalysisLoadingIds,
+    gapAnalysisErrors,
+    improvements,
+    improvementSubmittingIds,
+    improvementRecheckingIds,
+    improvementErrors,
+    applicationsByJobId,
+  ]);
+
+  const effectiveResumeVersion = resumeVersionState.options.find(
+    (option) => option.id === effectiveResumeVersionId,
+  );
+  const effectiveResumeVersionLabel = effectiveResumeVersion
+    ? `${effectiveResumeVersion.versionName} (${effectiveResumeVersion.resumeName})`
+    : null;
+
+  function runStage(jobId: string, key: StageKey) {
+    switch (key) {
+      case "intelligence":
+        return handleViewIntelligence(jobId);
+      case "eligibility":
+        return handleCheckEligibility(jobId);
+      case "match":
+        return handleCalculateMatch(jobId);
+      case "ats":
+        return handleCalculateAts(jobId);
+      case "gap":
+        return handleCalculateGapAnalysis(jobId);
+      default:
+        return undefined;
+    }
+  }
+
+  function runNextStep(jobId: string, key: NextStepKey) {
+    switch (key) {
+      case "analyze_job":
+        return runStage(jobId, "intelligence");
+      case "check_eligibility":
+        return runStage(jobId, "eligibility");
+      case "calculate_match":
+        return runStage(jobId, "match");
+      case "calculate_ats":
+        return runStage(jobId, "ats");
+      case "analyze_gaps":
+        return runStage(jobId, "gap");
+      case "review_improvements":
+        document
+          .getElementById(`resume-improvement-${jobId}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return undefined;
+      default:
+        return undefined;
+    }
   }
 
   return (
@@ -952,9 +1211,25 @@ function JobsPageInner() {
           />
         </div>
 
-        {/* SUBMITTED / FOCUSED JOB (AJI-022) */}
-        {focusedJobId && focusedJobError && (
-          <ErrorState title="Job unavailable" message={focusedJobError} />
+        {/* SUBMITTED / FOCUSED JOB (AJI-022, AJI-023) */}
+        {focusedJobId && focusedJobError?.notFound && (
+          <div className="space-y-4">
+            <NeroErrorCard
+              title="Job unavailable"
+              message="This job doesn't exist or isn't available to your account. Jobs you add stay private to you."
+            />
+            <AppButton variant="secondary" size="sm" onClick={showAllJobs}>
+              Back to all jobs
+            </AppButton>
+          </div>
+        )}
+
+        {focusedJobId && focusedJobError && !focusedJobError.notFound && (
+          <ErrorState
+            title="Job unavailable"
+            message={focusedJobError.message}
+            onRetry={() => setFocusedJobReloadKey((key) => key + 1)}
+          />
         )}
 
         {focusedJobId && !focusedJobError && !focusedJob && (
@@ -965,7 +1240,45 @@ function JobsPageInner() {
           </div>
         )}
 
-        {focusedJobId && focusedJob && renderJobCard(focusedJob)}
+        {focusedJobId && focusedJob && focusedDecision && (
+          <JobDecisionPanel
+            jobId={focusedJob.id}
+            decision={focusedDecision}
+            resumeVersionLabel={
+              resumeVersionState.status === "ready"
+                ? effectiveResumeVersionLabel
+                : null
+            }
+            savedResultsError={savedResultsError}
+            onRetrySavedResults={() =>
+              setSavedResultsReloadKey((key) => key + 1)
+            }
+            onRunStage={(key) => runStage(focusedJob.id, key)}
+            onNextStep={(key) => runNextStep(focusedJob.id, key)}
+            trackingActions={
+              <div className="flex flex-wrap items-start gap-3 sm:flex-col sm:items-end">
+                <JobTrackingActions
+                  jobId={focusedJob.id}
+                  application={applicationsByJobId[focusedJob.id]}
+                  onApplicationChange={handleApplicationChange}
+                />
+                {focusedJob.application_url && (
+                  <AppButton
+                    variant="ghost"
+                    size="sm"
+                    href={focusedJob.application_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Apply on employer site
+                  </AppButton>
+                )}
+              </div>
+            }
+          />
+        )}
+
+        {focusedJobId && focusedJob && renderJobCard(focusedJob, true)}
 
         {/* LOADING */}
         {!focusedJobId && isPending && (
@@ -1117,17 +1430,29 @@ function JobTrackingActions({
     }
   }
 
+  // Records that the user applied (on the employer's site) - it never
+  // submits anything. An untracked job is saved first, since tracking is
+  // one (user, job) record that moves from saved to applied (AJI-023).
   async function handleMarkApplied() {
-    if (!application) return;
-
     setPending("apply");
     setError(null);
 
+    let tracked = application;
+
     try {
-      const result = await updateApplicationStatus(application.id, "applied");
+      if (!tracked) {
+        tracked = await saveJob(jobId);
+        onApplicationChange(jobId, tracked);
+      }
+
+      const result = await updateApplicationStatus(tracked.id, "applied");
       onApplicationChange(jobId, result);
     } catch {
-      setError("Could not mark as applied.");
+      setError(
+        tracked
+          ? "Saved, but could not mark as applied. Try again."
+          : "Could not mark as applied.",
+      );
     } finally {
       setPending(null);
     }
@@ -1155,11 +1480,21 @@ function JobTrackingActions({
         <AppButton
           variant="secondary"
           loading={pending === "save"}
+          disabled={pending === "apply"}
           onClick={handleSave}
           aria-label="Save job"
         >
           <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />
           Save
+        </AppButton>
+        <AppButton
+          variant="ghost"
+          size="sm"
+          loading={pending === "apply"}
+          disabled={pending === "save"}
+          onClick={handleMarkApplied}
+        >
+          Mark as Applied
         </AppButton>
         {error && <p className="text-xs text-app-danger-text">{error}</p>}
       </div>
@@ -1209,6 +1544,13 @@ function JobTrackingActions({
       <AppButton
         variant="ghost"
         size="sm"
+        href={`/applications/${application.id}`}
+      >
+        View in Tracking
+      </AppButton>
+      <AppButton
+        variant="ghost"
+        size="sm"
         loading={pending === "remove"}
         onClick={handleRemove}
       >
@@ -1223,6 +1565,9 @@ function JobCard({
   job,
   application,
   onApplicationChange,
+  onOpen,
+  hideTracking = false,
+  intelligenceStatus,
   match,
   isMatching,
   matchError,
@@ -1253,6 +1598,11 @@ function JobCard({
   job: Job;
   application?: Application;
   onApplicationChange: (jobId: string, application: Application | null) => void;
+  /** Opens this job's full workflow view (AJI-023); absent there. */
+  onOpen?: (jobId: string) => void;
+  /** The workflow view hosts the tracking controls in its own panel. */
+  hideTracking?: boolean;
+  intelligenceStatus?: string;
   match?: JobMatchResult;
   isMatching: boolean;
   matchError?: string;
@@ -1351,12 +1701,24 @@ function JobCard({
           </div>
 
           {/* ACTIONS */}
-          <div className="flex shrink-0 gap-3 lg:flex-col">
-            <JobTrackingActions
-              jobId={job.id}
-              application={application}
-              onApplicationChange={onApplicationChange}
-            />
+          <div className="flex shrink-0 flex-wrap gap-3 lg:flex-col lg:items-end">
+            {onOpen && (
+              <AppButton
+                variant="primary"
+                onClick={() => onOpen(job.id)}
+                aria-label={`Open job workflow for ${job.title}`}
+              >
+                Open job
+              </AppButton>
+            )}
+
+            {!hideTracking && (
+              <JobTrackingActions
+                jobId={job.id}
+                application={application}
+                onApplicationChange={onApplicationChange}
+              />
+            )}
 
             {job.source_url && (
               <AppButton
@@ -1379,6 +1741,49 @@ function JobCard({
 
         {/* MATCH PANEL */}
         <div className="border-t border-app-border pt-5">
+          {/* JOB INTELLIGENCE (AJI-012) — first: every later stage reads it */}
+          <div className="mb-4 rounded-lg border border-app-border bg-app-bg p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
+                  Job Intelligence
+                </div>
+                <p className="mt-1 text-xs leading-5 text-app-faint">
+                  Structured, evidence-backed requirements extracted from
+                  this JD. Not a score or a match — see Job Match below
+                  for that.
+                </p>
+              </div>
+
+              <AppButton
+                variant="ghost"
+                size="sm"
+                loading={isLoadingIntelligence}
+                onClick={() => onViewIntelligence(job.id)}
+                className="shrink-0"
+              >
+                {isLoadingIntelligence
+                  ? "Analyzing..."
+                  : intelligence
+                    ? "Refresh"
+                    : "Analyze JD"}
+              </AppButton>
+            </div>
+
+            {intelligenceError && (
+              <p className="mt-3 text-xs leading-5 text-app-danger-text">
+                {intelligenceError}
+              </p>
+            )}
+
+            {intelligence && (
+              <JobIntelligencePanel
+                intelligence={intelligence}
+                extractionStatus={intelligenceStatus}
+              />
+            )}
+          </div>
+
           {/* HARD ELIGIBILITY (AJI-011) */}
           <div className="mb-4 border border-app-border bg-app-bg p-4">
             <div className="flex items-start justify-between gap-4">
@@ -1526,33 +1931,15 @@ function JobCard({
             </div>
           </div>
 
-          {/* ATS ALIGNMENT DETAILS */}
-          {ats && <AtsAlignmentPanel result={ats} />}
-
-          {/* GAP ANALYSIS & JOB-SPECIFIC SUGGESTIONS (AJI-015) */}
-          <GapAnalysisSection
-            jobId={job.id}
-            result={gapAnalysis}
-            isLoading={isCalculatingGapAnalysis}
-            error={gapAnalysisError}
-            onCalculate={onCalculateGapAnalysis}
-          />
-
-          {/* RESUME IMPROVEMENT APPROVAL & RECHECK (AJI-021) */}
-          <ResumeImprovementSection
-            jobId={job.id}
-            gapAnalysis={gapAnalysis}
-            result={improvement}
-            isSubmitting={isSubmittingImprovement}
-            isRechecking={isRecheckingImprovement}
-            error={improvementError}
-            onApprove={onApproveImprovements}
-            onRunRecheck={onRunRecheck}
-          />
-
-          {/* MATCH DETAILS */}
+          {/* JOB MATCH DETAILS - kept with the Job Match score, apart from
+              ATS Alignment's own requirement breakdown below. */}
           {match && (
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <div className="mt-4 font-mono text-[9px] uppercase tracking-[0.18em] text-app-faint">
+              Job Match details
+            </div>
+          )}
+          {match && (
+            <div className="mt-2 grid gap-4 lg:grid-cols-3">
               {/* MATCHING SKILLS */}
               <MatchList
                 title="Matching Skills"
@@ -1614,45 +2001,30 @@ function JobCard({
             </div>
           )}
 
-          {/* JOB INTELLIGENCE (AJI-012) */}
-          <div className="mt-4 rounded-lg border border-app-border bg-app-bg p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-app-blue">
-                  Job Intelligence
-                </div>
-                <p className="mt-1 text-xs leading-5 text-app-faint">
-                  Structured, evidence-backed requirements extracted from
-                  this JD. Not a score or a match — see Job Match above
-                  for that.
-                </p>
-              </div>
+          {/* ATS ALIGNMENT DETAILS */}
+          {ats && <AtsAlignmentPanel result={ats} />}
 
-              <AppButton
-                variant="ghost"
-                size="sm"
-                loading={isLoadingIntelligence}
-                onClick={() => onViewIntelligence(job.id)}
-                className="shrink-0"
-              >
-                {isLoadingIntelligence
-                  ? "Analyzing..."
-                  : intelligence
-                    ? "Refresh"
-                    : "Analyze JD"}
-              </AppButton>
-            </div>
+          {/* GAP ANALYSIS & JOB-SPECIFIC SUGGESTIONS (AJI-015) */}
+          <GapAnalysisSection
+            jobId={job.id}
+            result={gapAnalysis}
+            isLoading={isCalculatingGapAnalysis}
+            error={gapAnalysisError}
+            onCalculate={onCalculateGapAnalysis}
+          />
 
-            {intelligenceError && (
-              <p className="mt-3 text-xs leading-5 text-app-danger-text">
-                {intelligenceError}
-              </p>
-            )}
+          {/* RESUME IMPROVEMENT APPROVAL & RECHECK (AJI-021) */}
+          <ResumeImprovementSection
+            jobId={job.id}
+            gapAnalysis={gapAnalysis}
+            result={improvement}
+            isSubmitting={isSubmittingImprovement}
+            isRechecking={isRecheckingImprovement}
+            error={improvementError}
+            onApprove={onApproveImprovements}
+            onRunRecheck={onRunRecheck}
+          />
 
-            {intelligence && (
-              <JobIntelligencePanel intelligence={intelligence} />
-            )}
-          </div>
         </div>
       </div>
     </Panel>
@@ -1701,117 +2073,201 @@ function EligibilityPanel({ result }: { result: JobEligibilityResult }) {
 
 function JobIntelligencePanel({
   intelligence,
+  extractionStatus,
 }: {
   intelligence: JobIntelligenceData;
+  extractionStatus?: string;
 }) {
+  const { location, identity, domain, compensation } = intelligence;
+  const place = [location.city, location.state, location.country]
+    .filter(Boolean)
+    .join(", ");
+  const hasCompensation =
+    compensation.salary_min !== null || compensation.salary_max !== null;
+
   return (
-    <div className="mt-4 grid gap-4 lg:grid-cols-2">
-      <div className="rounded-lg border border-app-border p-3">
-        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-          Identity
+    <div className="mt-4">
+      {/* AJI-023: say plainly when only the deterministic stage ran (no AI
+          provider result) - never present it as AI-verified. */}
+      {extractionStatus === "partial" && (
+        <p className="mb-3 rounded-md border border-app-border px-3 py-2 text-[11px] leading-5 text-app-faint">
+          Deterministic extraction only — AI enrichment was not available
+          for this analysis. Every item below is quoted from the job
+          description.
+        </p>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="min-w-0 rounded-lg border border-app-border p-3">
+          <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+            Identity
+          </div>
+          <dl className="mt-2 space-y-1 break-words text-xs text-app-text">
+            <IntelligenceField
+              label="Normalized title"
+              value={identity.normalized_title ?? "Unknown"}
+            />
+            <IntelligenceField
+              label="Role family"
+              value={identity.role_family ?? "Unknown"}
+            />
+            <IntelligenceField
+              label="Seniority"
+              value={identity.seniority ?? "Unknown"}
+            />
+            <IntelligenceField
+              label="Employment type"
+              value={formatValue(intelligence.employment.employment_type)}
+            />
+            <IntelligenceField
+              label="Domain"
+              value={
+                domain.value
+                  ? `${domain.value}${
+                      domain.confidence
+                        ? ` (${domain.confidence} confidence)`
+                        : ""
+                    }`
+                  : "Unknown"
+              }
+            />
+            {hasCompensation && (
+              <IntelligenceField
+                label="Compensation"
+                value={`${compensation.currency ?? ""} ${
+                  compensation.salary_min?.toLocaleString() ?? "?"
+                } – ${compensation.salary_max?.toLocaleString() ?? "?"}${
+                  compensation.period !== "unknown"
+                    ? ` / ${formatValue(compensation.period)}`
+                    : ""
+                }`.trim()}
+              />
+            )}
+          </dl>
         </div>
-        <dl className="mt-2 space-y-1 text-xs text-app-text">
-          <div>
-            <dt className="inline text-app-faint">Normalized title: </dt>
-            <dd className="inline">
-              {intelligence.identity.normalized_title ?? "Unknown"}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-app-faint">Role family: </dt>
-            <dd className="inline">
-              {intelligence.identity.role_family ?? "Unknown"}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-app-faint">Seniority: </dt>
-            <dd className="inline">
-              {intelligence.identity.seniority ?? "Unknown"}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-app-faint">Employment type: </dt>
-            <dd className="inline">
-              {formatValue(intelligence.employment.employment_type)}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-app-faint">Domain: </dt>
-            <dd className="inline">{intelligence.domain.value ?? "Unknown"}</dd>
-          </div>
-        </dl>
-      </div>
 
-      <div className="rounded-lg border border-app-border p-3">
-        <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-          Location &amp; Authorization
+        <div className="min-w-0 rounded-lg border border-app-border p-3">
+          <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+            Location &amp; Authorization
+          </div>
+          <dl className="mt-2 space-y-1 break-words text-xs text-app-text">
+            {place && <IntelligenceField label="Location" value={place} />}
+            <IntelligenceField
+              label="Arrangement"
+              value={formatValue(location.remote_type)}
+            />
+            {location.work_arrangement_text && (
+              <IntelligenceField
+                label="Evidence"
+                value={location.work_arrangement_text}
+              />
+            )}
+            <IntelligenceField
+              label="Work authorization"
+              value={formatValue(intelligence.authorization.work_authorization)}
+            />
+            <IntelligenceField
+              label="Sponsorship"
+              value={formatValue(intelligence.authorization.sponsorship)}
+            />
+            <IntelligenceField
+              label="Citizenship"
+              value={formatValue(intelligence.authorization.citizenship)}
+            />
+            <IntelligenceField
+              label="Clearance"
+              value={formatValue(intelligence.authorization.clearance)}
+            />
+          </dl>
         </div>
-        <dl className="mt-2 space-y-1 text-xs text-app-text">
-          <div>
-            <dt className="inline text-app-faint">Arrangement: </dt>
-            <dd className="inline">
-              {formatValue(intelligence.location.remote_type)}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-app-faint">Sponsorship: </dt>
-            <dd className="inline">
-              {formatValue(intelligence.authorization.sponsorship)}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-app-faint">Citizenship: </dt>
-            <dd className="inline">
-              {formatValue(intelligence.authorization.citizenship)}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-app-faint">Clearance: </dt>
-            <dd className="inline">
-              {formatValue(intelligence.authorization.clearance)}
-            </dd>
-          </div>
-        </dl>
+
+        <RequirementList
+          title="Required Skills"
+          items={intelligence.required_skills.map((item) => ({
+            label: item.canonical_skill,
+            detail: item.evidence_text,
+            confidence: item.confidence,
+          }))}
+          emptyLabel="No explicit required skills detected."
+        />
+
+        <RequirementList
+          title="Preferred Skills"
+          items={intelligence.preferred_skills.map((item) => ({
+            label: item.canonical_skill,
+            detail: item.evidence_text,
+            confidence: item.confidence,
+          }))}
+          emptyLabel="No explicit preferred skills detected."
+        />
+
+        <RequirementList
+          title="Experience"
+          items={[
+            ...intelligence.required_experience,
+            ...intelligence.preferred_experience,
+          ].map((item) => ({
+            label: `${formatYears(item.minimum_years, item.maximum_years)}${
+              item.area ? ` — ${item.area}` : ""
+            }`,
+            detail: item.evidence_text,
+            confidence: item.confidence,
+            level: item.level,
+          }))}
+          emptyLabel="No explicit years-of-experience requirements detected."
+        />
+
+        <RequirementList
+          title="Education & Certifications"
+          items={[
+            ...intelligence.education.map((item) => ({
+              label:
+                [item.degree_level, item.field_of_study]
+                  .filter(Boolean)
+                  .map((part) => formatValue(part as string))
+                  .join(" — ") || "Education requirement",
+              detail: item.evidence_text,
+              confidence: item.confidence,
+              level: item.level,
+            })),
+            ...intelligence.certifications.map((item) => ({
+              label: item.name,
+              detail: item.evidence_text,
+              confidence: item.confidence,
+              level: item.level,
+            })),
+          ]}
+          emptyLabel="No education or certification requirements detected."
+        />
+
+        <div className="lg:col-span-2">
+          <RequirementList
+            title="Responsibilities"
+            items={intelligence.responsibilities.map((item) => ({
+              label: item.description,
+            }))}
+            emptyLabel="No responsibilities detected."
+          />
+        </div>
       </div>
-
-      <RequirementList
-        title="Required Skills"
-        items={intelligence.required_skills.map((item) => ({
-          label: item.canonical_skill,
-          detail: item.evidence_text,
-        }))}
-        emptyLabel="No explicit required skills detected."
-      />
-
-      <RequirementList
-        title="Preferred Skills"
-        items={intelligence.preferred_skills.map((item) => ({
-          label: item.canonical_skill,
-          detail: item.evidence_text,
-        }))}
-        emptyLabel="No explicit preferred skills detected."
-      />
-
-      <RequirementList
-        title="Required Experience"
-        items={intelligence.required_experience.map((item) => ({
-          label: `${item.minimum_years ?? "?"}+ years${
-            item.area ? ` — ${item.area}` : ""
-          }`,
-          detail: item.evidence_text,
-        }))}
-        emptyLabel="No explicit years-of-experience requirements detected."
-      />
-
-      <RequirementList
-        title="Responsibilities"
-        items={intelligence.responsibilities.map((item) => ({
-          label: item.description,
-        }))}
-        emptyLabel="No responsibilities detected."
-      />
     </div>
   );
+}
+
+function IntelligenceField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="inline text-app-faint">{label}: </dt>
+      <dd className="inline">{value}</dd>
+    </div>
+  );
+}
+
+function formatYears(min: number | null, max: number | null): string {
+  if (min !== null && max !== null && max !== min) return `${min}–${max} years`;
+  if (min !== null) return `${min}+ years`;
+  if (max !== null) return `Up to ${max} years`;
+  return "Experience";
 }
 
 function AtsAlignmentPanel({ result }: { result: AtsAlignmentResult }) {
@@ -1966,11 +2422,18 @@ function RequirementList({
   emptyLabel,
 }: {
   title: string;
-  items: Array<{ label: string; detail?: string }>;
+  items: Array<{
+    label: string;
+    detail?: string;
+    confidence?: string;
+    level?: "required" | "preferred";
+  }>;
   emptyLabel: string;
 }) {
+  const visible = items.slice(0, 8);
+
   return (
-    <div className="rounded-lg border border-app-border p-3">
+    <div className="min-w-0 rounded-lg border border-app-border p-3">
       <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
         {title}
       </div>
@@ -1979,14 +2442,26 @@ function RequirementList({
         <p className="mt-2 text-xs text-app-faint">{emptyLabel}</p>
       ) : (
         <ul className="mt-2 space-y-2">
-          {items.slice(0, 8).map((item, index) => (
-            <li key={`${item.label}-${index}`} className="text-xs">
+          {visible.map((item, index) => (
+            <li key={`${item.label}-${index}`} className="break-words text-xs">
               <div className="font-medium text-app-text">{item.label}</div>
               {item.detail && (
                 <div className="mt-0.5 text-app-faint">{item.detail}</div>
               )}
+              {(item.level || item.confidence) && (
+                <div className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.1em] text-app-faint">
+                  {[item.level, item.confidence && `${item.confidence} confidence`]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              )}
             </li>
           ))}
+          {items.length > visible.length && (
+            <li className="text-[11px] text-app-faint">
+              +{items.length - visible.length} more
+            </li>
+          )}
         </ul>
       )}
     </div>
