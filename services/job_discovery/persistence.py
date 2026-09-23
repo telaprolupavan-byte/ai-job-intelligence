@@ -74,6 +74,37 @@ def get_or_create_company(
     return company
 
 
+def find_existing_discovered_job(
+    db: Session,
+    discovered_job: DiscoveredJob,
+    *,
+    fingerprint: str,
+) -> Job | None:
+    """The stored discovered job this record is the same posting as, if
+    any. Identity is (source, source job id) when the provider supplies
+    one, else (source, identity fingerprint) - the AJI-006 rules, unchanged.
+
+    Only shared discovered rows (`submitted_by_user_id IS NULL`) are ever
+    candidates: discovery must never update a user's private submission
+    (AJI-022), whatever its source or fingerprint happens to be.
+    """
+    query = select(Job).where(
+        Job.source == discovered_job.source,
+        Job.submitted_by_user_id.is_(None),
+    )
+
+    if discovered_job.source_job_id:
+        query = query.where(
+            Job.external_job_id == discovered_job.source_job_id
+        )
+    else:
+        # No stable source job ID: fall back to the identity fingerprint
+        # so repeated ingestion of the same posting updates it in place.
+        query = query.where(Job.identity_fingerprint == fingerprint)
+
+    return db.scalar(query)
+
+
 def upsert_discovered_job(
     db: Session,
     discovered_job: DiscoveredJob,
@@ -83,24 +114,9 @@ def upsert_discovered_job(
     company = get_or_create_company(db, discovered_job)
     fingerprint = build_job_fingerprint(discovered_job)
 
-    existing_job = None
-
-    if discovered_job.source_job_id:
-        existing_job = db.scalar(
-            select(Job).where(
-                Job.source == discovered_job.source,
-                Job.external_job_id == discovered_job.source_job_id,
-            )
-        )
-    else:
-        # No stable source job ID: fall back to the identity fingerprint
-        # so repeated ingestion of the same posting updates it in place.
-        existing_job = db.scalar(
-            select(Job).where(
-                Job.source == discovered_job.source,
-                Job.identity_fingerprint == fingerprint,
-            )
-        )
+    existing_job = find_existing_discovered_job(
+        db, discovered_job, fingerprint=fingerprint
+    )
 
     if existing_job is None:
         now = utcnow_naive()
@@ -129,6 +145,10 @@ def upsert_discovered_job(
             first_seen_at=now,
             last_seen_at=now,
             is_active=True,
+            # Discovered jobs are shared (AJI-022): never owned by a user
+            # and never carrying pasted content.
+            submitted_by_user_id=None,
+            raw_submitted_content=None,
         )
 
         db.add(job)

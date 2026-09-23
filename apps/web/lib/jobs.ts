@@ -18,6 +18,14 @@ export type Job = {
   responsibilities: string | null;
   posting_date: string | null;
   source: string;
+  /**
+   * AJI-024: "discovered" = a shared job from a discovery provider;
+   * "user_submitted" = the caller's own private pasted job (AJI-022).
+   * Optional so responses from an older API still type-check.
+   */
+  origin?: "discovered" | "user_submitted";
+  /** AJI-024: synthetic job from the dev/test fixture provider. */
+  is_test_data?: boolean;
   source_url: string | null;
   application_url: string | null;
   first_seen_at: string;

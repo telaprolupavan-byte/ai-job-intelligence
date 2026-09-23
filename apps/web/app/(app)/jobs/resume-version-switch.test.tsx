@@ -37,6 +37,17 @@ vi.mock("@/lib/jobs", () => ({
     generateJobIntelligence(...args),
 }));
 
+// AJI-024 discovery status: not what these tests exercise - report a
+// configured, non-test source so no discovery notice renders.
+vi.mock("@/lib/job-discovery", () => ({
+  getDiscoveryStatus: () =>
+    Promise.resolve({
+      source_configured: true,
+      test_mode: false,
+      last_run: null,
+    }),
+}));
+
 vi.mock("@/lib/resumes", () => ({
   getResumes: async () => [
     { id: "resume-1", filename: "cv.pdf", created_at: "2026-01-01T00:00:00Z" },

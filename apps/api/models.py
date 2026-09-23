@@ -575,6 +575,21 @@ class DiscoveryRun(Base):
         default=0,
     )
 
+    # AJI-024: records that normalized successfully, and valid records
+    # skipped because their identity already appeared earlier in the same
+    # batch. accepted = inserted + updated, so it is not stored separately.
+    normalized_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+    )
+
+    duplicate_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+    )
+
     error_message: Mapped[str | None] = mapped_column(
         String(1000),
     )

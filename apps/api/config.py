@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     # system credential, not a user permission - there is no admin/role
     # concept on User to hang this off of instead.
     job_discovery_trigger_token: str | None = None
+    # AJI-024: which discovery provider to run. Unset keeps the original
+    # behavior (Greenhouse when its board settings are present). The only
+    # other accepted value is "test_fixture", the deterministic offline
+    # provider in services/job_discovery/sources/test_fixture.py - and it
+    # additionally requires job_discovery_enable_test_provider=true, so a
+    # single mistyped setting can never put synthetic jobs in front of
+    # users. While the flag is false, fixture jobs are also hidden from
+    # every user-facing job query.
+    job_discovery_provider: str | None = None
+    job_discovery_enable_test_provider: bool = False
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

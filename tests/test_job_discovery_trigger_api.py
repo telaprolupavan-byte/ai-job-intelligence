@@ -49,7 +49,24 @@ def client(db):
 
 
 @pytest.fixture(autouse=True)
+def _identity_normalization(monkeypatch):
+    """These tests hand the adapter already-normalized DiscoveredJob
+    objects as its "raw" records (they exercise orchestration, not
+    Greenhouse field mapping - see tests/test_greenhouse_source.py), so
+    normalization is the identity here."""
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".normalize_raw_job",
+        lambda self, raw_job: raw_job,
+    )
+
+
+@pytest.fixture(autouse=True)
 def _clear_discovery_settings(monkeypatch):
+    monkeypatch.setattr(settings, "job_discovery_provider", None)
+    monkeypatch.setattr(
+        settings, "job_discovery_enable_test_provider", False
+    )
     monkeypatch.setattr(settings, "job_discovery_trigger_token", None)
     monkeypatch.setattr(
         settings, "job_discovery_greenhouse_board_token", None
@@ -129,7 +146,7 @@ def test_trigger_runs_discovery_with_valid_token_and_configured_source(
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: [fake_job],
     )
 
@@ -201,7 +218,7 @@ def test_list_runs_returns_recorded_runs_after_trigger(client, monkeypatch, db):
     )
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: [fake_job],
     )
 
@@ -254,7 +271,7 @@ def test_overlapping_triggers_reject_the_second_and_recover_afterwards(
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         _slow_fetch,
     )
 
@@ -268,7 +285,7 @@ def test_overlapping_triggers_reject_the_second_and_recover_afterwards(
 
     first_thread = threading.Thread(target=_first_call)
     first_thread.start()
-    assert started.wait(timeout=5), "first call never reached fetch_jobs"
+    assert started.wait(timeout=5), "first call never reached fetch_raw_jobs"
 
     second_response = client.post(
         "/internal/job-discovery/run",

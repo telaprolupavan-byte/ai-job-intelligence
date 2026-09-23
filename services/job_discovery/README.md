@@ -1,8 +1,28 @@
 # Job Discovery Pipeline
 
 ```
-Source Adapter -> Validate -> Deduplicate -> Persist -> GET /jobs -> Frontend
+Provider -> fetch_raw_jobs() -> normalize_raw_job() -> Validate
+         -> Deduplicate -> Persist -> GET /jobs -> Frontend
 ```
+
+AJI-024 formalized the adapter boundary (`sources/base.py`), added the
+double-gated synthetic test provider (`sources/test_fixture.py`), and
+added per-run `normalized`/`accepted`/`duplicates` counters - see
+docs/ARCHITECTURE.md "Job Discovery Product Pipeline (AJI-024)".
+
+### Local development with the test provider
+
+```
+JOB_DISCOVERY_PROVIDER=test_fixture
+JOB_DISCOVERY_ENABLE_TEST_PROVIDER=true   # never in production
+JOB_DISCOVERY_TRIGGER_TOKEN=<any local secret>
+
+curl -X POST localhost:8000/internal/job-discovery/run \
+  -H "X-Discovery-Trigger-Token: <same secret>"
+```
+
+The fixture's jobs are synthetic, labelled "Test data" in the UI, and
+hidden from every user-facing query once the enable flag is off.
 
 ## Running the pipeline
 
@@ -53,10 +73,12 @@ Fields the adapter deliberately leaves `None`/rejects rather than guesses:
 - `employment_type` / `remote_type` — only populated from the board's own
   custom metadata fields when present; otherwise left `None`.
 
-Adding another provider (e.g. Lever) means implementing the same
-`JobSourceAdapter` interface (`services/job_discovery/sources/base.py`) and
-reusing the existing normalizer/validator/deduplicator/persistence/pipeline —
-no source-specific logic belongs in the generic pipeline.
+Adding another (approved) provider means implementing the same
+`JobSourceAdapter` interface (`services/job_discovery/sources/base.py`:
+`fetch_raw_jobs()` + deterministic `normalize_raw_job()`), adding one
+branch to `build_configured_source()`, and reusing the existing
+normalizer/validator/deduplicator/persistence/pipeline — no
+source-specific logic belongs in the generic pipeline.
 
 ## Operationalizing discovery (running it without a developer manually
 ## invoking Python)
@@ -153,7 +175,7 @@ callers of the same endpoint, not to protect against the scheduler.
 
 **Observability:** every invocation of `POST /run` records one
 `DiscoveryRun` row (source, status, started/completed timestamps, fetched
-/inserted/updated/rejected counts, and a safe/truncated error message on
+/normalized/inserted/updated/rejected/duplicate counts, and a safe/truncated error message on
 failure). `GET /internal/job-discovery/runs` (same trigger-token auth)
 returns the most recent runs, newest first, so an operator or the
 external scheduler can check run history without grepping application

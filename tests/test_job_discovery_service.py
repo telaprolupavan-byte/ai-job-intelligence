@@ -39,7 +39,24 @@ def _sample_discovered_job(source_job_id="gh-1", title="Backend Engineer"):
 
 
 @pytest.fixture(autouse=True)
+def _identity_normalization(monkeypatch):
+    """These tests hand the adapter already-normalized DiscoveredJob
+    objects as its "raw" records (they exercise orchestration, not
+    Greenhouse field mapping - see tests/test_greenhouse_source.py), so
+    normalization is the identity here."""
+    monkeypatch.setattr(
+        "apps.api.services.job_discovery_service.GreenhouseJobSource"
+        ".normalize_raw_job",
+        lambda self, raw_job: raw_job,
+    )
+
+
+@pytest.fixture(autouse=True)
 def _clear_discovery_settings(monkeypatch):
+    monkeypatch.setattr(settings, "job_discovery_provider", None)
+    monkeypatch.setattr(
+        settings, "job_discovery_enable_test_provider", False
+    )
     monkeypatch.setattr(
         settings, "job_discovery_greenhouse_board_token", None
     )
@@ -84,7 +101,7 @@ def test_run_configured_discovery_persists_fetched_jobs(db, monkeypatch):
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: fake_jobs,
     )
 
@@ -131,7 +148,7 @@ def test_run_configured_discovery_rejects_non_us_jobs_without_stopping(
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: [us_job, non_us_job],
     )
 
@@ -156,7 +173,7 @@ def test_run_configured_discovery_surfaces_adapter_failure(db, monkeypatch):
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         _raise,
     )
 
@@ -179,7 +196,7 @@ def test_source_failure_does_not_invalidate_existing_jobs(db, monkeypatch):
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: [_sample_discovered_job("gh-existing", "Existing Role")],
     )
     run_configured_discovery(db)
@@ -195,7 +212,7 @@ def test_source_failure_does_not_invalidate_existing_jobs(db, monkeypatch):
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         _raise,
     )
 
@@ -222,7 +239,7 @@ def test_run_configured_discovery_records_discovery_run_on_success(
     )
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: [_sample_discovered_job("gh-1", "Backend Engineer")],
     )
 
@@ -254,7 +271,7 @@ def test_run_configured_discovery_records_discovery_run_on_adapter_failure(
 
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         _raise,
     )
 
@@ -278,7 +295,7 @@ def test_run_configured_discovery_raises_on_database_failure_during_commit(
     )
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: [_sample_discovered_job("gh-db-fail", "DB Failure Role")],
     )
     monkeypatch.setattr(
@@ -340,7 +357,7 @@ def test_run_configured_discovery_rejects_overlapping_run(db, monkeypatch):
     # block later scheduled runs.
     monkeypatch.setattr(
         "apps.api.services.job_discovery_service.GreenhouseJobSource"
-        ".fetch_jobs",
+        ".fetch_raw_jobs",
         lambda self: [_sample_discovered_job("gh-recovery", "Recovery Role")],
     )
     summary = run_configured_discovery(db)
