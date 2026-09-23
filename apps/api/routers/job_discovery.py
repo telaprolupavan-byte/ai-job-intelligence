@@ -11,6 +11,7 @@ this at a real source.
 
 from __future__ import annotations
 
+import hmac
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
@@ -19,9 +20,11 @@ from sqlalchemy.orm import Session
 
 from apps.api.config import settings
 from apps.api.database import get_db
-from apps.api.models import DiscoveryRun
+from apps.api.dependencies import get_current_user
+from apps.api.models import DiscoveryRun, User
 from apps.api.services.job_discovery_service import (
     JobDiscoveryServiceError,
+    get_discovery_status,
     run_configured_discovery,
 )
 
@@ -48,9 +51,11 @@ def _verify_trigger_token(
             ),
         )
 
-    if (
-        not x_discovery_trigger_token
-        or x_discovery_trigger_token != configured_token
+    # Constant-time comparison so response timing never leaks how much of
+    # a guessed token matched.
+    if not x_discovery_trigger_token or not hmac.compare_digest(
+        x_discovery_trigger_token.encode("utf-8"),
+        configured_token.encode("utf-8"),
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -72,20 +77,30 @@ def trigger_job_discovery(db: Session = Depends(get_db)):
         ) from exc
 
     logger.info(
-        "Job discovery run: source=%s fetched=%d inserted=%d updated=%d rejected=%d",
+        "Job discovery run: source=%s test_data=%s fetched=%d normalized=%d "
+        "accepted=%d rejected=%d duplicates=%d inserted=%d updated=%d",
         summary.source,
+        summary.is_test_data,
         summary.fetched,
+        summary.normalized,
+        summary.accepted,
+        summary.rejected,
+        summary.duplicates,
         summary.inserted,
         summary.updated,
-        summary.rejected,
     )
 
+    # Deterministic operational counters (AJI-024) - not AI metrics.
     return {
         "source": summary.source,
+        "is_test_data": summary.is_test_data,
         "fetched": summary.fetched,
+        "normalized": summary.normalized,
+        "accepted": summary.accepted,
+        "rejected": summary.rejected,
+        "duplicates": summary.duplicates,
         "inserted": summary.inserted,
         "updated": summary.updated,
-        "rejected": summary.rejected,
         "rejected_reasons": summary.rejected_reasons,
     }
 
@@ -116,10 +131,48 @@ def list_discovery_runs(
                 run.completed_at.isoformat() if run.completed_at else None
             ),
             "fetched": run.fetched_count,
+            "normalized": run.normalized_count,
+            "accepted": run.inserted_count + run.updated_count,
+            "rejected": run.rejected_count,
+            "duplicates": run.duplicate_count,
             "inserted": run.inserted_count,
             "updated": run.updated_count,
-            "rejected": run.rejected_count,
             "error_message": run.error_message,
         }
         for run in runs
     ]
+
+
+# User-facing, read-only discovery state for the Jobs UI (AJI-024). Lives
+# outside the /internal prefix and uses normal user auth - it can never
+# run discovery, and it exposes no configuration values, provider
+# credentials, or run error text.
+status_router = APIRouter(
+    prefix="/job-discovery",
+    tags=["Job Discovery"],
+)
+
+
+@status_router.get("/status")
+def read_discovery_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    discovery_status = get_discovery_status(db)
+
+    return {
+        "source_configured": discovery_status.source_configured,
+        "test_mode": discovery_status.test_mode,
+        "last_run": (
+            {
+                "status": discovery_status.last_run_status,
+                "completed_at": (
+                    discovery_status.last_run_completed_at.isoformat()
+                    if discovery_status.last_run_completed_at
+                    else None
+                ),
+            }
+            if discovery_status.last_run_status
+            else None
+        ),
+    }

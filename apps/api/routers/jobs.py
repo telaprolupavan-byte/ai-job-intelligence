@@ -62,6 +62,7 @@ from apps.api.models import (
     ResumeImprovement,
 )
 from services.eligibility.contracts import EligibilityResult
+from services.job_discovery.sources.test_fixture import TEST_FIXTURE_SOURCE
 
 
 router = APIRouter(
@@ -116,6 +117,15 @@ def _job_to_response(job: Job, company_name: str | None) -> dict:
             else None
         ),
         "source": job.source,
+        # AJI-024: lets the UI tell shared discovered jobs apart from the
+        # caller's own private submissions (AJI-022), and flag synthetic
+        # test-fixture jobs, without parsing `source` strings.
+        "origin": (
+            "user_submitted"
+            if job.submitted_by_user_id is not None
+            else "discovered"
+        ),
+        "is_test_data": job.source == TEST_FIXTURE_SOURCE,
         "source_url": job.source_url,
         "application_url": job.application_url,
         "first_seen_at": job.first_seen_at.isoformat(),

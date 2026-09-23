@@ -1115,6 +1115,93 @@ no admin/role concept to gate it with. Do not add an `is_admin` flag to
 `User` just to protect this one endpoint - if a real admin-role need
 emerges later across multiple features, that is its own ticket.
 
+## Job Discovery Product Pipeline (AJI-024)
+
+AJI-024 completes the provider-independent discovery pipeline on top of
+the existing AJI-006 engine and its operationalization above - no second
+discovery system, no second fingerprint system, no task queue.
+
+```
+Provider -> fetch_raw_jobs() -> RawProviderJob
+         -> normalize_raw_job() -> DiscoveredJob (canonical)
+         -> validate -> deduplicate -> persist -> GET /jobs -> Jobs UI
+         -> Job Intelligence -> ... (unchanged downstream pipeline)
+```
+
+**Provider adapter boundary.** `services/job_discovery/sources/base.py`
+formalizes `JobSourceAdapter`: `fetch_raw_jobs()` (the only step that
+touches the network; failure raises `JobSourceFetchError` and the run is
+recorded as failed/502) and `normalize_raw_job()` (deterministic, per
+record, may raise). The pipeline isolates each record, so one malformed
+provider record is a counted rejection instead of a failed run (before
+AJI-024 a Greenhouse record without an `id` raised `KeyError` and failed
+the whole batch). `build_configured_source()` in
+`apps/api/services/job_discovery_service.py` is the single place a
+provider is chosen (`JOB_DISCOVERY_PROVIDER`); an unknown value is a 503,
+never a silent fallback. Nothing downstream branches on the provider.
+
+**Normalization contract.** `DiscoveredJob` is the canonical shape. An
+adapter fills only what the provider actually states; everything else
+stays `None` (unknown remains unknown - no guessed employment type,
+remote type, salary, or country). URLs are kept only when they are
+absolute `http(s)` URLs (`normalize_url`): they are rendered as links, so
+`javascript:`/`data:`/relative values become unknown rather than stored.
+
+**Validation.** Required: title, company, a *meaningful* description
+(>= 10 letters/digits and not a placeholder such as "TBD"), source, and a
+known U.S. country (the pre-existing U.S.-only product scope, unchanged).
+`source_url`/`application_url` became optional ("where available");
+location, remote/employment type, salary, and posting date were already
+optional. Discovery may never use the `user_submitted` source (reserved
+for AJI-022).
+
+**Deduplication ownership.** Identity stays exactly AJI-006's:
+`(source, source job id)` when the provider supplies one, else the
+`build_job_fingerprint` fallback. Within one batch, a later record with an
+already-seen identity is counted as a `duplicate` and not written; across
+runs the same identity updates the stored row (`updated`, `last_seen_at`
+refreshed). Persistence only ever matches rows with
+`submitted_by_user_id IS NULL` and always inserts discovered jobs with it
+NULL, so discovery can never overwrite or claim a user's private job.
+
+**Operational counters (not AI metrics).** Each run returns and records
+(`DiscoveryRun`, two additive columns `normalized_count`,
+`duplicate_count`): `fetched = normalized + normalization rejections`,
+`normalized = accepted + validation rejections + duplicates`,
+`accepted = inserted + updated`.
+
+**Test-provider isolation.** `sources/test_fixture.py` is a deterministic,
+offline, synthetic provider (duplicates, malformed and invalid records,
+full-time/contract, remote/hybrid/onsite, an unsafe URL). It is
+double-gated - it runs only with `JOB_DISCOVERY_PROVIDER=test_fixture`
+**and** `JOB_DISCOVERY_ENABLE_TEST_PROVIDER=true` - and its rows carry
+`source = "nero_test_fixture"`, a company name ending "(NERO test data)",
+and reserved `.example` URLs. `visible_jobs_filter()` hides those rows
+from every user-facing job query whenever the flag is off, and the Jobs UI
+labels them "Test data" with a test-mode banner when it is on.
+
+**Preferences and lifecycle (deliberately unchanged).** Discovery is
+user-independent (it produces shared jobs), so it does not filter by any
+user's `Preference`; preferences keep being consumed downstream by Hard
+Eligibility and Job Match exactly as before, and no soft preference was
+turned into a hard discovery filter. Lifecycle stays `is_active` +
+`first_seen_at`/`last_seen_at`: no provider in use can say a posting
+closed, so nothing is marked stale/expired by guesswork.
+
+**User-facing status.** `GET /job-discovery/status` (normal user auth,
+read-only) returns only `source_configured`, `test_mode`, and the latest
+run's status/time - no configuration values, secrets, or error text - so
+the Jobs UI can show "no job source connected" and "last run failed"
+states. Running discovery remains the internal, shared-secret endpoint
+(now compared in constant time).
+
+**Why real provider selection is deferred.** Which provider (and which
+companies' postings) NERO may ingest is a Product Owner / legal decision
+(see "Why unconfigured by default" and the Provider Scorecard workflow
+above). AJI-024 builds everything that decision plugs into; approving a
+provider means adding one adapter and one branch in
+`build_configured_source()`.
+
 ## Application Tracking (the final workflow stage)
 
 Application Tracking was the last stage of the approved core workflow

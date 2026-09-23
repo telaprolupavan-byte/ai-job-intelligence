@@ -17,6 +17,10 @@ services:
       JOB_DISCOVERY_GREENHOUSE_BOARD_TOKEN: ${JOB_DISCOVERY_GREENHOUSE_BOARD_TOKEN:-}
       JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME: ${JOB_DISCOVERY_GREENHOUSE_COMPANY_NAME:-}
       JOB_DISCOVERY_TRIGGER_TOKEN: ${JOB_DISCOVERY_TRIGGER_TOKEN:-}
+      # AJI-024 provider selection. The synthetic test_fixture provider
+      # needs BOTH of these set explicitly; never enable it in production.
+      JOB_DISCOVERY_PROVIDER: ${JOB_DISCOVERY_PROVIDER:-}
+      JOB_DISCOVERY_ENABLE_TEST_PROVIDER: ${JOB_DISCOVERY_ENABLE_TEST_PROVIDER:-false}
     depends_on:
       db:
         condition: service_healthy

@@ -7,12 +7,14 @@ import urllib.error
 import urllib.request
 from datetime import datetime
 
-from services.job_discovery.contracts import DiscoveredJob
+from services.job_discovery.contracts import DiscoveredJob, RawProviderJob
 from services.job_discovery.normalizer import (
     normalize_employment_type,
     normalize_remote_type,
     normalize_text,
+    normalize_url,
 )
+from services.job_discovery.sources.base import JobSourceFetchError
 
 BOARDS_API_URL = "https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs"
 
@@ -35,7 +37,7 @@ US_LOCATION_MARKERS = {
 _TAG_PATTERN = re.compile(r"<[^>]+>")
 
 
-class GreenhouseAdapterError(RuntimeError):
+class GreenhouseAdapterError(JobSourceFetchError):
     """Raised when the Greenhouse public board API cannot be read."""
 
 
@@ -98,6 +100,7 @@ class GreenhouseJobSource:
     """
 
     source_name = "greenhouse"
+    is_test_provider = False
 
     def __init__(
         self,
@@ -147,12 +150,33 @@ class GreenhouseJobSource:
 
         return jobs
 
-    def fetch_jobs(self) -> list[DiscoveredJob]:
-        raw_jobs = self._fetch_raw_jobs()
+    def fetch_raw_jobs(self) -> list[RawProviderJob]:
+        return [
+            RawProviderJob(
+                source=self.source_name,
+                payload=raw_job if isinstance(raw_job, dict) else {},
+            )
+            for raw_job in self._fetch_raw_jobs()
+        ]
 
-        return [self._to_discovered_job(raw_job) for raw_job in raw_jobs]
+    def normalize_raw_job(self, raw_job: RawProviderJob) -> DiscoveredJob:
+        return self._to_discovered_job(raw_job.payload)
+
+    def fetch_jobs(self) -> list[DiscoveredJob]:
+        """Fetch and normalize in one call (kept for the README snippet and
+        existing callers). Unlike the discovery pipeline, a malformed
+        record raises here instead of being isolated as a rejection."""
+        return [
+            self.normalize_raw_job(raw_job)
+            for raw_job in self.fetch_raw_jobs()
+        ]
 
     def _to_discovered_job(self, raw_job: dict) -> DiscoveredJob:
+        if raw_job.get("id") in (None, ""):
+            raise ValueError("Greenhouse job record is missing its id.")
+
+        absolute_url = normalize_url(raw_job.get("absolute_url"))
+
         location = normalize_text(
             (raw_job.get("location") or {}).get("name")
         )
@@ -190,8 +214,8 @@ class GreenhouseJobSource:
             salary_currency=None,
             contract_duration=None,
             contract_worker_type=None,
-            source_url=raw_job.get("absolute_url"),
-            application_url=raw_job.get("absolute_url"),
+            source_url=absolute_url,
+            application_url=absolute_url,
             posted_at=_parse_datetime(
                 raw_job.get("updated_at") or raw_job.get("first_published")
             ),

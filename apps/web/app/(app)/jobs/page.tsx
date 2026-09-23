@@ -34,6 +34,10 @@ import {
 } from "@/lib/jobs";
 import { getResumes, getResumeVersions } from "@/lib/resumes";
 import {
+  getDiscoveryStatus,
+  type DiscoveryStatus,
+} from "@/lib/job-discovery";
+import {
   getApplications,
   removeSavedJob,
   saveJob,
@@ -136,6 +140,10 @@ function JobsPageInner() {
   } | null>(null);
   const [focusedJobReloadKey, setFocusedJobReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // AJI-024: null until loaded, and left null if the status call fails -
+  // the page then simply shows no discovery-specific notices.
+  const [discoveryStatus, setDiscoveryStatus] =
+    useState<DiscoveryStatus | null>(null);
   const [matches, setMatches] = useState<Record<string, JobMatchResult>>({});
 
   // Keyed by job id so concurrent match requests for different jobs never
@@ -360,6 +368,22 @@ function JobsPageInner() {
       cancelled = true;
     };
   }, [appliedFilters, page]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getDiscoveryStatus()
+      .then((status) => {
+        if (!cancelled) setDiscoveryStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setDiscoveryStatus(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!focusedJobId) {
@@ -1174,6 +1198,33 @@ function JobsPageInner() {
           </div>
         )}
 
+        {/* DISCOVERY NOTICES (AJI-024) */}
+        {discoveryStatus?.test_mode && (
+          <div
+            role="note"
+            className="mb-6 flex flex-col gap-2 rounded-lg border border-app-danger-border bg-app-danger-bg px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+          >
+            <Badge tone="danger" className="self-start sm:self-auto">
+              Test data
+            </Badge>
+            <p className="text-xs leading-5 text-app-danger-text">
+              Development test mode is on. Jobs marked Test data come from
+              NERO&apos;s synthetic fixture provider and are not real
+              postings.
+            </p>
+          </div>
+        )}
+
+        {!error && discoveryStatus?.last_run?.status === "failed" && (
+          <p
+            role="status"
+            className="mb-6 rounded-lg border border-app-border bg-app-panel px-4 py-3 text-xs leading-5 text-app-muted"
+          >
+            The most recent job discovery run did not complete. Showing
+            the jobs discovered before it.
+          </p>
+        )}
+
         {/* RESULTS TOOLBAR (selector placement per AJI-019 — Jobs Placement Reference) */}
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {focusedJobId ? (
@@ -1301,8 +1352,34 @@ function JobsPageInner() {
           </div>
         )}
 
+        {/* EMPTY — no discovery source connected (AJI-024) */}
+        {!focusedJobId &&
+          !isPending &&
+          !error &&
+          results.jobs.length === 0 &&
+          activeFilterCount === 0 &&
+          discoveryStatus?.source_configured === false && (
+            <EmptyState
+              icon={SearchIcon}
+              title="No job source connected yet"
+              description="Job discovery isn't connected to a job provider yet, so there are no discovered jobs to show. You can still add a job you found yourself and run the full NERO analysis on it."
+              action={
+                <AppButton href="/jobs/submit" variant="secondary">
+                  Add a job
+                </AppButton>
+              }
+            />
+          )}
+
         {/* EMPTY */}
-        {!focusedJobId && !isPending && !error && results.jobs.length === 0 && (
+        {!focusedJobId &&
+          !isPending &&
+          !error &&
+          results.jobs.length === 0 &&
+          !(
+            activeFilterCount === 0 &&
+            discoveryStatus?.source_configured === false
+          ) && (
           <EmptyState
             icon={SearchIcon}
             title="No jobs found"
@@ -1661,11 +1738,14 @@ function JobCard({
 
             {/* METADATA */}
             <div className="mt-4 flex flex-wrap gap-2">
+              {job.is_test_data && <Badge tone="danger">Test data</Badge>}
+              {job.employment_type && (
+                <Badge tone={employmentTypeTone(job.employment_type)}>
+                  {formatEmploymentType(job)}
+                </Badge>
+              )}
               {job.location && <Badge>{job.location}</Badge>}
               {job.remote_type && <Badge>{formatValue(job.remote_type)}</Badge>}
-              {job.employment_type && (
-                <Badge>{formatValue(job.employment_type)}</Badge>
-              )}
             </div>
 
             {/* SALARY */}
@@ -1695,7 +1775,7 @@ function JobCard({
               </span>
 
               <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
-                {job.source}
+                {formatJobOrigin(job)}
               </span>
             </div>
           </div>
@@ -2537,6 +2617,40 @@ function formatEvidenceStatus(value: string): string {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+// AJI-024: Full-Time and Contract must stay distinguishable at a glance,
+// so each gets its own chip treatment; contract length rides on the chip.
+function employmentTypeTone(
+  employmentType: string,
+): "blue-soft" | "neutral-soft" | "neutral" {
+  if (employmentType === "full_time") return "blue-soft";
+  if (employmentType === "contract") return "neutral-soft";
+  return "neutral";
+}
+
+function formatEmploymentType(job: Job): string {
+  if (job.employment_type === "full_time") return "Full-Time";
+
+  if (job.employment_type === "contract") {
+    return job.contract_duration
+      ? `Contract · ${job.contract_duration}`
+      : "Contract";
+  }
+
+  return formatValue(job.employment_type ?? "");
+}
+
+// AJI-024: discovered (shared) vs. the user's own private submission
+// (AJI-022), without leaking internal source identifiers for the latter.
+function formatJobOrigin(job: Job): string {
+  if (job.origin === "user_submitted" || job.source === "user_submitted") {
+    return "Added by you · private";
+  }
+
+  if (job.is_test_data) return "Discovered · test fixture";
+
+  return `Discovered · ${formatValue(job.source)}`;
 }
 
 function formatValue(value: string): string {

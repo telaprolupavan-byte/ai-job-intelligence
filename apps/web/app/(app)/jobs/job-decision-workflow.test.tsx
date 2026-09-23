@@ -48,6 +48,17 @@ vi.mock("@/lib/jobs", () => ({
 const getResumes = vi.fn();
 const getResumeVersions = vi.fn();
 
+// AJI-024 discovery status: not what these tests exercise - report a
+// configured, non-test source so no discovery notice renders.
+vi.mock("@/lib/job-discovery", () => ({
+  getDiscoveryStatus: () =>
+    Promise.resolve({
+      source_configured: true,
+      test_mode: false,
+      last_run: null,
+    }),
+}));
+
 vi.mock("@/lib/resumes", () => ({
   getResumes: (...args: unknown[]) => getResumes(...args),
   getResumeVersions: (...args: unknown[]) => getResumeVersions(...args),

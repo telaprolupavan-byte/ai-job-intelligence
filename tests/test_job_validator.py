@@ -62,12 +62,14 @@ def test_missing_description_fails_validation():
         validate_discovered_job(job)
 
 
-def test_missing_application_url_fails_validation():
+def test_missing_source_and_application_urls_are_optional():
+    """AJI-024: a URL is recorded "where available" - its absence alone
+    never invalidates an otherwise valid job."""
     job = make_valid_job()
+    job.source_url = None
     job.application_url = None
 
-    with pytest.raises(JobValidationError, match="application_url"):
-        validate_discovered_job(job)
+    validate_discovered_job(job)
 
 
 def test_non_us_job_fails_validation():
