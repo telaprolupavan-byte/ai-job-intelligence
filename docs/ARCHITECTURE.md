@@ -2648,3 +2648,64 @@ job; listing, dashboard, and application isolation; cascade on user
 delete; and unchanged discovered-job behavior. Web:
 `jobs/submit/submit-job.test.tsx` (all three states and retry) and
 `jobs/submitted-job-focus.test.tsx` (entry point and destination).
+
+## Job Intelligence → Application Decision Workflow (AJI-023)
+
+Opening a job (`/jobs?job=<id>`, now reachable from every job card via
+"Open job", not only after an AJI-022 submission) shows the whole
+workflow for that one job in order: Job Intelligence → Hard Eligibility →
+Job Match → ATS Alignment → Gap Analysis → Resume Improvement →
+Application Tracking. No engine was added or changed.
+
+### Deterministic decision layer (frontend only)
+
+`apps/web/lib/job-decision.ts::buildJobDecision()` is a pure function over
+results the existing engines already returned. It produces per-stage
+status/summary lines, ATS requirements split into aligned / partial /
+missing (must-have first), eligibility blockers and unknown checks, a
+count of Gap Analysis suggestions by type, and the first workflow stage
+that has not run yet. It never scores, ranks or recommends: each stage
+reports only its own result, and Job Match, ATS Alignment and Gap Analysis
+are never combined. It also flags two real inconsistencies instead of
+hiding them: results calculated for different resume versions, and a Gap
+Analysis built from a different ATS result than the one shown. A future
+AI layer plugs in behind the existing engines; this layer reads their
+outputs and needs no change.
+
+`JobDecisionPanel` renders it with the existing Panel/Badge/AppButton
+components and `NeroCharacterState` (Figma 25:50; `Success` added from
+reference 68:56). The state follows real request activity: Analyzing
+while any request is in flight, Success once Job Intelligence, Match, ATS
+and Gap all have results, otherwise Idle.
+
+### Saved results (one new read endpoint)
+
+`GET /jobs/{job_id}/match` is the read counterpart of the POST, matching
+the existing `GET /ats`, `GET /gap-analysis` and `GET
+/resume-improvement`. It calls `job_match_service.get_latest_job_match`
+(never recalculates, never generates Job Intelligence), sits behind
+`_get_visible_job_or_404` like every per-job endpoint, and only reads the
+caller's own rows. The opened job reads all four results pinned to the
+ResumeVersion the selector shows (the explicit selection, or the default
+it displays), so a result for another version is never shown under that
+selector. A 404 means "not calculated yet"; any other failure shows a
+retry. An improvement is shown only next to the Gap Analysis it was
+approved from.
+
+### Application actions
+
+Save, and now also Mark as Applied directly (it saves first, since
+tracking is one saved row moving to `applied`), plus a "View in Tracking"
+link once saved. These only record what the user did. NERO never submits
+an application; the employer link is labelled "Apply on employer site".
+
+### States
+
+Loading (saved results show "Loading saved result…", not "Not run"),
+empty, success, per-stage error with Retry, no resume (resume-based
+stages wait and link to Resume; no resume-based request is made), no
+analysis, analysis unavailable (Job Intelligence without an AI result is
+labelled "deterministic extraction only", never presented as AI-verified),
+and access denied. A 404 on the job (missing, or another user's private
+submission, which the API makes identical) shows `NeroErrorCard` with no
+retry. Other failures show a retry.

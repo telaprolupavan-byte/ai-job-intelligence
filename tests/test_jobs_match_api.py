@@ -315,3 +315,139 @@ def test_calculate_job_match_rejects_other_users_resume_version_id(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resume version not found."
+
+# ---------------------------------------------------------------------------
+# AJI-023 — GET /jobs/{job_id}/match (read-only latest result)
+# ---------------------------------------------------------------------------
+
+
+def _make_version(db, resume, *, name: str, is_master: bool) -> ResumeVersion:
+    content_text = f"{name}\nSKILLS\nPython, Machine Learning, Docker"
+    version = ResumeVersion(
+        id=uuid4(),
+        resume_id=resume.id,
+        name=name,
+        content_text=content_text,
+        content_fingerprint=compute_content_fingerprint(content_text),
+        original_filename="test-resume.txt",
+        storage_path=f"/tmp/{uuid4()}.txt",
+        is_master=is_master,
+    )
+    db.add(version)
+    db.flush()
+    return version
+
+
+def test_get_job_match_404s_before_any_calculation(
+    client, db, test_job, test_resume, auth_headers
+):
+    response = client.get(f"/jobs/{test_job.id}/match", headers=auth_headers)
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Job Match has not been calculated for this job yet."
+    )
+    # A read never calculates anything.
+    assert (
+        db.query(JobMatchResult)
+        .filter(JobMatchResult.job_id == test_job.id)
+        .count()
+        == 0
+    )
+
+
+def test_get_job_match_returns_the_calculated_result_unchanged(
+    client, test_job, test_resume, auth_headers
+):
+    created = client.post(f"/jobs/{test_job.id}/match", headers=auth_headers)
+    assert created.status_code == 200
+
+    response = client.get(f"/jobs/{test_job.id}/match", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json() == created.json()
+
+
+def test_get_job_match_is_pinned_to_the_requested_resume_version(
+    client, db, test_job, test_resume, auth_headers
+):
+    master = test_resume.versions[0]
+    tailored = _make_version(db, test_resume, name="Tailored", is_master=False)
+
+    client.post(
+        f"/jobs/{test_job.id}/match",
+        params={"resume_version_id": str(master.id)},
+        headers=auth_headers,
+    )
+
+    pinned_master = client.get(
+        f"/jobs/{test_job.id}/match",
+        params={"resume_version_id": str(master.id)},
+        headers=auth_headers,
+    )
+    assert pinned_master.status_code == 200
+    assert pinned_master.json()["resume_version_id"] == str(master.id)
+
+    # Nothing has been calculated for the tailored version yet.
+    pinned_tailored = client.get(
+        f"/jobs/{test_job.id}/match",
+        params={"resume_version_id": str(tailored.id)},
+        headers=auth_headers,
+    )
+    assert pinned_tailored.status_code == 404
+
+
+def test_get_job_match_never_returns_another_users_result(
+    client, db, test_job, test_resume, auth_headers
+):
+    created = client.post(f"/jobs/{test_job.id}/match", headers=auth_headers)
+    assert created.status_code == 200
+
+    other_user = User(
+        id=uuid4(),
+        email=f"match-read-other-{uuid4()}@example.com",
+        password_hash="test-password-hash",
+    )
+    db.add(other_user)
+    db.flush()
+    other_headers = {
+        "Authorization": f"Bearer {create_access_token(str(other_user.id))}"
+    }
+
+    response = client.get(f"/jobs/{test_job.id}/match", headers=other_headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Job Match has not been calculated for this job yet."
+    )
+
+    # Pinning to the owner's resume version still reveals nothing.
+    pinned = client.get(
+        f"/jobs/{test_job.id}/match",
+        params={"resume_version_id": created.json()["resume_version_id"]},
+        headers=other_headers,
+    )
+    assert pinned.status_code == 404
+
+
+def test_get_job_match_rejects_malformed_resume_version_id(
+    client, test_job, auth_headers
+):
+    response = client.get(
+        f"/jobs/{test_job.id}/match",
+        params={"resume_version_id": "not-a-uuid"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resume version not found."
+
+
+def test_get_job_match_requires_authentication(client, test_job):
+    assert client.get(f"/jobs/{test_job.id}/match").status_code == 401
+
+
+def test_get_job_match_unknown_job(client, auth_headers):
+    response = client.get(f"/jobs/{uuid4()}/match", headers=auth_headers)
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found"
