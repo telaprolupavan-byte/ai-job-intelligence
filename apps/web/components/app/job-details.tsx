@@ -34,6 +34,13 @@ export default function JobDetails({ job }: { job: Job }) {
     { label: "Posted", value: formatPostedDate(job.posting_date) },
   ];
 
+  // AJI-028: a closing date only when the provider stated one. Most
+  // sources never do, so its absence is not shown as "Not stated".
+  const closes = formatPostedDate(job.expires_at ?? null);
+  if (closes) {
+    facts.push({ label: "Closes", value: closes });
+  }
+
   // Contract specifics only mean something on a contract role; on any
   // other role they are not "missing", just not applicable.
   if (job.employment_type === "contract") {

@@ -36,7 +36,10 @@ from apps.api.models import (
     User,
 )
 from apps.api.services.application_service import count_active_applications
-from apps.api.services.job_access import visible_jobs_filter
+from apps.api.services.job_access import (
+    active_jobs_filter,
+    visible_jobs_filter,
+)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -117,7 +120,11 @@ def get_dashboard(
     # AJI-022: discovered jobs plus this user's own submissions only.
     visible = visible_jobs_filter(current_user.id)
 
-    active_jobs = db.query(Job).filter(Job.is_active.is_(True), visible)
+    # AJI-028: the shared definition of an open job (active and not past
+    # a provider-stated expiry), the same one GET /jobs uses.
+    active = active_jobs_filter()
+
+    active_jobs = db.query(Job).filter(active, visible)
 
     jobs_today_count = active_jobs.filter(
         func.date(Job.first_seen_at) == today
@@ -134,7 +141,7 @@ def get_dashboard(
     recent_rows = (
         db.query(Job, Company.name)
         .outerjoin(Company, Job.company_id == Company.id)
-        .filter(Job.is_active.is_(True), visible)
+        .filter(active, visible)
         .order_by(Job.first_seen_at.desc())
         .limit(RECENT_JOBS_LIMIT)
         .all()

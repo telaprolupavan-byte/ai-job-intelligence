@@ -157,4 +157,23 @@ describe("JobDetails (AJI-023 Job Search)", () => {
     expect(fact("Contract length")).toHaveTextContent("Not stated");
     expect(fact("Worker type")).toHaveTextContent("Not stated");
   });
+
+  // AJI-028: provider-stated expiry.
+  it("shows the closing date only when the provider stated one", () => {
+    render(<JobDetails job={job({ expires_at: "2026-12-31T22:00:00" })} />);
+
+    expect(fact("Closes")).toHaveTextContent("Dec 31, 2026");
+  });
+
+  it("omits the closing date when none was stated (never 'Not stated')", () => {
+    render(<JobDetails job={job({ expires_at: null })} />);
+
+    expect(screen.queryByText("Closes")).not.toBeInTheDocument();
+  });
+
+  it("omits the closing date for responses from an older API", () => {
+    render(<JobDetails job={job()} />);
+
+    expect(screen.queryByText("Closes")).not.toBeInTheDocument();
+  });
 });

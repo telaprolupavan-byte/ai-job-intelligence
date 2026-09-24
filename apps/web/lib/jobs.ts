@@ -36,6 +36,27 @@ export type Job = {
   application_url: string | null;
   first_seen_at: string;
   last_seen_at: string;
+  /**
+   * AJI-028: when the provider says the posting closes (naive UTC), or
+   * null when it stated none - never inferred. Optional so responses from
+   * an older API still type-check.
+   */
+  expires_at?: string | null;
+  /**
+   * AJI-028: how to credit the job's source, from the API's generic
+   * attribution registry. Null for the caller's own submissions and for
+   * sources with no registered attribution.
+   */
+  source_attribution?: SourceAttribution | null;
+};
+
+export type SourceAttribution = {
+  /** The source's display name. */
+  name: string;
+  /** The posting on the source, else the source's homepage. */
+  url: string | null;
+  /** The source's terms require a visible link naming it. */
+  requires_link_back: boolean;
 };
 
 export type JobsResponse = {

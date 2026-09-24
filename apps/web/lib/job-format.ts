@@ -42,7 +42,24 @@ export function formatJobOrigin(job: Job): string {
 
   if (job.is_test_data) return "Discovered · test fixture";
 
-  return `Discovered · ${formatValue(job.source)}`;
+  // AJI-028: the source's registered display name when it has one.
+  return `Discovered · ${job.source_attribution?.name ?? formatValue(job.source)}`;
+}
+
+// AJI-028: the visible credit a source's terms require ("Job via X",
+// linking to the posting on X). Null when the source does not require
+// one, or there is nowhere safe to link - the API only ever returns an
+// absolute http(s) URL here.
+export function sourceAttributionLink(
+  job: Job,
+): { label: string; href: string } | null {
+  const attribution = job.source_attribution;
+
+  if (!attribution?.requires_link_back || !attribution.url) return null;
+
+  if (!/^https?:\/\//i.test(attribution.url)) return null;
+
+  return { label: `Job via ${attribution.name}`, href: attribution.url };
 }
 
 // AJI-023 (Job Search): moved here from app/(app)/jobs/page.tsx so the
@@ -74,7 +91,7 @@ export function formatSalary(job: Job): string | null {
   return null;
 }
 
-// `posting_date` is stored as naive UTC (see
+// `posting_date` (and, AJI-028, `expires_at`) is stored as naive UTC (see
 // services/job_discovery/persistence.py::to_naive_utc), so it is read and
 // shown as a UTC calendar date - never shifted into the viewer's timezone,
 // which could move it to the previous or next day. Null when the source

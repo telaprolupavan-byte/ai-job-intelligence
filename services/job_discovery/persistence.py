@@ -15,7 +15,7 @@ from services.job_discovery.validator import validate_discovered_job
 def to_naive_utc(value: datetime | None) -> datetime | None:
     """Coerce a datetime to naive UTC for the `jobs` timestamp columns.
 
-    `jobs.posting_date`/`first_seen_at`/`last_seen_at` are
+    `jobs.posting_date`/`expires_at`/`first_seen_at`/`last_seen_at` are
     `TIMESTAMP WITHOUT TIME ZONE` columns that hold UTC by convention
     (their model defaults are naive `datetime.utcnow`). Binding an
     *aware* datetime to one of them makes Postgres cast timestamptz ->
@@ -137,6 +137,8 @@ def upsert_discovered_job(
             requirements=discovered_job.requirements,
             responsibilities=discovered_job.responsibilities,
             posting_date=to_naive_utc(discovered_job.posted_at),
+            # AJI-028: only ever the provider-stated expiry (or None).
+            expires_at=to_naive_utc(discovered_job.expires_at),
             source=discovered_job.source,
             source_url=discovered_job.source_url,
             application_url=discovered_job.application_url,
@@ -171,6 +173,10 @@ def upsert_discovered_job(
     existing_job.requirements = discovered_job.requirements
     existing_job.responsibilities = discovered_job.responsibilities
     existing_job.posting_date = to_naive_utc(discovered_job.posted_at)
+    # AJI-028: mirrors the provider on every sighting, like every other
+    # field - a provider that extends a posting's closing date, or stops
+    # stating one, is reflected here, and nothing else ever sets it.
+    existing_job.expires_at = to_naive_utc(discovered_job.expires_at)
     existing_job.source_url = discovered_job.source_url
     existing_job.application_url = discovered_job.application_url
     existing_job.identity_fingerprint = fingerprint

@@ -50,7 +50,10 @@ JOB_KEYS = {
     "requirements",
     "responsibilities",
     "posting_date",
+    # AJI-028: provider-stated expiry and generic source attribution.
+    "expires_at",
     "source",
+    "source_attribution",
     "source_job_id",
     "origin",
     "is_test_data",
