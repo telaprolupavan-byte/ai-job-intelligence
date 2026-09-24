@@ -19,7 +19,7 @@ from apps.api.services.resume_ai.deterministic import (
     normalize_heading,
 )
 
-from tests.general_resume_fixtures import (
+from tests.support.general_resume import (
     WEAK_BULLET_1,
     WEAK_BULLET_2,
     WEAK_RESUME,
