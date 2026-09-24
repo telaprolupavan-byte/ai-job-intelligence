@@ -23,10 +23,11 @@ export type ResumeVersion = {
   created_at: string;
 
   // AJI-021 lineage. `parent_version_id` is null for an uploaded
-  // version; `source` is "upload" or "improvement"; `has_file` is false
-  // for a generated version, which has no document to download.
+  // version; `source` is "upload", "improvement" (AJI-021) or
+  // "general_improvement" (AJI-027); `has_file` is false for a generated
+  // version, which has no document to download.
   parent_version_id: string | null;
-  source: "upload" | "improvement";
+  source: "upload" | "improvement" | "general_improvement";
   has_file: boolean;
 };
 

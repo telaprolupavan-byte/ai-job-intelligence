@@ -3154,3 +3154,231 @@ dedup, search over description text, and any real provider selection.
 - Web: `lib/job-search.test.ts`, `components/app/job-details.test.tsx`, and
   `app/(app)/jobs/job-search.test.tsx`, which covers the page-level flow of
   search → results → failure/retry → 422 → empty → open → details.
+
+## General Resume Intelligence (AJI-027)
+
+Resume Intelligence that does **not** depend on a job. It scores the
+resume on its own terms, lists resume-level improvements, lets the user
+approve (with their own wording) or reject each one, creates a new
+version from the approvals, rechecks it, and reports readiness.
+
+| | Question it answers |
+|---|---|
+| ATS Alignment / Job Match / Gap Analysis / Resume Improvement (AJI-021) | "How does this resume read against *this job*?" |
+| **General Resume Intelligence (this section)** | **"How well is this resume written on its own, and what could the user improve?"** |
+
+The flow: Upload → Validation (existing, unchanged) → General Resume
+Score → Improvements → Approve/Reject → New version (`Refined N`) →
+Recheck → Updated score → Resume Ready.
+
+### Separation from the job-specific pipeline
+
+Nothing in `apps/api/services/general_resume/` or
+`apps/api/routers/general_resume.py` imports ATS Alignment, Job Match,
+Requirement Intelligence, Gap Analysis, Job Intelligence, Priority
+Ranking, Eligibility or the dashboard router, or references `job_id`,
+`AtsAlignmentResult`, `JobMatchResult`, `GapAnalysis`,
+`RequirementIntelligence` or `ATS_PASS_THRESHOLD`.
+`tests/test_general_resume_boundaries.py` pins this. The General Resume
+Score is not an ATS score, is never labeled as one, and is never blended
+with any job-specific score. The dashboard is unchanged (Product Owner
+decision): its "Resume readiness" pill and its 80% ATS split keep their
+existing behavior, and neither is used here.
+
+### The General Resume Score (Product Owner approved)
+
+`services/general_resume/scoring.py::score_resume(analysis)` is a pure
+function of the existing deterministic analyzer's output
+(`resume_ai/deterministic.py::analyze_resume_deterministically`) for one
+resume text. It adds no detection rule and makes no AI call. Five
+components, each a ratio so length alone cannot raise the score:
+
+| Component | Definition |
+|---|---|
+| Structure & parseability | checks passed / 7: experience, education and skills sections; an email; a phone number; bullets detected; consistent heading capitalization |
+| Action-oriented writing | bullets starting with an action verb / all bullets |
+| Measurable impact | experience/project bullets with quantification / those bullets |
+| Clarity | 1 − bullets with a weak phrase / all bullets |
+| Skill evidence | skills demonstrated outside the skills list / skills detected |
+
+- **Equal weights** across the components that could be measured.
+- A component with nothing to measure is `insufficient_data`: excluded
+  from the average (never scored as zero) and still surfaced as an
+  improvement area (`no_bullets`, `no_impact_bullets`,
+  `no_recognized_skills`, or on the related missing-section item).
+- **Clarity counts weak phrases only.** The analyzer's repeated-phrase
+  signal counts any two-word sequence found in two bullets ("for the"), so
+  on realistic resumes it flagged most bullets. Product Owner decision
+  during AJI-027: leave it out of the score and out of the improvements.
+- **No bands, labels or thresholds** exist anywhere in this feature.
+
+### Improvements
+
+`services/general_resume/improvements.py` derives each improvement from
+analyzer signals. Types are decided in code, never by the AI or the
+client:
+
+| Kind | Type |
+|---|---|
+| Bullet with a weak phrase / no leading action verb only | `REPHRASE_EXISTING` |
+| Experience/project bullet with no measurable result (adding a number is a new claim) | `ADD_IF_TRUE` |
+| Missing core section, missing email/phone | `ADD_IF_TRUE` |
+| Skill appearing only in the skills list | `ADD_IF_TRUE` |
+| No bullets, inconsistent headings, no impact bullets, no recognized skills | `ADVISORY` (reject, or fix with a new upload) |
+
+All issues on one bullet are one improvement, so two approvals can never
+compete over one line. `improvement_id` is a hash of the kind plus the
+normalized anchored text (or target), so an unchanged line keeps its id
+in a child version and a changed line gets a new one.
+
+### AI: grounded explanations only
+
+The only AI stage (`prompts.py`, `interpreter.py`, `providers/`,
+`validator.py`) may replace an improvement's `explanation` and
+`guidance`. Only improvements with verbatim evidence are sent, each with
+its own evidence line only. An AI field is kept only if its quote is a
+verbatim substring of that improvement's own evidence, it contains no
+number absent from the evidence, guidance contains no double-quoted span
+(no drafted resume text), `ADD_IF_TRUE` guidance is hedged, and it is
+under 600 characters. Anything else keeps the deterministic template.
+`*_source` records which was used. A failed call (error, timeout, no key)
+keeps every template and stores `generation_status = "partial"`. The
+score, the improvement list and readiness are computed before and
+independently of the AI; `tests/test_general_resume_service.py::
+test_ai_failure_changes_neither_score_nor_readiness` pins this.
+
+### Applying a review
+
+`services/general_resume/engine.py` enforces, server-side:
+
+- Every decision names an improvement from the stored assessment; its
+  type comes from the stored row. `ReviewDecisionInput` is
+  `extra="forbid"`, so a client-sent `suggestion_type` or `applied_text`
+  is a 422.
+- An approval needs non-empty user text; `ADD_IF_TRUE` needs
+  `truth_confirmed`; `ADVISORY` cannot be approved.
+- **NERO writes no resume content.** A bullet approval replaces exactly
+  that line (keeping its indentation and marker); a contact line goes
+  after the first line; a missing section or skill goes under a heading
+  from `SECTION_HEADINGS` (each pinned as a `SECTION_ALIASES` alias, the
+  AJI-021 reasoning). No explanation, guidance or AI text is ever written.
+  As in AJI-021, a skill added to a resume that already has an experience
+  section produces a second experience heading.
+- **Rejecting everything is valid** (Product Owner decision): the review
+  is recorded, no version is created, `recheck_status = "not_required"`.
+- The generated text must differ from the parent, pass the existing
+  `validate_resume_text`, and not duplicate an existing version's content.
+- The child is `source = "general_improvement"`, named `Refined N`,
+  `is_master = False` (Product Owner decision), `storage_path = NULL`
+  (so `GET /resumes/versions/{id}/file` 404s, as for AJI-021 versions),
+  and `parent_version_id` points at the parent. The parent is never
+  written.
+- `compute_review_fingerprint` (assessment, parent, approved text, rejected
+  ids; order-independent) plus a unique constraint prevents duplicates.
+
+### Recheck
+
+The child version and the review are committed first. The recheck is an
+ordinary assessment of the child with the same analyzer, scoring and
+prompt versions, run inside a SAVEPOINT; a failure only sets
+`recheck_status = "failed"` and `recheck_error`, and
+`POST /resumes/general-reviews/{id}/recheck` retries it. A completed
+recheck's `recheck_assessment_id` is never re-pointed. The before/after
+comparison is computed on read from the two stored rows (score delta,
+per-component deltas, and each improvement as resolved / still present /
+new). A negative delta is shown as-is.
+
+### Readiness (Product Owner definition): per version
+
+Readiness belongs only to the one resume version being viewed, and is
+computed only from **that version's own current assessment**
+(`service.py::compute_readiness`). A version is **Ready** when it has a
+current, valid assessment and no unresolved improvements. An improvement
+is resolved when it no longer appears (its text changed) or when the user
+rejected it on this version or an ancestor. Because ids are tied to
+unchanged text, a rejection carries forward exactly while the same issue
+remains. No score threshold is read. Readiness is computed on read
+(never stored):
+
+| State | Meaning |
+|---|---|
+| `not_assessed` | no assessment for the current pipeline |
+| `not_valid` | the text fails the existing resume validation |
+| `needs_review` | at least one unresolved improvement |
+| `ready` | valid, assessed, nothing unresolved |
+
+A refined (child) version never changes its parent's readiness: after a
+review creates `Refined N`, the parent keeps whatever its own assessment
+says (typically `needs_review`, because an approved change is in the
+child's text, not the parent's). The child's recheck status
+(`not_required` / `pending` / `complete` / `failed`) stays on the review
+record and is returned as `latest_review`, never as a readiness state.
+`tests/test_general_resume_service.py::
+test_child_version_never_changes_parent_readiness` and
+`test_child_recheck_status_does_not_alter_parent_readiness` pin this.
+
+### Persistence and versioning
+
+- `general_resume_assessments`: insert-only; AI-derived versioning
+  (`analysis_version`, `analyzer_version`, `prompt_version`,
+  `model_provider`, `model_name`) plus `scoring_version`. Unique on
+  `(user_id, resume_version_id, analyzer_version, scoring_version,
+  prompt_version)`, so the POST is idempotent and a race returns the
+  winner (inside a SAVEPOINT, never a session rollback). As with Gap
+  Analysis, a `partial` row is reused until a version bump.
+- `general_resume_reviews`: decisions, optional child, recheck fields.
+  Only the recheck fields change, one way (the AJI-021 deviation).
+- Migration `a27c0e5b9d13` adds both tables and alters nothing. Its
+  downgrade also deletes `general_improvement` versions (they have no
+  stored file and no remaining provenance record).
+
+### API
+
+- `POST /resumes/versions/{id}/general-assessment`: compute or reuse.
+  Takes no job input (an extra body field is a 422).
+- `GET /resumes/versions/{id}/general-assessment`: latest assessment,
+  per-improvement `open`/`dismissed` status, this version's own readiness, and the latest
+  review with its comparison. Never computes or calls the AI.
+- `POST /resumes/versions/{id}/general-assessment/{assessment_id}/review`:
+  approve/reject, create version, recheck.
+- `POST /resumes/general-reviews/{review_id}/recheck`: retry.
+
+Errors use `detail: {code, message}`. Every lookup is user-scoped;
+not-owned and nonexistent are the same 404.
+
+### Frontend
+
+`apps/web/components/app/general-resume-section.tsx` renders on the
+Resume page for the selected version, built from the existing NERO app
+components (no dedicated Figma frame exists). It states that the score is
+not job-specific and not an ATS score; shows the score, the component
+breakdown ("Not enough data" for excluded components), the
+partial-AI note, the improvement list with approve/reject, an empty
+(never pre-filled) text box, the truth-confirmation checkbox, the
+before/after comparison, the recheck-failed/retry state (all driven by
+`latest_review`), and the version's own readiness. The improvement list
+stays visible for a version that already has a refined child.
+Versions list "General refinement" for `general_improvement`.
+`apps/web/lib/general-resume.ts` is the client.
+
+### Testing
+
+`tests/test_general_resume_scoring.py`, `..._improvements.py`,
+`..._engine.py`, `..._validator.py`, `..._provider.py` and
+`..._boundaries.py` cover the pure modules; `..._service.py` covers the DB
+guarantees (idempotency, insert-only rows, parent untouched, all-rejected
+creates no version, recheck success/failure/retry, readiness states,
+rejection carry-forward and its limit, ownership, AI failure);
+`tests/test_resume_general_assessment_api.py` covers HTTP.
+`tests/test_resume_api.py` pins the new `source` in version listings. Web:
+`components/app/general-resume-section.test.tsx` and
+`lib/general-resume.test.ts`.
+
+### Known limitations
+
+- Bullets are only recognized with a list marker, and skills only from
+  the canonical vocabulary; both are the existing analyzer's behavior.
+- A `Refined N` version has no stored document: the Resume page shows its
+  text on "View Extracted Text" and disables Download for it. AJI-021
+  `Improved N` versions were left as they were (for a `.pdf` original,
+  "View Resume" still reports that the file could not be retrieved).

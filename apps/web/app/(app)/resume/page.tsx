@@ -10,6 +10,7 @@ import ErrorState from "@/components/app/error-state";
 import EmptyState from "@/components/app/empty-state";
 import Badge from "@/components/app/badge";
 import { PanelSkeleton } from "@/components/app/skeleton";
+import GeneralResumeSection from "@/components/app/general-resume-section";
 import { FileText, UploadCloud } from "lucide-react";
 
 type Resume = {
@@ -32,6 +33,8 @@ type ResumeVersion = {
   is_master: boolean;
   has_analysis: boolean;
   created_at: string;
+  // "upload", "improvement" (AJI-021) or "general_improvement" (AJI-027).
+  source?: string;
 };
 
 type SavedAnalysisResponse = {
@@ -169,6 +172,17 @@ const ANALYZE_RESUME_TIMEOUT_MS = 150_000;
 
 function isPdf(filename: string) {
   return filename.toLowerCase().endsWith(".pdf");
+}
+
+// AJI-027: a General Resume Intelligence version is generated from text
+// and has no stored document, so it is viewed as text and has nothing to
+// download.
+function isGeneralRefinement(version: ResumeVersion) {
+  return version.source === "general_improvement";
+}
+
+function opensAsPdf(version: ResumeVersion) {
+  return isPdf(version.original_filename) && !isGeneralRefinement(version);
 }
 
 function formatSectionList(sections: string[]): string {
@@ -521,7 +535,7 @@ export default function Page() {
 
     setFileActionError(null);
 
-    if (!isPdf(selectedVersion.original_filename)) {
+    if (!opensAsPdf(selectedVersion)) {
       setShowExtractedText((value) => !value);
       return;
     }
@@ -972,6 +986,9 @@ export default function Page() {
                     <option key={version.id} value={version.id}>
                       {version.name}
                       {version.is_master ? " — Master" : ""}
+                      {version.source === "general_improvement"
+                        ? " — General refinement"
+                        : ""}
                     </option>
                   ))}
                 </select>
@@ -986,7 +1003,7 @@ export default function Page() {
                 >
                   {fileActionBusy === "view"
                     ? "Opening..."
-                    : selectedVersion && isPdf(selectedVersion.original_filename)
+                    : selectedVersion && opensAsPdf(selectedVersion)
                       ? "View Resume"
                       : showExtractedText
                         ? "Hide Extracted Text"
@@ -996,7 +1013,11 @@ export default function Page() {
                 <AppButton
                   variant="secondary"
                   onClick={handleDownload}
-                  disabled={!selectedVersion || fileActionBusy !== null}
+                  disabled={
+                    !selectedVersion ||
+                    isGeneralRefinement(selectedVersion) ||
+                    fileActionBusy !== null
+                  }
                   loading={fileActionBusy === "download"}
                 >
                   {fileActionBusy === "download"
@@ -1021,10 +1042,12 @@ export default function Page() {
 
               {showExtractedText &&
                 selectedVersion &&
-                !isPdf(selectedVersion.original_filename) && (
+                !opensAsPdf(selectedVersion) && (
                   <div className="mt-5 rounded-lg border border-app-border bg-app-bg p-4">
                     <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-                      Extracted DOCX Content (not the original file layout)
+                      {isGeneralRefinement(selectedVersion)
+                        ? "Refined Version Text (built from your approved edits)"
+                        : "Extracted DOCX Content (not the original file layout)"}
                     </div>
                     <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs leading-6 text-app-body">
                       {selectedVersion.content_text}
@@ -1032,6 +1055,16 @@ export default function Page() {
                   </div>
                 )}
             </section>
+
+            {selectedVersion && (
+              <GeneralResumeSection
+                key={selectedVersion.id}
+                versionId={selectedVersion.id}
+                onOpenVersion={(versionId) =>
+                  loadVersions(selectedResumeId, versionId)
+                }
+              />
+            )}
 
             <section className="mt-8 rounded-xl border border-app-border bg-app-panel p-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-app-soft">
@@ -1065,6 +1098,8 @@ export default function Page() {
                         <div className="mt-1 font-mono text-[9px] uppercase tracking-wider text-app-faint">
                           {version.original_filename} · Created{" "}
                           {new Date(version.created_at).toLocaleDateString()}
+                          {version.source === "general_improvement" &&
+                            " · General refinement"}
                           {" · "}
                           <span
                             className={

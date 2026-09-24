@@ -57,6 +57,7 @@ ticket's documented scope and open items.
 | AJI-025 | Job priority ordering | #66 → `bcd05af` | 2026-09-23 |
 | AJI-023 (Job Search) | Job Search / Discovery foundation. **Duplicate ID**, see "Collisions". | #67 → `0a60744` | 2026-09-24 |
 | AJI-026 | Production baseline: CI, Compose fix, AI timeouts, doc reconciliation, this register | Claimed | — |
+| AJI-027 | General Resume Intelligence: job-independent General Resume Score, resume-level improvements, approve/reject, `Refined N` versions, recheck, readiness | Claimed | — |
 
 ### Work outside the AJI series
 
