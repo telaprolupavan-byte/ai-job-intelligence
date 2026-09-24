@@ -19,6 +19,12 @@ export type Job = {
   posting_date: string | null;
   source: string;
   /**
+   * AJI-023 (Job Search): the provider's own id for this posting, when it
+   * supplied one. Null for submitted jobs and id-less providers. Optional
+   * so responses from an older API still type-check.
+   */
+  source_job_id?: string | null;
+  /**
    * AJI-024: "discovered" = a shared job from a discovery provider;
    * "user_submitted" = the caller's own private pasted job (AJI-022).
    * Optional so responses from an older API still type-check.
@@ -44,6 +50,10 @@ export type JobsResponse = {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// Bounds the search's loading state: a request that never gets a
+// response surfaces as a retryable error instead of an endless skeleton.
+const JOB_SEARCH_TIMEOUT_MS = 20_000;
 
 export async function getJobs(params: {
   search?: string;
@@ -74,21 +84,18 @@ export async function getJobs(params: {
   searchParams.set("page", String(params.page ?? 1));
   searchParams.set("page_size", String(params.page_size ?? 20));
 
-  const response = await fetch(
-    `${API_BASE_URL}/jobs?${searchParams.toString()}`,
+  // Throws ApiError carrying the HTTP status, so callers can tell invalid
+  // criteria (422) apart from an unavailable backend.
+  return apiRequest<JobsResponse>(
+    `/jobs?${searchParams.toString()}`,
     {
       // Optional on this public endpoint: signed in, the listing also
       // includes the user's own submitted jobs (AJI-022).
       headers: authHeaders(),
       cache: "no-store",
-    }
+    },
+    JOB_SEARCH_TIMEOUT_MS,
   );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch jobs: ${response.status}`);
-  }
-
-  return response.json();
 }
 export type SkillEvidence = {
   skill: string;

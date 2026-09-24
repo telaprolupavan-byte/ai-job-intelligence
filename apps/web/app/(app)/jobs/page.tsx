@@ -49,6 +49,8 @@ import {
   employmentTypeTone,
   formatEmploymentType,
   formatJobOrigin,
+  formatPostedDate,
+  formatSalary,
   formatValue,
 } from "@/lib/job-format";
 import {
@@ -57,6 +59,15 @@ import {
   type StageKey,
 } from "@/lib/job-decision";
 import { getJobPriority, type JobPriorityResponse } from "@/lib/job-priority";
+import {
+  EMPLOYMENT_TYPE_FILTERS,
+  JOB_SEARCH_TEXT_MAX_LENGTH,
+  REMOTE_TYPE_FILTERS,
+  allowedOrEmpty,
+  cleanCriterion,
+  toSearchError,
+  type SearchError,
+} from "@/lib/job-search";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import Container from "@/components/app/container";
 import Panel, { PanelHeader } from "@/components/app/panel";
@@ -75,6 +86,7 @@ import JobPriorityList, {
   type JobPriorityListStatus,
 } from "@/components/app/job-priority-list";
 import NeroErrorCard from "@/components/app/nero-error-card";
+import JobDetails from "@/components/app/job-details";
 
 type JobFilters = {
   search: string;
@@ -102,11 +114,17 @@ const EMPTY_RESULTS: JobResults = {
   totalJobs: 0,
 };
 
+// AJI-023 (Job Search): a stale or hand-edited URL can carry a filter
+// value the form cannot show and the API rejects; it is dropped rather
+// than sent, so a bad link never locks the page into an error.
 function filtersFromParams(params: URLSearchParams): JobFilters {
   return {
     search: params.get("search") ?? "",
-    employmentType: params.get("employment_type") ?? "",
-    remoteType: params.get("remote_type") ?? "",
+    employmentType: allowedOrEmpty(
+      params.get("employment_type"),
+      EMPLOYMENT_TYPE_FILTERS,
+    ),
+    remoteType: allowedOrEmpty(params.get("remote_type"), REMOTE_TYPE_FILTERS),
     location: params.get("location") ?? "",
   };
 }
@@ -160,7 +178,9 @@ function JobsPageInner() {
     notFound: boolean;
   } | null>(null);
   const [focusedJobReloadKey, setFocusedJobReloadKey] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SearchError | null>(null);
+  // Bumped by "Try Again" to re-run the current search unchanged.
+  const [searchReloadKey, setSearchReloadKey] = useState(0);
   // AJI-024: null until loaded, and left null if the status call fails -
   // the page then simply shows no discovery-specific notices.
   const [discoveryStatus, setDiscoveryStatus] =
@@ -382,14 +402,17 @@ function JobsPageInner() {
         }
 
         console.error(err);
-        setError("Unable to load jobs. Please try again.");
+        // Never leave the previous search's jobs on screen under an
+        // error - they would read as results for the new criteria.
+        setResults(EMPTY_RESULTS);
+        setError(toSearchError(err));
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [appliedFilters, page]);
+  }, [appliedFilters, page, searchReloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -692,7 +715,13 @@ function JobsPageInner() {
 
   function handleSearch(event: React.FormEvent) {
     event.preventDefault();
-    setAppliedFilters(filterForm);
+    const criteria: JobFilters = {
+      ...filterForm,
+      search: cleanCriterion(filterForm.search),
+      location: cleanCriterion(filterForm.location),
+    };
+    setFilterForm(criteria);
+    setAppliedFilters(criteria);
     setPage(1);
     setPriorityPage(1);
   }
@@ -1004,6 +1033,7 @@ function JobsPageInner() {
         onApplicationChange={handleApplicationChange}
         onOpen={focused ? undefined : openJob}
         hideTracking={focused}
+        showDetails={focused}
         intelligenceStatus={intelligenceStatuses[job.id]}
         match={matches[job.id]}
         isMatching={Boolean(matchingJobIds[job.id])}
@@ -1213,7 +1243,7 @@ function JobsPageInner() {
                 </div>
 
                 <div className="mt-1 text-xl font-bold">
-                  {isPending ? "—" : results.totalJobs}
+                  {isPending || error ? "—" : results.totalJobs}
                 </div>
               </div>
             </div>
@@ -1250,6 +1280,7 @@ function JobsPageInner() {
                       }))
                     }
                     placeholder="AI Engineer"
+                    maxLength={JOB_SEARCH_TEXT_MAX_LENGTH}
                     className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
                   />
                 </FilterField>
@@ -1306,6 +1337,7 @@ function JobsPageInner() {
                       }))
                     }
                     placeholder="New York, NY"
+                    maxLength={JOB_SEARCH_TEXT_MAX_LENGTH}
                     className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text outline-none placeholder:text-app-faint focus:border-app-blue"
                   />
                 </FilterField>
@@ -1327,7 +1359,15 @@ function JobsPageInner() {
         {/* ERROR */}
         {error && (
           <div className="mb-6">
-            <ErrorState title="Discovery Error" message={error} />
+            <ErrorState
+              title="Discovery Error"
+              message={error.message}
+              onRetry={
+                error.retryable
+                  ? () => setSearchReloadKey((key) => key + 1)
+                  : undefined
+              }
+            />
           </div>
         )}
 
@@ -1378,9 +1418,10 @@ function JobsPageInner() {
                   : "Available Opportunities"}
               </h2>
 
-              {view === "all" && !isPending && (
+              {view === "all" && !isPending && !error && (
                 <p className="mt-1 text-xs text-app-faint">
-                  {results.totalJobs} results · Resume choice applies to the
+                  {results.totalJobs}{" "}
+                  {results.totalJobs === 1 ? "result" : "results"} · Resume choice applies to the
                   next intelligence calculation.
                 </p>
               )}
@@ -1580,14 +1621,14 @@ function JobsPageInner() {
         )}
 
         {/* JOB LIST */}
-        {!focusedJobId && view === "all" && !isPending && results.jobs.length > 0 && (
+        {!focusedJobId && view === "all" && !isPending && !error && results.jobs.length > 0 && (
           <div className="space-y-4">
             {results.jobs.map((job) => renderJobCard(job))}
           </div>
         )}
 
         {/* PAGINATION */}
-        {!focusedJobId && view === "all" && !isPending && results.totalPages > 1 && (
+        {!focusedJobId && view === "all" && !isPending && !error && results.totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-5">
             <AppButton
               variant="ghost"
@@ -1829,6 +1870,7 @@ function JobCard({
   onApplicationChange,
   onOpen,
   hideTracking = false,
+  showDetails = false,
   intelligenceStatus,
   match,
   isMatching,
@@ -1864,6 +1906,9 @@ function JobCard({
   onOpen?: (jobId: string) => void;
   /** The workflow view hosts the tracking controls in its own panel. */
   hideTracking?: boolean;
+  /** AJI-023 (Job Search): the opened job shows every field the source
+   *  provided (JobDetails) instead of the listing's short summary. */
+  showDetails?: boolean;
   intelligenceStatus?: string;
   match?: JobMatchResult;
   isMatching: boolean;
@@ -1933,8 +1978,8 @@ function JobCard({
               {job.remote_type && <Badge>{formatValue(job.remote_type)}</Badge>}
             </div>
 
-            {/* SALARY */}
-            {(job.salary_min !== null || job.salary_max !== null) && (
+            {/* SALARY — part of JobDetails on the opened job */}
+            {!showDetails && formatSalary(job) && (
               <div className="mt-5">
                 <div className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
                   Compensation
@@ -1946,22 +1991,37 @@ function JobCard({
               </div>
             )}
 
-            {/* DESCRIPTION */}
-            {job.description && (
+            {/* DESCRIPTION — shown in full by JobDetails on the opened job */}
+            {!showDetails && job.description && (
               <p className="mt-5 line-clamp-3 max-w-4xl text-sm leading-6 text-app-muted">
                 {job.description}
               </p>
             )}
 
             {/* SOURCE */}
-            <div className="mt-5 flex items-center gap-2">
-              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
-                Source
-              </span>
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+                  Source
+                </span>
 
-              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
-                {formatJobOrigin(job)}
-              </span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
+                  {formatJobOrigin(job)}
+                </span>
+              </div>
+
+              {/* AJI-023 (Job Search): only when the source dated it */}
+              {formatPostedDate(job.posting_date) && (
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+                    Posted
+                  </span>
+
+                  <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted">
+                    {formatPostedDate(job.posting_date)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -2003,6 +2063,8 @@ function JobCard({
             )}
           </div>
         </div>
+
+        {showDetails && <JobDetails job={job} />}
 
         {/* MATCH PANEL */}
         <div className="border-t border-app-border pt-5">
@@ -2802,22 +2864,4 @@ function formatEvidenceStatus(value: string): string {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function formatSalary(job: Job): string {
-  const currency = job.salary_currency || "USD";
-
-  if (job.salary_min !== null && job.salary_max !== null) {
-    return `${currency} ${job.salary_min.toLocaleString()} – ${job.salary_max.toLocaleString()}`;
-  }
-
-  if (job.salary_min !== null) {
-    return `From ${currency} ${job.salary_min.toLocaleString()}`;
-  }
-
-  if (job.salary_max !== null) {
-    return `Up to ${currency} ${job.salary_max.toLocaleString()}`;
-  }
-
-  return "";
 }
