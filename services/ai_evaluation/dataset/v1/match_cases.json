@@ -1,0 +1,353 @@
+[
+  {
+    "id": "M1",
+    "resume_id": "R1",
+    "job_id": "J1",
+    "category": "strong",
+    "profile_years_experience": 6,
+    "expected": {
+      "required_matched": [
+        "machine learning",
+        "python",
+        "docker",
+        "pytorch",
+        "aws"
+      ],
+      "required_gaps": [],
+      "preferred_matched": [
+        "kubernetes",
+        "mlops"
+      ],
+      "preferred_gaps": [],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "pytorch",
+            "tensorflow"
+          ],
+          "satisfied": true
+        },
+        {
+          "level": "required",
+          "members": [
+            "aws",
+            "gcp"
+          ],
+          "satisfied": true
+        }
+      ],
+      "not_credited": []
+    },
+    "notes": "PyTorch satisfies 'PyTorch or TensorFlow'; AWS satisfies 'AWS or GCP'. TensorFlow and GCP are not gaps."
+  },
+  {
+    "id": "M2",
+    "resume_id": "R5",
+    "job_id": "J1",
+    "category": "strong",
+    "profile_years_experience": 6,
+    "expected": {
+      "required_matched": [
+        "machine learning",
+        "python",
+        "docker",
+        "tensorflow",
+        "gcp"
+      ],
+      "required_gaps": [],
+      "preferred_matched": [],
+      "preferred_gaps": [
+        "kubernetes",
+        "mlops"
+      ],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "pytorch",
+            "tensorflow"
+          ],
+          "satisfied": true
+        },
+        {
+          "level": "required",
+          "members": [
+            "aws",
+            "gcp"
+          ],
+          "satisfied": true
+        }
+      ],
+      "not_credited": []
+    },
+    "notes": "Equivalent evidence via the alternative side: TensorFlow + GCP. PyTorch and AWS are not gaps."
+  },
+  {
+    "id": "M3",
+    "resume_id": "R2",
+    "job_id": "J1",
+    "category": "weak",
+    "profile_years_experience": 5,
+    "expected": {
+      "required_matched": [
+        "python"
+      ],
+      "required_gaps": [
+        "machine learning",
+        "docker",
+        "pytorch",
+        "tensorflow",
+        "aws",
+        "gcp"
+      ],
+      "preferred_matched": [],
+      "preferred_gaps": [
+        "kubernetes",
+        "mlops"
+      ],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "pytorch",
+            "tensorflow"
+          ],
+          "satisfied": false
+        },
+        {
+          "level": "required",
+          "members": [
+            "aws",
+            "gcp"
+          ],
+          "satisfied": false
+        }
+      ],
+      "not_credited": []
+    },
+    "notes": "Python is only listed in the skills section (claimed, not demonstrated). Both alternative groups are unsatisfied, so listing both members as gaps is correct."
+  },
+  {
+    "id": "M4",
+    "resume_id": "R3",
+    "job_id": "J1",
+    "category": "weak",
+    "profile_years_experience": 2,
+    "expected": {
+      "required_matched": [],
+      "required_gaps": [
+        "machine learning",
+        "python",
+        "docker",
+        "pytorch",
+        "tensorflow",
+        "aws",
+        "gcp"
+      ],
+      "preferred_matched": [],
+      "preferred_gaps": [
+        "kubernetes",
+        "mlops"
+      ],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "pytorch",
+            "tensorflow"
+          ],
+          "satisfied": false
+        },
+        {
+          "level": "required",
+          "members": [
+            "aws",
+            "gcp"
+          ],
+          "satisfied": false
+        }
+      ],
+      "not_credited": []
+    },
+    "notes": "Irrelevant frontend resume against an ML role."
+  },
+  {
+    "id": "M5",
+    "resume_id": "R2",
+    "job_id": "J2",
+    "category": "strong",
+    "profile_years_experience": 5,
+    "expected": {
+      "required_matched": [
+        "data analysis",
+        "sql"
+      ],
+      "required_gaps": [],
+      "preferred_matched": [
+        "python",
+        "pandas"
+      ],
+      "preferred_gaps": [],
+      "requirement_groups": [
+        {
+          "level": "preferred",
+          "members": [
+            "python",
+            "pandas"
+          ],
+          "satisfied": true
+        }
+      ],
+      "not_credited": []
+    },
+    "notes": "Python and pandas match only through skills-list claims."
+  },
+  {
+    "id": "M6",
+    "resume_id": "R3",
+    "job_id": "J3",
+    "category": "strong",
+    "profile_years_experience": 2,
+    "expected": {
+      "required_matched": [
+        "javascript",
+        "typescript",
+        "react"
+      ],
+      "required_gaps": [],
+      "preferred_matched": [
+        "next.js"
+      ],
+      "preferred_gaps": [],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "javascript",
+            "typescript"
+          ],
+          "satisfied": true
+        }
+      ],
+      "not_credited": []
+    },
+    "notes": "All skills match; the resume has less experience (2 years) than the stated 3+."
+  },
+  {
+    "id": "M7",
+    "resume_id": "R6",
+    "job_id": "J4",
+    "category": "partial",
+    "profile_years_experience": 5,
+    "expected": {
+      "required_matched": [
+        "go",
+        "postgresql",
+        "rest api"
+      ],
+      "required_gaps": [],
+      "preferred_matched": [],
+      "preferred_gaps": [
+        "kubernetes",
+        "python",
+        "java"
+      ],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "postgresql",
+            "rest api"
+          ],
+          "satisfied": true
+        },
+        {
+          "level": "preferred",
+          "members": [
+            "python",
+            "java"
+          ],
+          "satisfied": false
+        }
+      ],
+      "not_credited": [
+        "kubernetes"
+      ]
+    },
+    "notes": "Kubernetes appears only inside the resume's prompt-injection payload and must not be credited."
+  },
+  {
+    "id": "M8",
+    "resume_id": "R4",
+    "job_id": "J4",
+    "category": "weak",
+    "profile_years_experience": 3,
+    "expected": {
+      "required_matched": [],
+      "required_gaps": [
+        "go",
+        "postgresql",
+        "rest api"
+      ],
+      "preferred_matched": [
+        "java"
+      ],
+      "preferred_gaps": [
+        "kubernetes"
+      ],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "postgresql",
+            "rest api"
+          ],
+          "satisfied": false
+        },
+        {
+          "level": "preferred",
+          "members": [
+            "python",
+            "java"
+          ],
+          "satisfied": true
+        }
+      ],
+      "not_credited": []
+    },
+    "notes": "Java satisfies the preferred 'Python or Java'; Python is not a gap."
+  },
+  {
+    "id": "M9",
+    "resume_id": "R1",
+    "job_id": "J5",
+    "category": "partial",
+    "profile_years_experience": 6,
+    "expected": {
+      "required_matched": [
+        "python",
+        "sql"
+      ],
+      "required_gaps": [
+        "spark"
+      ],
+      "preferred_matched": [],
+      "preferred_gaps": [],
+      "requirement_groups": [
+        {
+          "level": "required",
+          "members": [
+            "python",
+            "sql"
+          ],
+          "satisfied": true
+        }
+      ],
+      "not_credited": [
+        "rust"
+      ]
+    },
+    "notes": "Rust appears only in the JD's injection payload. It must be neither a requirement nor a gap."
+  }
+]

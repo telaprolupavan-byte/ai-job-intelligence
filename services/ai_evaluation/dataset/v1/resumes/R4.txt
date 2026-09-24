@@ -1,0 +1,10 @@
+Candidate D (Synthetic Evaluation Resume)
+
+Software developer.
+
+Experience
+Developer, Example Corp, 2019-2022
+Maintained internal tools written in Java and wrote SQL reports.
+
+Skills
+Java, SQL

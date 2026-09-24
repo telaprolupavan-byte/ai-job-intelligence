@@ -1,0 +1,25 @@
+Candidate A (Synthetic Evaluation Resume)
+candidate.a@example.com | (555) 010-0101 | Seattle, WA
+
+SUMMARY
+Machine learning engineer with 6 years of experience building and deploying production ML systems.
+
+EXPERIENCE
+Senior Machine Learning Engineer, Northwind Analytics, 2021 - Present
+- Built a PyTorch recommendation model serving 2 million daily users, improving click-through rate by 12%.
+- Deployed model inference services with Docker and Kubernetes on AWS, cutting p95 latency from 180ms to 95ms.
+- Designed MLOps pipelines for automated retraining and monitoring using GitHub Actions.
+- Developed REST APIs in Python with FastAPI for real-time model serving.
+
+Machine Learning Engineer, Contoso Retail Labs, 2018 - 2021
+- Trained gradient-boosted models with XGBoost and scikit-learn to forecast demand across 400 stores.
+- Wrote SQL transformations in PostgreSQL feeding weekly forecasting jobs.
+
+PROJECTS
+Document Q&A Assistant: built a retrieval augmented generation prototype using an LLM and LangChain to answer questions over internal policy documents.
+
+EDUCATION
+M.S. in Computer Science, Lakeview State University, 2018
+
+SKILLS
+Python, PyTorch, scikit-learn, XGBoost, SQL, PostgreSQL, Docker, Kubernetes, AWS, FastAPI, MLOps, LangChain, Git

@@ -1,0 +1,18 @@
+Candidate C (Synthetic Evaluation Resume)
+candidate.c@example.com | (555) 010-0303 | Denver, CO
+
+EXPERIENCE
+Frontend Developer, Tailspin Travel, 2023 - Present
+- Built React components in TypeScript for the booking flow used by 50,000 monthly visitors.
+- Coordinated the go-live of the redesigned checkout page with the QA and design teams.
+- Wrote unit tests for JavaScript utilities and reviewed pull requests in Git.
+
+PROJECTS
+Recipe Finder: a Next.js app that lets users search recipes by ingredient, backed by a small Node.js API.
+
+EDUCATION
+Full-Stack Web Development Certificate, Summit Coding Bootcamp, 2022
+B.S. in Graphic Design, Ridgeview University, 2021
+
+SKILLS
+JavaScript, TypeScript, React, Next.js, Node.js, HTML, CSS, Git

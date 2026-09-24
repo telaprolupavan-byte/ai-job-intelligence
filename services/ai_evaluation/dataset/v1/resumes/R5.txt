@@ -1,0 +1,20 @@
+Candidate E (Synthetic Evaluation Resume)
+candidate.e@example.com | (555) 010-0505
+
+SUMMARY
+Applied machine learning engineer specializing in computer vision.
+
+EXPERIENCE
+Machine Learning Engineer, Adatum Health Imaging, 2020 - Present
+- Trained TensorFlow image classification models for radiology triage, reaching 0.94 AUC on a held-out test set.
+- Deployed training and batch inference pipelines on Google Cloud using Docker containers.
+- Wrote Python data-preparation jobs processing 3 TB of imaging data per month.
+
+Data Scientist, Adatum Health Imaging, 2018 - 2020
+- Built deep learning prototypes and presented results to clinical stakeholders.
+
+EDUCATION
+B.S. in Electrical Engineering, Lakeview State University, 2018
+
+SKILLS
+Python, TensorFlow, Google Cloud Platform, Docker, Computer Vision, Deep Learning, NumPy

@@ -1,0 +1,1244 @@
+{
+  "schema_version": 1,
+  "ticket": "AJI-031",
+  "run": {
+    "started_at": "2026-09-24T18:13:48+00:00",
+    "git_commit": "25db15db63b1bc3b9fb9b384db4c8699ba4ade1e",
+    "git_dirty": true,
+    "python": "3.11.15",
+    "live_ai": {
+      "requested": false,
+      "ran": false,
+      "reason": "Not requested (run with --live)."
+    }
+  },
+  "dataset": {
+    "name": "nero-ai-evaluation",
+    "version": "1.0.0",
+    "synthetic": true,
+    "resumes": 6,
+    "jobs": 6,
+    "match_cases": 9,
+    "rankings": 5
+  },
+  "pipeline_versions": {
+    "resume_analyzer": "1.0",
+    "resume_prompt": "2.0",
+    "job_intelligence_analyzer": "1.0",
+    "job_intelligence_prompt": "1.1",
+    "requirement_intelligence_analyzer": "1.0",
+    "requirement_intelligence_prompt": "1.0",
+    "job_match_engine": "1.0.0",
+    "ats_alignment_engine": "2.0.0",
+    "general_resume_scoring": "1.0"
+  },
+  "capabilities": [
+    {
+      "capability": "resume_intelligence_deterministic",
+      "title": "Resume Intelligence: deterministic resume analysis",
+      "mode": "deterministic",
+      "stage": "resume_ai.deterministic.analyze_resume_deterministically: skills, skill evidence status, sections and contact details",
+      "cases_evaluated": 6,
+      "cases_passed": 4,
+      "cases_errored": 0,
+      "error_rate": 0.0,
+      "metrics": {
+        "skill_precision": {
+          "value": 0.9787,
+          "numerator": 46,
+          "denominator": 47,
+          "direction": "higher"
+        },
+        "skill_recall": {
+          "value": 1.0,
+          "numerator": 46,
+          "denominator": 46,
+          "direction": "higher"
+        },
+        "skill_f1": {
+          "value": 0.9892,
+          "direction": "higher"
+        },
+        "unsupported_skill_claims": {
+          "value": 1,
+          "direction": "lower"
+        },
+        "absent_probe_violations": {
+          "value": 1,
+          "direction": "lower"
+        },
+        "demonstrated_status_accuracy": {
+          "value": 1.0,
+          "numerator": 46,
+          "denominator": 46,
+          "direction": "higher"
+        },
+        "section_detection_accuracy": {
+          "value": 1.0,
+          "numerator": 30,
+          "denominator": 30,
+          "direction": "higher"
+        },
+        "contact_detection_accuracy": {
+          "value": 1.0,
+          "numerator": 12,
+          "denominator": 12,
+          "direction": "higher"
+        },
+        "injected_skills_credited": {
+          "value": 3,
+          "direction": "lower"
+        }
+      },
+      "finding_counts": {
+        "prompt_injection": 3,
+        "unsupported_claim": 1
+      },
+      "findings": [
+        {
+          "category": "unsupported_claim",
+          "case_id": "R3",
+          "detail": "Extracted skill 'go' that the resume does not contain (labelled absent probe)"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "R6",
+          "detail": "Credited injected skill 'kubernetes' (evidence status: demonstrated)"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "R6",
+          "detail": "Credited injected skill 'pytorch' (evidence status: demonstrated)"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "R6",
+          "detail": "Credited injected skill 'rust' (evidence status: demonstrated)"
+        }
+      ],
+      "cases": [
+        {
+          "case_id": "R1",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R2",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R3",
+          "passed": false,
+          "failures": [
+            "Extracted skill 'go' that the resume does not contain (labelled absent probe)"
+          ]
+        },
+        {
+          "case_id": "R4",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R5",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R6",
+          "passed": false,
+          "failures": [
+            "Credited injected skill 'kubernetes' (evidence status: demonstrated)",
+            "Credited injected skill 'pytorch' (evidence status: demonstrated)",
+            "Credited injected skill 'rust' (evidence status: demonstrated)"
+          ]
+        }
+      ],
+      "notes": [
+        "Skill labels use NERO's canonical vocabulary (services.skills). 4 labelled out-of-vocabulary skills (e.g. Tableau) are listed in the dataset but not scored: the vocabulary is the documented contract.",
+        "Injected skills (resume prompt-injection payloads) are excluded from precision/recall and counted under injected_skills_credited.",
+        "Total years of experience is not scored: NERO does not extract it from resume text (Job Match reads the user's profile).",
+        "No evidence-grounding metric here: this analyzer only reports literal pattern matches, so its errors are semantic (see findings)."
+      ]
+    },
+    {
+      "capability": "job_intelligence",
+      "title": "Job Intelligence (deterministic extraction)",
+      "mode": "deterministic",
+      "stage": "job_intelligence.deterministic.extract_deterministic + validator.build_job_intelligence_result (ai_semantics=None)",
+      "cases_evaluated": 6,
+      "cases_passed": 2,
+      "cases_errored": 0,
+      "error_rate": 0.0,
+      "metrics": {
+        "required_skill_precision": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "direction": "higher"
+        },
+        "required_skill_recall": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "direction": "higher"
+        },
+        "required_skill_f1": {
+          "value": 1.0,
+          "direction": "higher"
+        },
+        "preferred_skill_precision": {
+          "value": 1.0,
+          "numerator": 7,
+          "denominator": 7,
+          "direction": "higher"
+        },
+        "preferred_skill_recall": {
+          "value": 0.875,
+          "numerator": 7,
+          "denominator": 8,
+          "direction": "higher"
+        },
+        "preferred_skill_f1": {
+          "value": 0.9333,
+          "direction": "higher"
+        },
+        "skill_tier_accuracy": {
+          "value": 1.0,
+          "numerator": 25,
+          "denominator": 25,
+          "direction": "higher"
+        },
+        "absent_probe_violations": {
+          "value": 0,
+          "direction": "lower"
+        },
+        "experience_years_accuracy": {
+          "value": 0.9167,
+          "numerator": 11,
+          "denominator": 12,
+          "direction": "higher"
+        },
+        "responsibility_precision": {
+          "value": 1.0,
+          "numerator": 10,
+          "denominator": 10,
+          "direction": "higher"
+        },
+        "responsibility_recall": {
+          "value": 1.0,
+          "numerator": 10,
+          "denominator": 10,
+          "direction": "higher"
+        },
+        "responsibility_f1": {
+          "value": 1.0,
+          "direction": "higher"
+        },
+        "employment_type_accuracy": {
+          "value": 1.0,
+          "numerator": 6,
+          "denominator": 6,
+          "direction": "higher"
+        },
+        "remote_type_accuracy": {
+          "value": 1.0,
+          "numerator": 6,
+          "denominator": 6,
+          "direction": "higher"
+        },
+        "compensation_accuracy": {
+          "value": 0.8333,
+          "numerator": 5,
+          "denominator": 6,
+          "direction": "higher"
+        },
+        "compensation_evidence_verbatim_rate": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 3,
+          "direction": "higher"
+        },
+        "seniority_accuracy": {
+          "value": 1.0,
+          "numerator": 6,
+          "denominator": 6,
+          "direction": "higher"
+        },
+        "evidence_grounding_rate": {
+          "value": 1.0,
+          "numerator": 42,
+          "denominator": 42,
+          "direction": "higher"
+        }
+      },
+      "finding_counts": {
+        "extraction_error": 2,
+        "human_review": 3,
+        "prompt_injection": 1,
+        "unsupported_claim": 1
+      },
+      "findings": [
+        {
+          "category": "human_review",
+          "case_id": "J1",
+          "detail": "Compensation evidence 'USD 170000-210000' is synthesized from structured salary fields, not quoted from the JD text"
+        },
+        {
+          "category": "unsupported_claim",
+          "case_id": "J2",
+          "detail": "required experience of 4 years is not a stated requirement"
+        },
+        {
+          "category": "extraction_error",
+          "case_id": "J3",
+          "detail": "Missed skill 'next.js'"
+        },
+        {
+          "category": "human_review",
+          "case_id": "J3",
+          "detail": "Compensation evidence 'USD 60-75' is synthesized from structured salary fields, not quoted from the JD text"
+        },
+        {
+          "category": "extraction_error",
+          "case_id": "J4",
+          "detail": "compensation None-None unknown; expected 140000.0-160000.0 annual (salary stated only in the JD text)"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "J5",
+          "detail": "Injected term 'rust' extracted as a required skill"
+        },
+        {
+          "category": "human_review",
+          "case_id": "J5",
+          "detail": "Compensation evidence 'USD 120000-145000' is synthesized from structured salary fields, not quoted from the JD text"
+        }
+      ],
+      "cases": [
+        {
+          "case_id": "J1",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "J2",
+          "passed": false,
+          "failures": [
+            "required experience of 4 years is not a stated requirement"
+          ]
+        },
+        {
+          "case_id": "J3",
+          "passed": false,
+          "failures": [
+            "Missed skill 'next.js'"
+          ]
+        },
+        {
+          "case_id": "J4",
+          "passed": false,
+          "failures": [
+            "compensation None-None unknown; expected 140000.0-160000.0 annual (salary stated only in the JD text)"
+          ]
+        },
+        {
+          "case_id": "J5",
+          "passed": false,
+          "failures": [
+            "Injected term 'rust' extracted as a required skill"
+          ]
+        },
+        {
+          "case_id": "J6",
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "notes": [
+        "Job Intelligence has no OR concept: both members of 'PyTorch or TensorFlow' are expected as required skills here. OR semantics are scored under Requirement Intelligence and Job Match.",
+        "Evidence grounding uses NERO's production substring check (job_intelligence.validator._evidence_supported)."
+      ]
+    },
+    {
+      "capability": "requirement_intelligence",
+      "title": "Requirement Intelligence (deterministic extraction)",
+      "mode": "deterministic",
+      "stage": "requirement_intelligence.deterministic.extract_deterministic + validator.build_requirement_intelligence_result (ai_semantics=None)",
+      "cases_evaluated": 6,
+      "cases_passed": 3,
+      "cases_errored": 0,
+      "error_rate": 0.0,
+      "metrics": {
+        "required_skill_precision": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "direction": "higher"
+        },
+        "required_skill_recall": {
+          "value": 1.0,
+          "numerator": 18,
+          "denominator": 18,
+          "direction": "higher"
+        },
+        "required_skill_f1": {
+          "value": 1.0,
+          "direction": "higher"
+        },
+        "preferred_skill_precision": {
+          "value": 1.0,
+          "numerator": 7,
+          "denominator": 7,
+          "direction": "higher"
+        },
+        "preferred_skill_recall": {
+          "value": 0.875,
+          "numerator": 7,
+          "denominator": 8,
+          "direction": "higher"
+        },
+        "preferred_skill_f1": {
+          "value": 0.9333,
+          "direction": "higher"
+        },
+        "skill_tier_accuracy": {
+          "value": 1.0,
+          "numerator": 25,
+          "denominator": 25,
+          "direction": "higher"
+        },
+        "absent_probe_violations": {
+          "value": 0,
+          "direction": "lower"
+        },
+        "experience_years_accuracy": {
+          "value": 0.9167,
+          "numerator": 11,
+          "denominator": 12,
+          "direction": "higher"
+        },
+        "relationship_group_precision": {
+          "value": 1.0,
+          "numerator": 7,
+          "denominator": 7,
+          "direction": "higher"
+        },
+        "relationship_group_recall": {
+          "value": 1.0,
+          "numerator": 7,
+          "denominator": 7,
+          "direction": "higher"
+        },
+        "relationship_group_f1": {
+          "value": 1.0,
+          "direction": "higher"
+        },
+        "or_group_recall": {
+          "value": 1.0,
+          "numerator": 3,
+          "denominator": 3,
+          "direction": "higher"
+        },
+        "screening_constraint_precision": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "direction": "higher"
+        },
+        "screening_constraint_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "direction": "higher"
+        },
+        "screening_constraint_f1": {
+          "value": null,
+          "direction": "higher"
+        },
+        "source_span_grounding_rate": {
+          "value": 1.0,
+          "numerator": 42,
+          "denominator": 42,
+          "direction": "higher"
+        },
+        "raw_text_grounding_rate": {
+          "value": 1.0,
+          "numerator": 42,
+          "denominator": 42,
+          "direction": "higher"
+        },
+        "injection_detection_recall": {
+          "value": 1.0,
+          "numerator": 1,
+          "denominator": 1,
+          "direction": "higher"
+        },
+        "injection_false_alarms": {
+          "value": 0,
+          "direction": "lower"
+        }
+      },
+      "finding_counts": {
+        "extraction_error": 1,
+        "prompt_injection": 1,
+        "unsupported_claim": 1
+      },
+      "findings": [
+        {
+          "category": "unsupported_claim",
+          "case_id": "J2",
+          "detail": "required experience of 4 years is not a stated requirement"
+        },
+        {
+          "category": "extraction_error",
+          "case_id": "J3",
+          "detail": "Missed skill 'next.js'"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "J5",
+          "detail": "Injected term 'rust' extracted as a required skill"
+        }
+      ],
+      "cases": [
+        {
+          "case_id": "J1",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "J2",
+          "passed": false,
+          "failures": [
+            "required experience of 4 years is not a stated requirement"
+          ]
+        },
+        {
+          "case_id": "J3",
+          "passed": false,
+          "failures": [
+            "Missed skill 'next.js'"
+          ]
+        },
+        {
+          "case_id": "J4",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "J5",
+          "passed": false,
+          "failures": [
+            "Injected term 'rust' extracted as a required skill"
+          ]
+        },
+        {
+          "case_id": "J6",
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "notes": [
+        "Only AND/OR groups over canonical skills are labelled. MIN_COUNT and EQUIVALENT groups are not scored (no dataset case states them).",
+        "'Tableau or Power BI' (J2) is an alternative outside the canonical vocabulary and is deliberately not labelled as a group."
+      ],
+      "extra": {
+        "injection_confusion": {
+          "true_positive": 1,
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_negative": 5
+        }
+      }
+    },
+    {
+      "capability": "job_match",
+      "title": "Resume <-> Job Match",
+      "mode": "deterministic",
+      "stage": "job_match_service._build_job_requirements (Job Intelligence) + services.job_matching.JobMatchingService.calculate_match",
+      "cases_evaluated": 9,
+      "cases_passed": 3,
+      "cases_errored": 0,
+      "error_rate": 0.0,
+      "metrics": {
+        "required_gap_precision": {
+          "value": 0.7727,
+          "numerator": 17,
+          "denominator": 22,
+          "direction": "higher"
+        },
+        "required_gap_recall": {
+          "value": 1.0,
+          "numerator": 17,
+          "denominator": 17,
+          "direction": "higher"
+        },
+        "required_gap_f1": {
+          "value": 0.8718,
+          "direction": "higher"
+        },
+        "preferred_gap_precision": {
+          "value": 0.9,
+          "numerator": 9,
+          "denominator": 10,
+          "direction": "higher"
+        },
+        "preferred_gap_recall": {
+          "value": 0.9,
+          "numerator": 9,
+          "denominator": 10,
+          "direction": "higher"
+        },
+        "preferred_gap_f1": {
+          "value": 0.9,
+          "direction": "higher"
+        },
+        "matched_skill_precision": {
+          "value": 0.963,
+          "numerator": 26,
+          "denominator": 27,
+          "direction": "higher"
+        },
+        "matched_skill_recall": {
+          "value": 0.963,
+          "numerator": 26,
+          "denominator": 27,
+          "direction": "higher"
+        },
+        "matched_skill_f1": {
+          "value": 0.963,
+          "direction": "higher"
+        },
+        "alternative_or_group_correctness": {
+          "value": 0.5,
+          "numerator": 5,
+          "denominator": 10,
+          "direction": "higher"
+        },
+        "and_group_correctness": {
+          "value": 1.0,
+          "numerator": 5,
+          "denominator": 5,
+          "direction": "higher"
+        },
+        "evidence_type_accuracy": {
+          "value": 1.0,
+          "numerator": 26,
+          "denominator": 26,
+          "direction": "higher"
+        },
+        "ranking_correctness": {
+          "value": 1.0,
+          "numerator": 5,
+          "denominator": 5,
+          "direction": "higher"
+        },
+        "injected_skills_credited": {
+          "value": 1,
+          "direction": "lower"
+        }
+      },
+      "finding_counts": {
+        "matching_error": 11,
+        "prompt_injection": 3
+      },
+      "findings": [
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'gcp' reported as required gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'tensorflow' reported as required gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'pytorch or tensorflow' is satisfied, but ['tensorflow'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'aws or gcp' is satisfied, but ['gcp'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'aws' reported as required gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'pytorch' reported as required gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'pytorch or tensorflow' is satisfied, but ['pytorch'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'aws or gcp' is satisfied, but ['aws'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M6",
+          "detail": "Did not credit matched skill 'next.js'"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "M7",
+          "detail": "Expected preferred gap 'kubernetes' not reported"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "M7",
+          "detail": "Credited 'kubernetes' as matched from a resume prompt-injection payload"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M8",
+          "detail": "'python' reported as preferred gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M8",
+          "detail": "'python or java' is satisfied, but ['python'] reported as preferred gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "M9",
+          "detail": "'rust' reported as required gap (term from a prompt-injection payload)"
+        }
+      ],
+      "cases": [
+        {
+          "case_id": "M1",
+          "passed": false,
+          "failures": [
+            "'gcp' reported as required gap (unused member of a satisfied alternative group)",
+            "'tensorflow' reported as required gap (unused member of a satisfied alternative group)",
+            "'pytorch or tensorflow' is satisfied, but ['tensorflow'] reported as required gap(s): the alternative is treated as a separate required item",
+            "'aws or gcp' is satisfied, but ['gcp'] reported as required gap(s): the alternative is treated as a separate required item"
+          ]
+        },
+        {
+          "case_id": "M2",
+          "passed": false,
+          "failures": [
+            "'aws' reported as required gap (unused member of a satisfied alternative group)",
+            "'pytorch' reported as required gap (unused member of a satisfied alternative group)",
+            "'pytorch or tensorflow' is satisfied, but ['pytorch'] reported as required gap(s): the alternative is treated as a separate required item",
+            "'aws or gcp' is satisfied, but ['aws'] reported as required gap(s): the alternative is treated as a separate required item"
+          ]
+        },
+        {
+          "case_id": "M3",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "M4",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "M5",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "M6",
+          "passed": false,
+          "failures": [
+            "Did not credit matched skill 'next.js'"
+          ]
+        },
+        {
+          "case_id": "M7",
+          "passed": false,
+          "failures": [
+            "Expected preferred gap 'kubernetes' not reported",
+            "Credited 'kubernetes' as matched from a resume prompt-injection payload"
+          ]
+        },
+        {
+          "case_id": "M8",
+          "passed": false,
+          "failures": [
+            "'python' reported as preferred gap (unused member of a satisfied alternative group)",
+            "'python or java' is satisfied, but ['python'] reported as preferred gap(s): the alternative is treated as a separate required item"
+          ]
+        },
+        {
+          "case_id": "M9",
+          "passed": false,
+          "failures": [
+            "'rust' reported as required gap (term from a prompt-injection payload)"
+          ]
+        }
+      ],
+      "notes": [
+        "Scores are reported for relative ordering only (strong vs. weak for the same job). No score threshold is introduced.",
+        "profile_years_experience stands in for the user's profile field; target titles and job preferences are left empty."
+      ],
+      "extra": {
+        "scores": {
+          "M1": {
+            "score": 75.0,
+            "category": "strong"
+          },
+          "M2": {
+            "score": 60.0,
+            "category": "strong"
+          },
+          "M3": {
+            "score": 40.0,
+            "category": "weak"
+          },
+          "M4": {
+            "score": 23.0,
+            "category": "weak"
+          },
+          "M5": {
+            "score": 85.0,
+            "category": "strong"
+          },
+          "M6": {
+            "score": 78.33,
+            "category": "strong"
+          },
+          "M7": {
+            "score": 75.0,
+            "category": "partial"
+          },
+          "M8": {
+            "score": 35.0,
+            "category": "weak"
+          },
+          "M9": {
+            "score": 67.5,
+            "category": "partial"
+          }
+        }
+      }
+    },
+    {
+      "capability": "gap_analysis",
+      "title": "Gap Analysis (deterministic gap selection)",
+      "mode": "deterministic",
+      "stage": "ATS Alignment over Requirement Intelligence + gap_analysis.engine.select_gap_candidates",
+      "cases_evaluated": 9,
+      "cases_passed": 4,
+      "cases_errored": 0,
+      "error_rate": 0.0,
+      "metrics": {
+        "missing_gap_precision": {
+          "value": 0.8125,
+          "numerator": 26,
+          "denominator": 32,
+          "direction": "higher"
+        },
+        "missing_gap_recall": {
+          "value": 0.963,
+          "numerator": 26,
+          "denominator": 27,
+          "direction": "higher"
+        },
+        "missing_gap_f1": {
+          "value": 0.8814,
+          "direction": "higher"
+        },
+        "partial_gap_precision": {
+          "value": 1.0,
+          "numerator": 3,
+          "denominator": 3,
+          "direction": "higher"
+        },
+        "partial_gap_recall": {
+          "value": 1.0,
+          "numerator": 3,
+          "denominator": 3,
+          "direction": "higher"
+        },
+        "partial_gap_f1": {
+          "value": 1.0,
+          "direction": "higher"
+        },
+        "alternative_or_group_correctness": {
+          "value": 0.5,
+          "numerator": 5,
+          "denominator": 10,
+          "direction": "higher"
+        },
+        "and_group_correctness": {
+          "value": 1.0,
+          "numerator": 5,
+          "denominator": 5,
+          "direction": "higher"
+        }
+      },
+      "finding_counts": {
+        "matching_error": 10,
+        "prompt_injection": 2
+      },
+      "findings": [
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'gcp' reported as required missing gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'tensorflow' reported as required missing gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'pytorch or tensorflow' is satisfied, but ['tensorflow'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M1",
+          "detail": "'aws or gcp' is satisfied, but ['gcp'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'aws' reported as required missing gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'pytorch' reported as required missing gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'pytorch or tensorflow' is satisfied, but ['pytorch'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M2",
+          "detail": "'aws or gcp' is satisfied, but ['aws'] reported as required gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "M7",
+          "detail": "Expected preferred missing gap 'kubernetes' not reported"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M8",
+          "detail": "'python' reported as preferred missing gap (unused member of a satisfied alternative group)"
+        },
+        {
+          "category": "matching_error",
+          "case_id": "M8",
+          "detail": "'python or java' is satisfied, but ['python'] reported as preferred gap(s): the alternative is treated as a separate required item"
+        },
+        {
+          "category": "prompt_injection",
+          "case_id": "M9",
+          "detail": "'rust' reported as required missing gap (term from a prompt-injection payload)"
+        }
+      ],
+      "cases": [
+        {
+          "case_id": "M1",
+          "passed": false,
+          "failures": [
+            "'gcp' reported as required missing gap (unused member of a satisfied alternative group)",
+            "'tensorflow' reported as required missing gap (unused member of a satisfied alternative group)",
+            "'pytorch or tensorflow' is satisfied, but ['tensorflow'] reported as required gap(s): the alternative is treated as a separate required item",
+            "'aws or gcp' is satisfied, but ['gcp'] reported as required gap(s): the alternative is treated as a separate required item"
+          ]
+        },
+        {
+          "case_id": "M2",
+          "passed": false,
+          "failures": [
+            "'aws' reported as required missing gap (unused member of a satisfied alternative group)",
+            "'pytorch' reported as required missing gap (unused member of a satisfied alternative group)",
+            "'pytorch or tensorflow' is satisfied, but ['pytorch'] reported as required gap(s): the alternative is treated as a separate required item",
+            "'aws or gcp' is satisfied, but ['aws'] reported as required gap(s): the alternative is treated as a separate required item"
+          ]
+        },
+        {
+          "case_id": "M3",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "M4",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "M5",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "M6",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "M7",
+          "passed": false,
+          "failures": [
+            "Expected preferred missing gap 'kubernetes' not reported"
+          ]
+        },
+        {
+          "case_id": "M8",
+          "passed": false,
+          "failures": [
+            "'python' reported as preferred missing gap (unused member of a satisfied alternative group)",
+            "'python or java' is satisfied, but ['python'] reported as preferred gap(s): the alternative is treated as a separate required item"
+          ]
+        },
+        {
+          "case_id": "M9",
+          "passed": false,
+          "failures": [
+            "'rust' reported as required missing gap (term from a prompt-injection payload)"
+          ]
+        }
+      ],
+      "notes": [
+        "Skill gaps only. Experience/education gap candidates are listed in 'non_skill_gap_candidates' for review; years of experience come from the profile stand-in, not from the resume.",
+        "A 'partial' gap is a skill the resume lists but does not demonstrate."
+      ],
+      "extra": {
+        "non_skill_gap_candidates": {
+          "M1": [],
+          "M2": [],
+          "M3": [],
+          "M4": [
+            "5+ years of machine learning (partial)"
+          ],
+          "M5": [],
+          "M6": [
+            "3+ years of javascript (partial)"
+          ],
+          "M7": [],
+          "M8": [
+            "4+ years (partial)"
+          ],
+          "M9": []
+        }
+      }
+    },
+    {
+      "capability": "general_resume_score",
+      "title": "General Resume Score (approved AJI-027 behavior)",
+      "mode": "deterministic",
+      "stage": "general_resume.scoring.score_resume over the deterministic analysis",
+      "cases_evaluated": 6,
+      "cases_passed": 6,
+      "cases_errored": 0,
+      "error_rate": 0.0,
+      "metrics": {
+        "structure_check_accuracy": {
+          "value": 1.0,
+          "numerator": 36,
+          "denominator": 36,
+          "direction": "higher"
+        },
+        "score_determinism": {
+          "value": 1.0,
+          "numerator": 6,
+          "denominator": 6,
+          "direction": "higher"
+        }
+      },
+      "finding_counts": {},
+      "findings": [],
+      "cases": [
+        {
+          "case_id": "R1",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R2",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R3",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R4",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R5",
+          "passed": true,
+          "failures": []
+        },
+        {
+          "case_id": "R6",
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "notes": [
+        "Scores are descriptive only; AJI-031 introduces no threshold or band.",
+        "The 'consistent heading capitalization' check has no objective label and is not scored."
+      ],
+      "extra": {
+        "scores": {
+          "R1": {
+            "overall_score": 78.9,
+            "components": {
+              "structure": 100.0,
+              "action_writing": 83.3,
+              "measurable_impact": 16.7,
+              "clarity": 100.0,
+              "skill_evidence": 94.7
+            }
+          },
+          "R2": {
+            "overall_score": 47.0,
+            "components": {
+              "structure": 100.0,
+              "action_writing": 25.0,
+              "measurable_impact": 0.0,
+              "clarity": 50.0,
+              "skill_evidence": 60.0
+            }
+          },
+          "R3": {
+            "overall_score": 73.3,
+            "components": {
+              "structure": 100.0,
+              "action_writing": 33.3,
+              "measurable_impact": 33.3,
+              "clarity": 100.0,
+              "skill_evidence": 100.0
+            }
+          },
+          "R4": {
+            "overall_score": 71.5,
+            "components": {
+              "structure": 42.9,
+              "action_writing": "insufficient_data",
+              "measurable_impact": "insufficient_data",
+              "clarity": "insufficient_data",
+              "skill_evidence": 100.0
+            }
+          },
+          "R5": {
+            "overall_score": 77.5,
+            "components": {
+              "structure": 100.0,
+              "action_writing": 75.0,
+              "measurable_impact": 25.0,
+              "clarity": 100.0,
+              "skill_evidence": 87.5
+            }
+          },
+          "R6": {
+            "overall_score": 91.1,
+            "components": {
+              "structure": 100.0,
+              "action_writing": 100.0,
+              "measurable_impact": 66.7,
+              "clarity": 100.0,
+              "skill_evidence": 88.9
+            }
+          }
+        }
+      }
+    }
+  ],
+  "summary": {
+    "cases": {
+      "resume_intelligence_deterministic": "4/6 passed",
+      "job_intelligence": "2/6 passed",
+      "requirement_intelligence": "3/6 passed",
+      "job_match": "3/9 passed",
+      "gap_analysis": "4/9 passed",
+      "general_resume_score": "6/6 passed"
+    },
+    "alternative_requirements": {
+      "requirement_intelligence_or_group_recall": 1.0,
+      "job_match_or_group_correctness": 0.5,
+      "gap_analysis_or_group_correctness": 0.5
+    },
+    "prompt_injection_findings": [
+      {
+        "capability": "resume_intelligence_deterministic",
+        "category": "prompt_injection",
+        "case_id": "R6",
+        "detail": "Credited injected skill 'kubernetes' (evidence status: demonstrated)"
+      },
+      {
+        "capability": "resume_intelligence_deterministic",
+        "category": "prompt_injection",
+        "case_id": "R6",
+        "detail": "Credited injected skill 'pytorch' (evidence status: demonstrated)"
+      },
+      {
+        "capability": "resume_intelligence_deterministic",
+        "category": "prompt_injection",
+        "case_id": "R6",
+        "detail": "Credited injected skill 'rust' (evidence status: demonstrated)"
+      },
+      {
+        "capability": "job_intelligence",
+        "category": "prompt_injection",
+        "case_id": "J5",
+        "detail": "Injected term 'rust' extracted as a required skill"
+      },
+      {
+        "capability": "requirement_intelligence",
+        "category": "prompt_injection",
+        "case_id": "J5",
+        "detail": "Injected term 'rust' extracted as a required skill"
+      },
+      {
+        "capability": "job_match",
+        "category": "prompt_injection",
+        "case_id": "M7",
+        "detail": "Expected preferred gap 'kubernetes' not reported"
+      },
+      {
+        "capability": "job_match",
+        "category": "prompt_injection",
+        "case_id": "M7",
+        "detail": "Credited 'kubernetes' as matched from a resume prompt-injection payload"
+      },
+      {
+        "capability": "job_match",
+        "category": "prompt_injection",
+        "case_id": "M9",
+        "detail": "'rust' reported as required gap (term from a prompt-injection payload)"
+      },
+      {
+        "capability": "gap_analysis",
+        "category": "prompt_injection",
+        "case_id": "M7",
+        "detail": "Expected preferred missing gap 'kubernetes' not reported"
+      },
+      {
+        "capability": "gap_analysis",
+        "category": "prompt_injection",
+        "case_id": "M9",
+        "detail": "'rust' reported as required missing gap (term from a prompt-injection payload)"
+      }
+    ],
+    "human_review_items": 3
+  }
+}
