@@ -1,0 +1,20 @@
+{
+  "dataset": "nero-ai-evaluation",
+  "version": "1.0.0",
+  "created": "2026-09-24",
+  "ticket": "AJI-031",
+  "synthetic": true,
+  "description": "Small, hand-labelled, fully synthetic evaluation set for NERO's AI capabilities. No real person, resume or employer is represented; company names are fictional and contact details use example.com and 555 numbers.",
+  "files": {
+    "resumes": "resumes.json",
+    "jobs": "jobs.json",
+    "match_cases": "match_cases.json"
+  },
+  "rankings": [
+    {"job_id": "J1", "higher": "M1", "lower": "M3"},
+    {"job_id": "J1", "higher": "M1", "lower": "M4"},
+    {"job_id": "J1", "higher": "M2", "lower": "M3"},
+    {"job_id": "J1", "higher": "M2", "lower": "M4"},
+    {"job_id": "J4", "higher": "M7", "lower": "M8"}
+  ]
+}

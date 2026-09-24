@@ -3580,3 +3580,49 @@ Job Details note, the Jobs list labels and the Applications badges.
   ("PyTorch or TensorFlow", "AWS or GCP") as separate must-haves. It
   reports the unmet alternative as a gap even when the other one is met.
   This is pre-existing matcher behavior and was not changed here.
+
+## AI Evaluation & Quality Framework (AJI-031)
+
+`services/ai_evaluation/` measures how correct NERO's existing AI
+capabilities are, using a small synthetic, hand-labelled dataset. It is
+evaluation only: it changes no production prompt, model, extractor,
+matcher or score, and it adds no AI framework or provider. See
+`services/ai_evaluation/README.md` for the dataset, metrics and commands,
+and `docs/AI_EVALUATION_BASELINE.md` for the baseline findings.
+
+```
+dataset/v1 (labels validated on load)
+   │
+   ├─ deterministic mode ─► production extractors / matcher / scorers (ai_semantics=None)
+   └─ live mode (--live) ─► production provider factories + interpreters + validators
+   │
+capability evaluators ─► per-capability metrics + categorized findings
+   │
+report.json / report.md ─► compare_reports(baseline) ─► regressions
+```
+
+- **No duplicate infrastructure.** `pipelines.py` calls the production
+  modules directly. Where a production service needs a database row, it
+  mirrors that service's inputs. Evidence grounding reuses
+  `job_intelligence.validator._evidence_supported`, and Requirement
+  Intelligence spans are checked against their own offsets. The Provider
+  Scorecard (AJI-018) measures job-source providers, not AI quality, so
+  it was not reused.
+- **Application tests vs. AI evaluation.** The deterministic evaluation
+  and the baseline regression guard run in the normal test suite. Live
+  LLM evaluation runs only on explicit request. If providers cannot be
+  created, the report records it as NOT RUN and never substitutes mocked
+  output.
+
+### Testing
+
+- `tests/test_ai_evaluation_dataset.py`: loading, schema errors, every
+  ground-truth rule, and the absence of real contact details.
+- `tests/test_ai_evaluation_metrics.py`: metric primitives and grounding.
+- `tests/test_ai_evaluation_evaluators.py`: each detection rule
+  (unsupported claims, tier errors, OR-group handling, injection,
+  ranking, errors), exercised with hand-built outputs.
+- `tests/test_ai_evaluation_report.py`: runner, live NOT RUN handling,
+  live plumbing through the real interpreters and validators with a
+  canned provider, Markdown rendering, regression comparison, the CLI,
+  and no regression against the committed baseline.

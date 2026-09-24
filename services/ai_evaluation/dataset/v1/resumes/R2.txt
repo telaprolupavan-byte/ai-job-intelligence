@@ -1,0 +1,20 @@
+Candidate B (Synthetic Evaluation Resume)
+candidate.b@example.com | (555) 010-0202
+
+PROFESSIONAL SUMMARY
+Data analyst focused on reporting and business insights for retail operations.
+
+WORK EXPERIENCE
+Data Analyst, Fabrikam Stores, 2021 - Present
+- Wrote SQL queries against MySQL to produce weekly sales dashboards in Tableau for 30 regional managers.
+- Automated monthly inventory reports in Excel, reducing preparation time from 2 days to 3 hours.
+- Responsible for data analysis supporting pricing decisions.
+
+Reporting Assistant, Fabrikam Stores, 2019 - 2021
+- Maintained spreadsheets and helped with various reporting tasks.
+
+EDUCATION
+B.A. in Economics, Riverbend College, 2019
+
+SKILLS
+SQL, MySQL, Tableau, Excel, Python, pandas
