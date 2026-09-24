@@ -1,0 +1,5 @@
+# Runtime dependencies plus what the test suite needs (AJI-026).
+# `httpx` is required by fastapi.testclient.TestClient.
+-r requirements.txt
+pytest
+httpx

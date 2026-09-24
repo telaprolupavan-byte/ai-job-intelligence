@@ -1,0 +1,96 @@
+# AJI-026: run the repository's existing checks on every PR and on main.
+# Nothing here changes product behavior - it runs the same commands a
+# contributor runs locally.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (migrations + pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: jobintel
+          POSTGRES_PASSWORD: jobintel
+          POSTGRES_DB: jobintel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jobintel -d jobintel"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://jobintel:jobintel@localhost:5432/jobintel
+      # Test-only value; the suite never talks to a real AI provider.
+      JWT_SECRET_KEY: ci-test-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Matches apps/api/Dockerfile.
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            apps/api/requirements.txt
+            apps/api/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r apps/api/requirements-dev.txt
+
+      - name: Require a single Alembic head
+        run: |
+          alembic heads
+          test "$(alembic heads | wc -l)" -eq 1
+
+      - name: Migrate an empty database to head
+        run: |
+          alembic upgrade head
+          alembic current
+
+      - name: Run tests
+        run: python -m pytest -q
+
+  web:
+    name: Web (tests, typecheck, lint, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build

@@ -6,8 +6,11 @@ services:
     container_name: ai-job-intelligence-api
     ports:
       - "8000:8000"
+    # Mount the repo root, matching the image's build context: the app
+    # imports itself as `apps.api.*`, so mounting only ./apps/api over
+    # /app hid that package and the API failed to start (AJI-026).
     volumes:
-      - ./apps/api:/app
+      - .:/app
     environment:
       DATABASE_URL: postgresql+psycopg://jobintel:jobintel@db:5432/jobintel
       # Job Discovery source/trigger config - unset by default (${VAR:-}
