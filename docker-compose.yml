@@ -1,7 +1,8 @@
 services:
   api:
     build:
-      context: ./apps/api
+      context: .
+      dockerfile: ./apps/api/Dockerfile
     container_name: ai-job-intelligence-api
     ports:
       - "8000:8000"
