@@ -136,6 +136,7 @@ def make_job(
     posting_date=None,
     is_active=True,
     company_name="Priority Test Co",
+    expires_at=None,
 ):
     company = Company(
         id=uuid4(), name=company_name, normalized_name=company_name.lower()
@@ -157,6 +158,7 @@ def make_job(
         submitted_by_user_id=submitted_by.id if submitted_by else None,
         posting_date=posting_date,
         is_active=is_active,
+        expires_at=expires_at,
     )
     db.add(job)
     db.flush()
@@ -473,6 +475,31 @@ def test_unanalyzed_jobs_are_counted_not_listed(client, db):
 
     assert ids(body) == [str(analyzed.id)]
     assert body["counts"]["unanalyzed"] == visible_total - 1
+
+
+def test_expired_jobs_are_neither_ranked_nor_counted(client, db):
+    # AJI-028: the priority view scopes candidates through
+    # job_listing_query, so a provider-stated expiry that has passed
+    # removes the job exactly as it does from GET /jobs.
+    user = make_user(db)
+    version = make_resume(db, user)[0]
+    open_job = make_job(
+        db, expires_at=datetime.utcnow() + timedelta(days=1)
+    )
+    expired = make_job(db, expires_at=datetime.utcnow() - timedelta(days=1))
+    make_job(db, expires_at=datetime.utcnow() - timedelta(days=1))
+    analyze(db, user, open_job, version, match=60, ats=60)
+    analyze(db, user, expired, version, match=99, ats=99)
+
+    body = get_priority(client, user)
+    listed = client.get("/jobs", headers=auth(user)).json()
+    listed_ids = {job["id"] for job in listed["jobs"]}
+
+    assert ids(body) == [str(open_job.id)]
+    assert str(expired.id) not in listed_ids
+    # Only the open analyzed job is ranked; the two expired jobs are not
+    # counted as unanalyzed either - they are out of scope entirely.
+    assert body["counts"]["unanalyzed"] == listed["pagination"]["total"] - 1
 
 
 def test_newer_job_intelligence_marks_match_out_of_date(client, db):

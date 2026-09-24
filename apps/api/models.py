@@ -456,6 +456,14 @@ class Job(Base):
         DateTime,
     )
 
+    # AJI-028: when the provider says the posting closes (naive UTC, like
+    # every other `jobs` timestamp). NULL = the provider stated no expiry -
+    # never a guessed one, and never inferred from a job not being seen.
+    # A job past this moment is hidden by `active_jobs_filter()`.
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+    )
+
     source: Mapped[str] = mapped_column(
         String(100),
     )

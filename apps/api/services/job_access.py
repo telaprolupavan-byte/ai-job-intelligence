@@ -14,10 +14,16 @@ AJI-024: jobs produced by the synthetic test-fixture discovery provider are
 invisible to everyone unless test mode (`JOB_DISCOVERY_ENABLE_TEST_PROVIDER`)
 is on, so fixture data can never surface as production data - even if such
 rows exist in a database that later has test mode turned off.
+
+AJI-028: `active_jobs_filter()` is the one definition of a job that is
+still open - every listing-style query (GET /jobs, GET /jobs/priority via
+`job_listing_query`, the dashboard counts) uses it instead of repeating
+its own `is_active` check.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import and_, or_
@@ -56,4 +62,27 @@ def get_visible_job(
         db.query(Job)
         .filter(Job.id == job_id, visible_jobs_filter(user_id))
         .first()
+    )
+
+
+def active_jobs_filter(now: datetime | None = None):
+    """SQL filter for jobs that are still open: `is_active`, and not past
+    the provider-stated `expires_at` (AJI-028).
+
+    Evaluated at query time, so a job disappears the moment its stated
+    expiry passes - no sweep job, no write. A NULL `expires_at` means the
+    provider stated no expiry and the job stays open: a posting is never
+    treated as closed because a discovery run did not see it.
+
+    `now` is naive UTC (the `jobs` timestamp convention); it defaults to
+    the current time and exists for deterministic tests.
+    """
+    if now is None:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+    elif now.tzinfo is not None:
+        now = now.astimezone(timezone.utc).replace(tzinfo=None)
+
+    return and_(
+        Job.is_active.is_(True),
+        or_(Job.expires_at.is_(None), Job.expires_at > now),
     )

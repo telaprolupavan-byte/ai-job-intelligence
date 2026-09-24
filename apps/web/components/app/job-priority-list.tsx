@@ -20,6 +20,7 @@ import Badge from "./badge";
 import EmptyState from "./empty-state";
 import ErrorState from "./error-state";
 import Panel from "./panel";
+import SourceAttributionLink from "./source-attribution-link";
 import { Skeleton } from "./skeleton";
 
 // AJI-025 — the Jobs page's Priority view. Renders GET /jobs/priority as
@@ -410,6 +411,7 @@ function JobMeta({ job }: { job: Job }) {
       <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-blue">
         {formatJobOrigin(job)}
       </span>
+      <SourceAttributionLink job={job} />
     </div>
   );
 }

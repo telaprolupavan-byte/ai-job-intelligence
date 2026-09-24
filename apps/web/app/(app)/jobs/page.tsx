@@ -74,6 +74,7 @@ import Panel, { PanelHeader } from "@/components/app/panel";
 import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
 import EmptyState from "@/components/app/empty-state";
+import SourceAttributionLink from "@/components/app/source-attribution-link";
 import ErrorState from "@/components/app/error-state";
 import { Skeleton } from "@/components/app/skeleton";
 import ResumeVersionSelector, {
@@ -2010,6 +2011,9 @@ function JobCard({
                 </span>
               </div>
 
+              {/* AJI-028: only when the source's terms require the credit */}
+              <SourceAttributionLink job={job} />
+
               {/* AJI-023 (Job Search): only when the source dated it */}
               {formatPostedDate(job.posting_date) && (
                 <div className="flex items-center gap-2">
@@ -2019,6 +2023,19 @@ function JobCard({
 
                   <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted">
                     {formatPostedDate(job.posting_date)}
+                  </span>
+                </div>
+              )}
+
+              {/* AJI-028: only when the provider stated a closing date */}
+              {formatPostedDate(job.expires_at ?? null) && (
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-faint">
+                    Closes
+                  </span>
+
+                  <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-app-muted">
+                    {formatPostedDate(job.expires_at ?? null)}
                   </span>
                 </div>
               )}

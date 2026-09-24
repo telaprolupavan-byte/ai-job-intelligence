@@ -1216,6 +1216,93 @@ above). AJI-024 builds everything that decision plugs into; approving a
 provider means adding one adapter and one branch in
 `build_configured_source()`.
 
+## Zero-Cost Job Discovery Foundation (AJI-028)
+
+AJI-028 is **foundation only**. It adds the provider-independent pieces a
+future approved zero-cost source plugs into, on top of the AJI-024
+pipeline - no second discovery system, and **no real provider was added
+or enabled**. `JOB_DISCOVERY_PROVIDER` stays unset by default; Greenhouse
+and the test fixture are byte-for-byte unchanged.
+
+```
+Approved source (future ticket)
+  -> adapter: SourceHttpClient (timeout, retry/backoff, Retry-After,
+              size cap, throttle) + fetch_bounded_pages (<= 5 pages/run)
+  -> normalize_raw_job (sets expires_at only when the provider states it)
+  -> validate -> deduplicate -> persist (jobs.expires_at)      [unchanged]
+  -> active_jobs_filter(): GET /jobs, GET /jobs/priority, dashboard
+  -> source_attribution per job -> Jobs UI ("Job via X" when required)
+  -> Job Intelligence -> Eligibility -> Match -> ATS -> Priority [unchanged]
+```
+
+**Shared HTTP policy** (`services/job_discovery/source_http.py`).
+Transient failures (HTTP 429/500/502/503/504, network errors, timeouts)
+are retried with capped exponential backoff; any other 4xx is permanent.
+`Retry-After` is honored as the minimum wait, and a request whose
+`Retry-After` exceeds the policy's limit fails instead of retrying early.
+Responses are capped by declared and actual size. A per-provider minimum
+interval throttles consecutive requests (including retries). Error
+messages carry only scheme/host/path, so a credential in a query string
+can never reach `DiscoveryRun.error_message` or logs. No jitter: one
+scheduler plus the run lock means there is no client herd to spread out,
+and deterministic timing is testable. Greenhouse was deliberately not
+migrated onto this client so its behavior stays exactly as it was.
+
+**Bounded pagination** (`services/job_discovery/pagination.py`).
+`MAX_PAGES_PER_RUN = 5` is the Product Owner's approved ceiling, a code
+constant rather than a setting. The scheduler interval is unchanged
+(6 hours). A failed page fails the run; pages already fetched are not
+persisted as a partial result.
+
+**Expiration** (`jobs.expires_at`, migration `c4d8e2f1a9b7`). Extends the
+AJI-024 lifecycle note above: `is_active` + `first_seen_at`/`last_seen_at`
+are unchanged, and a provider that *states* a closing time now has it
+stored and mirrored on every sighting. `active_jobs_filter()`
+(`apps/api/services/job_access.py`) - `is_active AND (expires_at IS NULL OR
+expires_at > now)` - is evaluated at query time, so no sweep job exists,
+and it replaces the separate `is_active` checks that `job_listing_query`
+and the dashboard each had. NULL means "no stated expiry" and stays
+visible. Nothing infers that a job closed because a run did not see it,
+and there is no N-day staleness rule (Product Owner decision). Per-job
+reads by id are unchanged, so an expired job a user is tracking stays
+readable.
+
+**Attribution** (`services/job_discovery/attribution.py`). A generic
+registry of `SourceAttribution(source, display_name, homepage_url,
+requires_link_back)` keyed by `Job.source`, validated at import (safe
+http(s) homepage; a link-back source must have one). Job responses gain
+`source_attribution: {name, url, requires_link_back} | null` - the url is
+the posting on the source when known, else the homepage; null for user
+submissions and unregistered sources (the test fixture). The UI uses the
+name in the existing "Discovered · X" label and renders a visible
+"Job via X" link only when `requires_link_back` is true. Greenhouse is
+registered name-only, so its label is unchanged; no registered source
+requires a link back today.
+
+**Adapter contract** (`sources/base.py`, `tests/test_job_source_contract.py`).
+New adapters use the shared HTTP client and pagination, set `expires_at`
+only from a stated expiry, register attribution under their
+`source_name`, and may only be implemented for a source whose automated
+access and use are permitted for NERO's use case. One parametrized
+contract test runs over every adapter, and a registry test fails if a
+real provider is added to `SUPPORTED_PROVIDERS` without an attribution
+entry. Product rules for an eventual source (PO decisions): newest
+explicitly U.S.-eligible jobs, no keyword filter; worldwide postings with
+no location restriction are not U.S.-eligible; a confirmed remote-only
+source may set `remote_type="remote"`.
+
+**Downstream unchanged.** Job Intelligence, Requirement Intelligence,
+Hard Eligibility, Job Match, ATS Alignment, General Resume Intelligence,
+Gap Analysis and the Priority Ranking engine are untouched; the priority
+view drops expired jobs only because it already scopes through
+`job_listing_query`.
+
+**Provider status.** Source research (see `services/job_discovery/README.md`,
+"Source research status") found Himalayas the strongest zero-cost
+candidate, but its full terms could not be read from the build sandbox.
+It is **not approved and not implemented**; activating it or any other
+source is a separate provider ticket after the full terms are reviewed.
+
 ## Application Tracking (the final workflow stage)
 
 Application Tracking was the last stage of the approved core workflow

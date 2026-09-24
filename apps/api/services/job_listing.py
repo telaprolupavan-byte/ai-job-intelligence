@@ -17,7 +17,10 @@ from uuid import UUID
 from sqlalchemy import Select, select
 
 from apps.api.models import Company, Job
-from apps.api.services.job_access import visible_jobs_filter
+from apps.api.services.job_access import (
+    active_jobs_filter,
+    visible_jobs_filter,
+)
 
 
 # The only values discovery normalization can store in `Job.employment_type`
@@ -77,7 +80,8 @@ def job_listing_query(
     query = (
         select(Job, Company.name)
         .outerjoin(Company, Job.company_id == Company.id)
-        .where(Job.is_active.is_(True))
+        # AJI-028: active and not past a provider-stated expiry.
+        .where(active_jobs_filter())
         # AJI-022: discovered jobs for everyone; a signed-in user also
         # sees their own submitted jobs, never anyone else's.
         .where(visible_jobs_filter(user_id))

@@ -10,6 +10,11 @@ double-gated synthetic test provider (`sources/test_fixture.py`), and
 added per-run `normalized`/`accepted`/`duplicates` counters - see
 docs/ARCHITECTURE.md "Job Discovery Product Pipeline (AJI-024)".
 
+AJI-028 added the provider-independent foundation every future approved
+source builds on - see "Foundation for new sources (AJI-028)" below. No
+new real provider was added or enabled; `JOB_DISCOVERY_PROVIDER` stays
+unset by default.
+
 ### Local development with the test provider
 
 ```
@@ -79,6 +84,56 @@ Adding another (approved) provider means implementing the same
 branch to `build_configured_source()`, and reusing the existing
 normalizer/validator/deduplicator/persistence/pipeline — no
 source-specific logic belongs in the generic pipeline.
+
+## Foundation for new sources (AJI-028)
+
+Everything a new, approved adapter needs, so it only has to map its
+provider's records onto `DiscoveredJob`:
+
+| Module | What it provides |
+|---|---|
+| `source_http.py` | `SourceHttpClient` + `HttpPolicy`: bounded timeout, retry with exponential backoff on 429/500/502/503/504, network errors and timeouts (other 4xx never retried), `Retry-After` (seconds or HTTP-date; a longer wait than `max_retry_after_seconds` fails the request rather than retrying early), response-size cap (declared and actual bytes), a minimum-interval throttle, query strings stripped from every error message, per-attempt logs and `stats`. Every failure is a `SourceHttpError` (a `JobSourceFetchError`), so a run records it as failed/502. |
+| `pagination.py` | `fetch_bounded_pages()`: newest first, stops on an empty or short page, and never reads more than `MAX_PAGES_PER_RUN = 5` pages per run (the approved ceiling - a code constant, not a setting). A failed page fails the run; nothing is half-written. |
+| `attribution.py` | `SourceAttribution` registry keyed by `source`: display name, homepage, and whether the source's terms require a visible link back. The API returns it per job as `source_attribution`; the Jobs UI shows "Job via X" (linked to the posting) only when required. Every real provider must be registered; the test fixture is not. |
+| `persistence.py` + `jobs.expires_at` | The provider-stated closing time is stored (naive UTC) and mirrored on every sighting. |
+| `apps/api/services/job_access.py::active_jobs_filter()` | The one definition of an open job: `is_active` and not past `expires_at`. Used by GET /jobs, GET /jobs/priority (through `job_listing_query`) and the dashboard. |
+
+Rules that come with it (see `sources/base.py`):
+
+- `expires_at` is set only from an expiry the provider states. Nothing
+  infers that a posting closed because a run did not see it, and there is
+  no "not seen for N days" rule.
+- Expiry is enforced at query time; an expired job remains readable by id
+  (e.g. from an application the user is tracking).
+- U.S. eligibility must be explicit in the provider's data. A worldwide
+  posting with no location restriction is not treated as U.S.-eligible.
+- A confirmed remote-only source may set `remote_type="remote"`.
+- An eventual source should initially pull its newest explicitly
+  U.S.-eligible jobs, with no keyword filtering.
+- The scheduler interval is unchanged (every 6 hours).
+
+`tests/job_discovery_fakes.py` has a synthetic paged adapter built only
+from these pieces; `tests/test_job_source_contract.py` runs one contract
+over every adapter (Greenhouse, the test fixture, and that double).
+
+### Source research status (not approved)
+
+AJI-028 researched zero-cost sources against the Product Owner's
+constraints ($0, no business/provider account, no paid provider, no
+scraping, and automated access and use must be permitted for NERO's use
+case - publicly visible is not the same as permitted). Findings came from
+search excerpts of each provider's official pages; the sandbox that did
+the research could not reach the provider sites directly, so **none of
+this is verified and none of it justifies production use**:
+
+| Source | Finding | Status |
+|---|---|---|
+| Himalayas API | Documented, free, no key; display in your own app allowed with a visible link back and credit; no resubmission to other job boards; 60 req/min, 20 jobs/request; states an expiry date. Full terms (storage, AI processing, signup-gated display) not yet read. | **Not approved.** Candidate for a future provider ticket once the full terms are reviewed. |
+| USAJOBS API | Free key, but terms tie data use to "the requesting company identified on the … Registration Form" and restrict derivative works. | Not pursued. |
+| The Muse API | Free; link back required; storage/AI use unclear; no employment type or salary. | Not pursued. |
+| Remotive, Jobicy | Terms forbid showing their jobs behind a signup/login. | Excluded. |
+| Greenhouse / Lever / Ashby boards | Public, but documented as the employer's own careers-site tool. | Only with the specific employer's permission. |
+| CareerOneStop / NLx, Adzuna, Jooble, paid APIs, LinkedIn/Indeed/Google Jobs | Organization approval, business programs, cost, or no permitted API. | Excluded. |
 
 ## Operationalizing discovery (running it without a developer manually
 ## invoking Python)
