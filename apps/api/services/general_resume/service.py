@@ -380,16 +380,19 @@ def compute_readiness(
     version: ResumeVersion,
     assessment: GeneralResumeAssessment | None,
 ) -> dict[str, Any]:
-    """Ready = a current, valid assessment and no unresolved improvements
+    """Readiness of this one version, from its own assessment only.
+
+    Ready = a current, valid assessment and no unresolved improvements
     (Product Owner definition). An improvement is resolved when it no
     longer appears (the text changed) or when the user rejected it on
-    this version or an ancestor. No score threshold is involved - the
-    score is not even read here."""
+    this version or an ancestor. A child version created from this one
+    never changes this version's readiness, and neither does the child's
+    recheck status (that stays on the review record). No score threshold
+    is involved - the score is not even read here."""
     readiness: dict[str, Any] = {
         "state": "not_assessed",
         "open_count": 0,
         "dismissed_count": 0,
-        "refined_version_id": None,
     }
 
     if assessment is None:
@@ -409,16 +412,6 @@ def compute_readiness(
 
     if not result.validation.valid:
         readiness["state"] = "not_valid"
-        return readiness
-
-    latest = _latest_review(db, user_id=user_id, assessment_id=assessment.id)
-
-    if latest is not None and latest.child_resume_version_id is not None:
-        readiness["refined_version_id"] = str(latest.child_resume_version_id)
-        readiness["state"] = {
-            "pending": "recheck_pending",
-            "failed": "recheck_failed",
-        }.get(latest.recheck_status, "superseded")
         return readiness
 
     readiness["state"] = "ready" if not open_ids else "needs_review"

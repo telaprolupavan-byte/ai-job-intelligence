@@ -170,8 +170,13 @@ def test_full_flow_approve_create_recheck_compare_ready(client, db):
     parent_view = client.get(
         f"/resumes/versions/{version.id}/general-assessment", headers=_headers(user)
     ).json()
-    assert parent_view["readiness"]["state"] == "superseded"
+    # The parent's readiness is its own (the approved line is still in
+    # its unchanged text); the refined version is reached via the review.
+    assert parent_view["readiness"] == {
+        "state": "needs_review", "open_count": 1, "dismissed_count": 2,
+    }
     assert parent_view["latest_review"]["id"] == body["id"]
+    assert parent_view["latest_review"]["child_resume_version_id"] == child["id"]
 
     child_view = client.get(
         f"/resumes/versions/{child['id']}/general-assessment", headers=_headers(user)

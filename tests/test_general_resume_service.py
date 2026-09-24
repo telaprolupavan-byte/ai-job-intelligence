@@ -274,10 +274,10 @@ def test_approval_creates_child_leaves_parent_untouched_and_rechecks(db, fake_pr
     # the child, so the child is Ready.
     assert payload["resulting_readiness"]["state"] == "ready"
 
-    # The parent points at its refined version.
+    # The parent's readiness is its own: the approved bullet is still in
+    # the parent's unchanged text, so it is unresolved there.
     parent_readiness = compute_readiness(db, user_id=user.id, version=version, assessment=assessment)
-    assert parent_readiness["state"] == "superseded"
-    assert parent_readiness["refined_version_id"] == str(child.id)
+    assert parent_readiness == {"state": "needs_review", "open_count": 1, "dismissed_count": 2}
 
 
 def test_rejection_does_not_carry_forward_when_the_issue_changed(db, fake_provider):
@@ -370,8 +370,9 @@ def test_failed_recheck_keeps_the_version_and_can_be_retried(db, fake_provider, 
     assert review.recheck_error == "The recheck could not be completed."
     child = db.get(ResumeVersion, review.child_resume_version_id)
     assert child is not None
+    # The child's failed recheck is on the review, not on the parent.
     assert compute_readiness(db, user_id=user.id, version=version,
-                             assessment=assessment)["state"] == "recheck_failed"
+                             assessment=assessment)["state"] == "needs_review"
 
     retried = run_review_recheck(db, current_user=user, review_id=review.id)
 
@@ -433,3 +434,87 @@ def test_assessments_are_insert_only_per_pipeline_version(db, fake_provider, mon
     db.refresh(first)
     assert second.id != first.id
     assert first.result == original_result
+
+
+def test_child_version_never_changes_parent_readiness(db, fake_provider):
+    """Regression (AJI-027 supervisor review): parent with an unresolved
+    improvement + child created => parent remains `needs_review`, computed
+    from the parent's own assessment, and carries no pointer to the child.
+    The child's own readiness is unaffected."""
+    user = make_user(db)
+    version = make_version(db, user)
+    assessment = assess_resume_version(db, user_id=user.id, resume_version_id=version.id)
+    before = compute_readiness(db, user_id=user.id, version=version, assessment=assessment)
+    bullet = _improvement(assessment, anchor_line=WEAK_BULLET_1)
+
+    review = create_review(
+        db, current_user=user, resume_version_id=version.id,
+        assessment_id=assessment.id,
+        decisions=[_approve_bullet(assessment)] + _reject_all(
+            assessment, exclude={bullet["improvement_id"]}
+        ),
+    )
+    assert review.child_resume_version_id is not None
+    assert review.recheck_status == "complete"
+
+    after = compute_readiness(db, user_id=user.id, version=version, assessment=assessment)
+    assert after["state"] == "needs_review"
+    assert after["open_count"] == 1
+    assert set(after) == {"state", "open_count", "dismissed_count"}
+    # Only the parent's own recorded rejections moved its counts.
+    assert after["open_count"] + after["dismissed_count"] == before["open_count"]
+
+    child = db.get(ResumeVersion, review.child_resume_version_id)
+    child_assessment = db.get(GeneralResumeAssessment, review.recheck_assessment_id)
+    assert compute_readiness(
+        db, user_id=user.id, version=child, assessment=child_assessment
+    )["state"] == "ready"
+
+
+@pytest.mark.parametrize("recheck_status", ["pending", "failed"])
+def test_child_recheck_status_does_not_alter_parent_readiness(db, fake_provider, recheck_status):
+    user = make_user(db)
+    version = make_version(db, user)
+    assessment = assess_resume_version(db, user_id=user.id, resume_version_id=version.id)
+    review = create_review(
+        db, current_user=user, resume_version_id=version.id,
+        assessment_id=assessment.id, decisions=[_approve_bullet(assessment)],
+    )
+    before = compute_readiness(db, user_id=user.id, version=version, assessment=assessment)
+
+    review.recheck_status = recheck_status
+    review.recheck_assessment_id = None
+    db.flush()
+
+    after = compute_readiness(db, user_id=user.id, version=version, assessment=assessment)
+    assert after == before
+    assert after["state"] == "needs_review"
+
+    payload = serialize_assessment(db, user_id=user.id, assessment=assessment)
+    assert payload["readiness"] == before
+    # The recheck status stays on the review record.
+    assert payload["latest_review"]["recheck_status"] == recheck_status
+
+
+def test_parent_with_every_improvement_rejected_stays_ready_after_a_child_exists(db, fake_provider):
+    """A child created from a later review does not pull a Ready parent
+    out of Ready either: the parent's state depends on its own
+    assessment and its own recorded rejections only."""
+    user = make_user(db)
+    version = make_version(db, user)
+    assessment = assess_resume_version(db, user_id=user.id, resume_version_id=version.id)
+    create_review(db, current_user=user, resume_version_id=version.id,
+                  assessment_id=assessment.id, decisions=_reject_all(assessment))
+    assert compute_readiness(db, user_id=user.id, version=version,
+                             assessment=assessment)["state"] == "ready"
+
+    bullet = _improvement(assessment, anchor_line=WEAK_BULLET_1)
+    review = create_review(
+        db, current_user=user, resume_version_id=version.id,
+        assessment_id=assessment.id,
+        decisions=[{**_approve_bullet(assessment), "improvement_id": bullet["improvement_id"]}],
+    )
+    assert review.child_resume_version_id is not None
+
+    assert compute_readiness(db, user_id=user.id, version=version,
+                             assessment=assessment)["state"] == "ready"

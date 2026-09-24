@@ -3288,23 +3288,34 @@ comparison is computed on read from the two stored rows (score delta,
 per-component deltas, and each improvement as resolved / still present /
 new). A negative delta is shown as-is.
 
-### Readiness (Product Owner definition)
+### Readiness (Product Owner definition): per version
 
-A version is **Ready** when it has a current, valid assessment and no
-unresolved improvements. An improvement is resolved when it no longer
-appears (its text changed) or when the user rejected it on this version
-or an ancestor. Because ids are tied to unchanged text, a rejection
-carries forward exactly while the same issue remains. No score threshold
-is read. Readiness is computed on read (never stored):
+Readiness belongs only to the one resume version being viewed, and is
+computed only from **that version's own current assessment**
+(`service.py::compute_readiness`). A version is **Ready** when it has a
+current, valid assessment and no unresolved improvements. An improvement
+is resolved when it no longer appears (its text changed) or when the user
+rejected it on this version or an ancestor. Because ids are tied to
+unchanged text, a rejection carries forward exactly while the same issue
+remains. No score threshold is read. Readiness is computed on read
+(never stored):
 
 | State | Meaning |
 |---|---|
 | `not_assessed` | no assessment for the current pipeline |
 | `not_valid` | the text fails the existing resume validation |
 | `needs_review` | at least one unresolved improvement |
-| `recheck_pending` / `recheck_failed` | the latest review created a version whose recheck has not completed |
-| `superseded` | the latest review created a version and rechecked it; readiness continues on that version |
 | `ready` | valid, assessed, nothing unresolved |
+
+A refined (child) version never changes its parent's readiness: after a
+review creates `Refined N`, the parent keeps whatever its own assessment
+says (typically `needs_review`, because an approved change is in the
+child's text, not the parent's). The child's recheck status
+(`not_required` / `pending` / `complete` / `failed`) stays on the review
+record and is returned as `latest_review`, never as a readiness state.
+`tests/test_general_resume_service.py::
+test_child_version_never_changes_parent_readiness` and
+`test_child_recheck_status_does_not_alter_parent_readiness` pin this.
 
 ### Persistence and versioning
 
@@ -3326,7 +3337,7 @@ is read. Readiness is computed on read (never stored):
 - `POST /resumes/versions/{id}/general-assessment`: compute or reuse.
   Takes no job input (an extra body field is a 422).
 - `GET /resumes/versions/{id}/general-assessment`: latest assessment,
-  per-improvement `open`/`dismissed` status, readiness, and the latest
+  per-improvement `open`/`dismissed` status, this version's own readiness, and the latest
   review with its comparison. Never computes or calls the AI.
 - `POST /resumes/versions/{id}/general-assessment/{assessment_id}/review`:
   approve/reject, create version, recheck.
@@ -3344,7 +3355,9 @@ not job-specific and not an ATS score; shows the score, the component
 breakdown ("Not enough data" for excluded components), the
 partial-AI note, the improvement list with approve/reject, an empty
 (never pre-filled) text box, the truth-confirmation checkbox, the
-before/after comparison, the recheck-failed/retry state, and readiness.
+before/after comparison, the recheck-failed/retry state (all driven by
+`latest_review`), and the version's own readiness. The improvement list
+stays visible for a version that already has a refined child.
 Versions list "General refinement" for `general_improvement`.
 `apps/web/lib/general-resume.ts` is the client.
 

@@ -71,7 +71,7 @@ function makeAssessment(overrides: Partial<GeneralAssessment> = {}): GeneralAsse
       }),
     ],
     validation: { valid: true, warnings: [], word_count: 300, section_matches: [] },
-    readiness: { state: "needs_review", open_count: 3, dismissed_count: 0, refined_version_id: null },
+    readiness: { state: "needs_review", open_count: 3, dismissed_count: 0 },
     latest_review: null,
     created_at: new Date().toISOString(),
     ...overrides,
@@ -106,7 +106,7 @@ function makeReview(overrides: Partial<GeneralReview> = {}): GeneralReview {
       new_count: 0,
       changes: [],
     },
-    resulting_readiness: { state: "ready", open_count: 0, dismissed_count: 2, refined_version_id: null },
+    resulting_readiness: { state: "ready", open_count: 0, dismissed_count: 2 },
     created_at: new Date().toISOString(),
     ...overrides,
   };
@@ -221,7 +221,7 @@ describe("GeneralResumeSection", () => {
       .mockResolvedValueOnce(makeAssessment())
       .mockResolvedValueOnce(
         makeAssessment({
-          readiness: { state: "ready", open_count: 0, dismissed_count: 3, refined_version_id: null },
+          readiness: { state: "ready", open_count: 0, dismissed_count: 3 },
         }),
       );
     mocked.submitGeneralReview.mockResolvedValue(makeReview({ child_resume_version_id: null }));
@@ -270,7 +270,7 @@ describe("GeneralResumeSection", () => {
   it("shows the before/after comparison and opens the refined version", async () => {
     mocked.getGeneralAssessment.mockResolvedValue(
       makeAssessment({
-        readiness: { state: "superseded", open_count: 3, dismissed_count: 0, refined_version_id: "version-2" },
+        readiness: { state: "needs_review", open_count: 3, dismissed_count: 0 },
         latest_review: makeReview(),
       }),
     );
@@ -279,10 +279,34 @@ describe("GeneralResumeSection", () => {
     const outcome = await screen.findByTestId("review-outcome");
     expect(within(outcome).getByTestId("comparison-scores")).toHaveTextContent("72.5 → 80");
     expect(within(outcome).getByTestId("comparison-delta")).toHaveTextContent("+7.5");
-    expect(screen.queryAllByTestId("improvement")).toHaveLength(0);
 
     fireEvent.click(within(outcome).getByRole("button", { name: "Open Refined 1" }));
     expect(onOpen).toHaveBeenCalledWith("version-2");
+  });
+
+  it("keeps showing the parent's own readiness and improvements after a child is created", async () => {
+    mocked.getGeneralAssessment.mockResolvedValue(
+      makeAssessment({
+        readiness: { state: "needs_review", open_count: 1, dismissed_count: 2 },
+        latest_review: makeReview(),
+      }),
+    );
+    renderSection();
+
+    expect(await screen.findByTestId("review-outcome")).toBeInTheDocument();
+    expect(screen.getByText("1 to review")).toBeInTheDocument();
+    expect(screen.getAllByTestId("improvement")).toHaveLength(3);
+    expect(screen.queryByText(/Refined version created/)).not.toBeInTheDocument();
+  });
+
+  it("shows no review outcome when the latest review created no version", async () => {
+    mocked.getGeneralAssessment.mockResolvedValue(
+      makeAssessment({ latest_review: makeReview({ child_resume_version_id: null, child_resume_version_name: null }) }),
+    );
+    renderSection();
+
+    await screen.findByTestId("general-score");
+    expect(screen.queryByTestId("review-outcome")).not.toBeInTheDocument();
   });
 
   it("reports a regression honestly", async () => {
@@ -290,7 +314,7 @@ describe("GeneralResumeSection", () => {
     review.comparison = { ...review.comparison!, recheck_score: 70, score_delta: -2.5 };
     mocked.getGeneralAssessment.mockResolvedValue(
       makeAssessment({
-        readiness: { state: "superseded", open_count: 3, dismissed_count: 0, refined_version_id: "version-2" },
+        readiness: { state: "needs_review", open_count: 3, dismissed_count: 0 },
         latest_review: review,
       }),
     );
@@ -303,15 +327,18 @@ describe("GeneralResumeSection", () => {
     const failed = makeReview({ recheck_status: "failed", recheck_error: "The recheck could not be completed.", comparison: null });
     mocked.getGeneralAssessment.mockResolvedValue(
       makeAssessment({
-        readiness: { state: "recheck_failed", open_count: 3, dismissed_count: 0, refined_version_id: "version-2" },
+        readiness: { state: "needs_review", open_count: 3, dismissed_count: 0 },
         latest_review: failed,
       }),
     );
     mocked.retryGeneralRecheck.mockResolvedValue(makeReview());
     renderSection();
 
-    expect(await screen.findByText("Recheck failed")).toBeInTheDocument();
-    expect(screen.getByText(/Your new version was saved\. Only the recheck\s+failed/)).toBeInTheDocument();
+    // The failed recheck comes from the review, not from readiness: the
+    // parent keeps its own "needs review" state.
+    expect(await screen.findByText(/Your new version was saved\. Only the recheck\s+failed/)).toBeInTheDocument();
+    expect(screen.getByText("3 to review")).toBeInTheDocument();
+    expect(screen.queryByText("Recheck failed")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry recheck" }));
     await waitFor(() => expect(mocked.retryGeneralRecheck).toHaveBeenCalledWith("review-1"));

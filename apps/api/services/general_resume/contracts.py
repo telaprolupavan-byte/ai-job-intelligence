@@ -78,13 +78,13 @@ DecisionAction = Literal["approve", "reject"]
 
 RecheckStatus = Literal["not_required", "pending", "complete", "failed"]
 
+# Readiness belongs to one version and is computed only from that
+# version's own assessment. A child version, or its recheck status, never
+# changes it.
 ReadinessState = Literal[
     "not_assessed",
     "not_valid",
     "needs_review",
-    "recheck_pending",
-    "recheck_failed",
-    "superseded",
     "ready",
 ]
 

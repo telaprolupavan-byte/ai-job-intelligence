@@ -42,20 +42,19 @@ export type GeneralImprovement = {
   status: "open" | "dismissed";
 };
 
+// Readiness of the version being viewed, from its own assessment only.
+// A refined (child) version never changes its parent's readiness; the
+// child and its recheck status are on `latest_review` instead.
 export type ReadinessState =
   | "not_assessed"
   | "not_valid"
   | "needs_review"
-  | "recheck_pending"
-  | "recheck_failed"
-  | "superseded"
   | "ready";
 
 export type Readiness = {
   state: ReadinessState;
   open_count: number;
   dismissed_count: number;
-  refined_version_id: string | null;
 };
 
 export type ComponentDelta = {

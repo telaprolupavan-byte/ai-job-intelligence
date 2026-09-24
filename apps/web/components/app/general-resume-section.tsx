@@ -89,12 +89,6 @@ function ReadinessBadge({ readiness }: { readiness: Readiness }) {
           {readiness.open_count} to review
         </Badge>
       );
-    case "superseded":
-      return <Badge tone="neutral-soft">Refined version created</Badge>;
-    case "recheck_pending":
-      return <Badge tone="neutral-soft">Recheck pending</Badge>;
-    case "recheck_failed":
-      return <Badge tone="red-soft">Recheck failed</Badge>;
     case "not_valid":
       return <Badge tone="red-soft">Validation issues</Badge>;
     default:
@@ -314,9 +308,10 @@ export default function GeneralResumeSection({ versionId, onOpenVersion }: Props
     }
   }
 
+  // Readiness is this version's own. The review outcome (refined version,
+  // comparison, recheck retry) is driven by the latest review instead,
+  // and never hides this version's own improvements.
   const readiness = assessment?.readiness;
-  const reviewable =
-    readiness?.state === "needs_review" || readiness?.state === "ready" || readiness?.state === "not_valid";
   const latestReview = assessment?.latest_review ?? null;
 
   return (
@@ -420,7 +415,7 @@ export default function GeneralResumeSection({ versionId, onOpenVersion }: Props
             ))}
           </ul>
 
-          {latestReview && !reviewable && (
+          {latestReview?.child_resume_version_id && (
             <ReviewOutcome
               review={latestReview}
               onOpenVersion={onOpenVersion}
@@ -441,7 +436,7 @@ export default function GeneralResumeSection({ versionId, onOpenVersion }: Props
 
           {reviewError && <ErrorState message={reviewError} />}
 
-          {reviewable && improvements.length > 0 && (
+          {improvements.length > 0 && (
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold text-app-text">Improvements</h3>
