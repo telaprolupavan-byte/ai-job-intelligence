@@ -24,6 +24,10 @@ from services.job_discovery.contracts import (
     RawProviderJob,
 )
 from services.job_discovery.pipeline import normalize_raw_jobs
+from services.job_discovery.sources.development_dataset import (
+    DEVELOPMENT_DATASET_SOURCE,
+    DevelopmentDatasetJobSource,
+)
 from services.job_discovery.sources.greenhouse import GreenhouseJobSource
 from services.job_discovery.sources.test_fixture import (
     TEST_FIXTURE_SOURCE,
@@ -79,6 +83,10 @@ def _fixture(monkeypatch):
     return TestFixtureJobSource()
 
 
+def _development_dataset(monkeypatch):
+    return DevelopmentDatasetJobSource(now=datetime(2026, 9, 24, 15, 30))
+
+
 def _paged(monkeypatch):
     records = [
         example_record("a", expires=1_900_000_000),
@@ -92,6 +100,7 @@ def _paged(monkeypatch):
 ADAPTER_FACTORIES = {
     "greenhouse": _greenhouse,
     "test_fixture": _fixture,
+    "development_dataset": _development_dataset,
     "example_paged": _paged,
 }
 
@@ -222,7 +231,7 @@ def test_every_real_supported_provider_has_a_registered_attribution():
 
     # If a new provider is added to SUPPORTED_PROVIDERS, this mapping must
     # be extended - and its source must be registered for attribution.
-    assert set(real_sources) | {job_discovery_service.PROVIDER_TEST_FIXTURE} == (
+    assert set(real_sources) | set(job_discovery_service.TEST_PROVIDERS) == (
         job_discovery_service.SUPPORTED_PROVIDERS
     )
     for source_name in real_sources.values():
@@ -231,6 +240,7 @@ def test_every_real_supported_provider_has_a_registered_attribution():
 
 def test_synthetic_sources_carry_no_attribution():
     assert get_source_attribution(TEST_FIXTURE_SOURCE) is None
+    assert get_source_attribution(DEVELOPMENT_DATASET_SOURCE) is None
     assert get_source_attribution(ExamplePagedSource.source_name) is None
     assert get_source_attribution(RESERVED_USER_SUBMITTED_SOURCE) is None
 

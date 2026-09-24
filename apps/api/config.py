@@ -60,7 +60,10 @@ class Settings(BaseSettings):
     # additionally requires job_discovery_enable_test_provider=true, so a
     # single mistyped setting can never put synthetic jobs in front of
     # users. While the flag is false, fixture jobs are also hidden from
-    # every user-facing job query.
+    # every user-facing job query. AJI-030 adds "development_dataset", the
+    # controlled synthetic U.S. dataset in
+    # services/job_discovery/sources/development_dataset.json, under the
+    # same flag and the same hiding rule.
     job_discovery_provider: str | None = None
     job_discovery_enable_test_provider: bool = False
 

@@ -170,7 +170,34 @@ describe("Jobs page — discovery states (AJI-024)", () => {
     );
     // Banner chip + card chip.
     expect(screen.getAllByText("Test data")).toHaveLength(2);
-    expect(screen.getByText("Discovered · test fixture")).toBeInTheDocument();
+    expect(screen.getByText("Synthetic · development data")).toBeInTheDocument();
+  });
+
+  it("labels development-dataset jobs as test data (AJI-030)", async () => {
+    getDiscoveryStatus.mockResolvedValue({ ...CONFIGURED, test_mode: true });
+    getJobs.mockResolvedValue(
+      jobsResponse([
+        makeJob({
+          id: "d1",
+          title: "Machine Learning Engineer",
+          company: "Lumen Ridge Analytics (demo)",
+          source: "nero_development_dataset",
+          source_url: null,
+          is_test_data: true,
+        }),
+      ]),
+    );
+
+    render(<JobsPage />);
+
+    expect(
+      await screen.findByText("Machine Learning Engineer"),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole("note")).toHaveTextContent(
+      /development dataset/,
+    );
+    expect(screen.getAllByText("Test data")).toHaveLength(2);
+    expect(screen.getByText("Synthetic · development data")).toBeInTheDocument();
   });
 
   it("does not show the test-mode banner for production data", async () => {

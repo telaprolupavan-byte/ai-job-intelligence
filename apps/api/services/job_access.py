@@ -13,7 +13,9 @@ never confirmed to exist.
 AJI-024: jobs produced by the synthetic test-fixture discovery provider are
 invisible to everyone unless test mode (`JOB_DISCOVERY_ENABLE_TEST_PROVIDER`)
 is on, so fixture data can never surface as production data - even if such
-rows exist in a database that later has test mode turned off.
+rows exist in a database that later has test mode turned off. AJI-030
+extends this to every source in `NON_PRODUCTION_SOURCES` (the fixture and
+the development dataset).
 
 AJI-028: `active_jobs_filter()` is the one definition of a job that is
 still open - every listing-style query (GET /jobs, GET /jobs/priority via
@@ -31,7 +33,9 @@ from sqlalchemy.orm import Session
 
 from apps.api.config import settings
 from apps.api.models import Job
-from services.job_discovery.sources.test_fixture import TEST_FIXTURE_SOURCE
+from services.job_discovery.sources.non_production import (
+    NON_PRODUCTION_SOURCES,
+)
 
 
 def visible_jobs_filter(user_id: UUID | None):
@@ -50,7 +54,7 @@ def visible_jobs_filter(user_id: UUID | None):
     if settings.job_discovery_enable_test_provider:
         return ownership
 
-    return and_(ownership, Job.source != TEST_FIXTURE_SOURCE)
+    return and_(ownership, Job.source.notin_(NON_PRODUCTION_SOURCES))
 
 
 def get_visible_job(

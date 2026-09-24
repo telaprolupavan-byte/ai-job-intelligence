@@ -78,7 +78,9 @@ from services.job_discovery.attribution import (
     attribution_link,
     get_source_attribution,
 )
-from services.job_discovery.sources.test_fixture import TEST_FIXTURE_SOURCE
+from services.job_discovery.sources.non_production import (
+    is_non_production_source,
+)
 from services.priority_ranking.engine import (
     ENGINE_VERSION as PRIORITY_ENGINE_VERSION,
     ORDERING as PRIORITY_ORDERING,
@@ -173,13 +175,14 @@ def _job_to_response(job: Job, company_name: str | None) -> dict:
         "source_job_id": job.external_job_id,
         # AJI-024: lets the UI tell shared discovered jobs apart from the
         # caller's own private submissions (AJI-022), and flag synthetic
-        # test-fixture jobs, without parsing `source` strings.
+        # test-fixture jobs, without parsing `source` strings. AJI-030:
+        # true for every synthetic source (fixture and development dataset).
         "origin": (
             "user_submitted"
             if job.submitted_by_user_id is not None
             else "discovered"
         ),
-        "is_test_data": job.source == TEST_FIXTURE_SOURCE,
+        "is_test_data": is_non_production_source(job.source),
         "source_url": job.source_url,
         "application_url": job.application_url,
         "first_seen_at": job.first_seen_at.isoformat(),

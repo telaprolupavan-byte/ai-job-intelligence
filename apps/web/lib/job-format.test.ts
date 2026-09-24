@@ -75,7 +75,7 @@ describe("formatJobOrigin (AJI-028)", () => {
       ),
     ).toBe("Added by you · private");
     expect(formatJobOrigin(job({ is_test_data: true }))).toBe(
-      "Discovered · test fixture",
+      "Synthetic · development data",
     );
   });
 });

@@ -59,6 +59,7 @@ ticket's documented scope and open items.
 | AJI-026 | Production baseline: CI, Compose fix, AI timeouts, doc reconciliation, this register | Claimed | — |
 | AJI-027 | General Resume Intelligence: job-independent General Resume Score, resume-level improvements, approve/reject, `Refined N` versions, recheck, readiness | Claimed | — |
 | AJI-028 | Zero-Cost Job Discovery Foundation (foundation only): shared HTTP retry/backoff/throttle client, bounded pagination, `jobs.expires_at` + `active_jobs_filter()`, generic source attribution, adapter contract. No real provider enabled. Branch `claude/aji-028-zero-cost-discovery-foundation`. | Claimed | — |
+| AJI-030 | Job Intelligence Development Dataset & End-to-End Pipeline: synthetic, clearly-labelled U.S. development dataset fed through the existing AJI-024/028 adapter pipeline (`JOB_DISCOVERY_PROVIDER=development_dataset`, test-mode only); one `NON_PRODUCTION_SOURCES` isolation set; end-to-end tests through search, details, Job Intelligence, Job Match and Application Tracking. No real provider. Branch `pavant/sweet-tesla-er8io8`. | Claimed | — |
 
 ### Work outside the AJI series
 

@@ -213,6 +213,9 @@ class ApplicationJobSummary(BaseModel):
     employment_type: str | None
     remote_type: str | None
     application_url: str | None
+    # AJI-030: synthetic (test fixture / development dataset) job, so the
+    # Applications UI never presents it as a real opportunity.
+    is_test_data: bool = False
 
 
 class ApplicationStatusEventResponse(BaseModel):

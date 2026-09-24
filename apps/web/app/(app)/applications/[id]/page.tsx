@@ -164,6 +164,9 @@ export default function ApplicationDetailPage() {
                   <Badge tone={STATUS_TONE[application.status]}>
                     {formatStatus(application.status)}
                   </Badge>
+                  {application.job.is_test_data && (
+                    <Badge tone="danger">Test data</Badge>
+                  )}
                   {application.applied_at && (
                     <span className="font-mono text-[10px] uppercase tracking-wider text-app-faint">
                       Applied {formatDate(application.applied_at)}

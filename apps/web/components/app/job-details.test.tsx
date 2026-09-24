@@ -77,6 +77,34 @@ describe("JobDetails (AJI-023 Job Search)", () => {
     expect(screen.queryByText("Contract length")).not.toBeInTheDocument();
   });
 
+  it("flags synthetic development data so it never reads as a real posting (AJI-030)", () => {
+    render(
+      <JobDetails
+        job={job({
+          is_test_data: true,
+          source: "nero_development_dataset",
+          source_url: null,
+          expires_at: "2026-10-22T00:00:00",
+        })}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Job details" });
+    expect(within(region).getByRole("note")).toHaveTextContent(
+      /Development data: this job is synthetic/,
+    );
+    expect(within(region).getByRole("note")).toHaveTextContent(
+      /not a real posting/,
+    );
+    expect(fact("Closes")).toHaveTextContent("Oct 22, 2026");
+  });
+
+  it("shows no development-data note on a real job", () => {
+    render(<JobDetails job={job()} />);
+
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
   it("marks missing facts as Not stated and never fabricates them", () => {
     render(
       <JobDetails

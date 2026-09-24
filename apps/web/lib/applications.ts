@@ -26,6 +26,8 @@ export type ApplicationJobSummary = {
   employment_type: string | null;
   remote_type: string | null;
   application_url: string | null;
+  /** AJI-030: a synthetic (test fixture / development dataset) job. */
+  is_test_data?: boolean;
 };
 
 export type Application = {

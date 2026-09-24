@@ -40,7 +40,8 @@ export function formatJobOrigin(job: Job): string {
     return "Added by you · private";
   }
 
-  if (job.is_test_data) return "Discovered · test fixture";
+  // AJI-030: covers every synthetic source (fixture, development dataset).
+  if (job.is_test_data) return "Synthetic · development data";
 
   // AJI-028: the source's registered display name when it has one.
   return `Discovered · ${job.source_attribution?.name ?? formatValue(job.source)}`;

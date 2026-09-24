@@ -29,6 +29,16 @@ curl -X POST localhost:8000/internal/job-discovery/run \
 The fixture's jobs are synthetic, labelled "Test data" in the UI, and
 hidden from every user-facing query once the enable flag is off.
 
+### Development dataset (AJI-030)
+
+`JOB_DISCOVERY_PROVIDER=development_dataset` (same enable flag) loads
+`sources/development_dataset.json`: 17 realistic, synthetic U.S. jobs
+plus one duplicate and two invalid records, through the same adapter
+pipeline. Dates are relative to the run day, so active/expired never go
+stale. Every source in `sources/non_production.py::NON_PRODUCTION_SOURCES`
+is labelled "Test data" and hidden while the flag is off. See
+docs/ARCHITECTURE.md "Job Intelligence Development Dataset (AJI-030)".
+
 ## Running the pipeline
 
 ```python
