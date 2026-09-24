@@ -44,3 +44,54 @@ export function formatJobOrigin(job: Job): string {
 
   return `Discovered · ${formatValue(job.source)}`;
 }
+
+// AJI-023 (Job Search): moved here from app/(app)/jobs/page.tsx so the
+// listing card and the job detail view format pay identically. A missing
+// currency stays missing - it used to be shown as "USD", which invented a
+// fact the source never stated. Returns null when no amount is known.
+export function formatSalary(job: Job): string | null {
+  const currency = job.salary_currency?.trim() || null;
+  const amount = (value: number) => value.toLocaleString("en-US");
+  const withCurrency = (text: string) =>
+    currency ? `${currency} ${text}` : text;
+
+  if (job.salary_min !== null && job.salary_max !== null) {
+    return withCurrency(
+      job.salary_min === job.salary_max
+        ? amount(job.salary_min)
+        : `${amount(job.salary_min)} – ${amount(job.salary_max)}`,
+    );
+  }
+
+  if (job.salary_min !== null) {
+    return `From ${withCurrency(amount(job.salary_min))}`;
+  }
+
+  if (job.salary_max !== null) {
+    return `Up to ${withCurrency(amount(job.salary_max))}`;
+  }
+
+  return null;
+}
+
+// `posting_date` is stored as naive UTC (see
+// services/job_discovery/persistence.py::to_naive_utc), so it is read and
+// shown as a UTC calendar date - never shifted into the viewer's timezone,
+// which could move it to the previous or next day. Null when the source
+// gave no date or the value is unreadable.
+export function formatPostedDate(value: string | null): string | null {
+  if (!value) return null;
+
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+  const hasOffset = /(Z|[+-]\d{2}:?\d{2})$/.test(iso);
+  const date = new Date(hasOffset ? iso : `${iso}Z`);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
