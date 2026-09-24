@@ -77,7 +77,13 @@ class OpenAIGapAnalysisProvider:
             )
 
         self.model_name = model_name or settings.ai_model
-        self.client = OpenAI(api_key=resolved_api_key)
+        # Bounded like the Resume Intelligence provider: the SDK's
+        # default timeout (10 minutes) would let a stalled connection
+        # hold this interactive request open long after the UI gave up.
+        self.client = OpenAI(
+            api_key=resolved_api_key,
+            timeout=60.0,
+        )
 
     def generate_gap_suggestions(
         self,

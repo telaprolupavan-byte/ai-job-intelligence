@@ -49,9 +49,10 @@ accepts an optional, explicit `resume_version_id`:
   and falling back to its newest version.
 
 The `/jobs/{job_id}/match` endpoint exposes this as an optional
-`resume_version_id` query parameter. No UI selector exists yet — a future
-Resume Version Selection feature should call this same parameter rather
-than adding a second code path.
+`resume_version_id` query parameter. The Jobs page's resume-version
+selector (AJI-019, `apps/web/components/app/resume-version-selector.tsx`)
+sends this same parameter to `/match`, `/ats` and `/gap-analysis` (see
+`apps/web/lib/jobs.ts`) rather than adding a second code path.
 
 ## Analysis/scoring versioning convention
 
@@ -86,9 +87,9 @@ user's profile/preferences?"* — must-have/preferred skill coverage,
 experience, role/title alignment, location, and employment type
 compatibility, computed by `services.job_matching`.
 
-ATS Alignment (AJI-013, not yet implemented) will answer a different
-question: *"How well does this exact ResumeVersion align with this exact
-JD, the way AJI estimates an applicant tracking system would read it?"*
+ATS Alignment (AJI-013, implemented; see "ATS Alignment (AJI-013)" below)
+answers a different question: *"How well does this exact ResumeVersion
+align with this exact JD, the way AJI estimates an applicant tracking system would read it?"*
 It is AJI's own estimate, not the employer's proprietary ATS score.
 
 These stay as two separate tables/services, sharing the same
@@ -108,9 +109,9 @@ Hard Eligibility          <- services/eligibility (this section)
         |
 Eligible Jobs
         |
-Job Intelligence           (not yet implemented)
+Job Intelligence           <- AJI-012 (see "Job/JD Intelligence (AJI-012)")
         |
-ATS Alignment               (AJI-013, not yet implemented)
+ATS Alignment               <- AJI-013 (see "ATS Alignment (AJI-013)")
         |
 Job Match                  <- services/job_matching (existing, unchanged)
         |
@@ -1254,8 +1255,11 @@ codebase - a 404, never another user's data, for anything not owned):
 `POST /applications` (idempotent save), `GET /applications` (the current
 user's list), `GET /applications/{id}` (detail + status history),
 `PATCH /applications/{id}` (status update, Pydantic-`Literal`-validated
-against the six statuses). No `DELETE` - not asked for by the approved
-scope, and removing tracking history was never part of the spec decision.
+against the six statuses), and `DELETE /applications/{id}` (added by
+AJI-016's gap-closing pass): removes a job that is still only `saved`,
+together with its `"saved"` status event. Once a job has moved past
+`saved`, it returns 409 - an actual application's history is never
+deleted; withdrawing via a status update is the action at that point.
 
 **NERO never auto-applies:** every status transition is a user action
 recording something that happened outside NERO (they applied elsewhere,

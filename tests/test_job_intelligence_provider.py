@@ -39,6 +39,18 @@ def test_provider_job_semantics_schema_is_openai_strict_compatible():
     check(schema)
 
 
+def test_provider_client_request_timeout_is_bounded():
+    """AJI-026: the client must not inherit the SDK's 10-minute
+    default; it uses the same 60s bound as the Resume Intelligence
+    provider."""
+    provider = OpenAIJobIntelligenceProvider(
+        api_key="test-key",
+        model_name="test-model",
+    )
+
+    assert provider.client.timeout == 60.0
+
+
 def test_provider_metadata():
     provider = OpenAIJobIntelligenceProvider(
         api_key="test-key",
