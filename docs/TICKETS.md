@@ -59,6 +59,7 @@ ticket's documented scope and open items.
 | AJI-026 | Production baseline: CI, Compose fix, AI timeouts, doc reconciliation, this register | Claimed | — |
 | AJI-027 | General Resume Intelligence: job-independent General Resume Score, resume-level improvements, approve/reject, `Refined N` versions, recheck, readiness | Claimed | — |
 | AJI-028 | Zero-Cost Job Discovery Foundation (foundation only): shared HTTP retry/backoff/throttle client, bounded pagination, `jobs.expires_at` + `active_jobs_filter()`, generic source attribution, adapter contract. No real provider enabled. Branch `claude/aji-028-zero-cost-discovery-foundation`. | Claimed | — |
+| AJI-029 | Zero-Cost Job Provider Evaluation (research only): evidence-based comparison of candidate job sources, see `docs/research/AJI-029-zero-cost-provider-evaluation.md`. No code changed, no provider approved. | Claimed | — |
 
 ### Work outside the AJI series
 
