@@ -185,3 +185,52 @@ def test_ai_analysis_get_is_scoped_to_current_user():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resume AI analysis not found."
+
+
+def test_version_listing_reports_general_improvement_source(db):
+    """AJI-027: a General Resume Intelligence version is listed with its
+    own source, its lineage, no stored file, and is never master."""
+    from apps.api.models import Resume, ResumeVersion
+    from apps.api.services.resume_fingerprint import compute_content_fingerprint
+
+    user = User(
+        id=uuid4(),
+        email=f"resume-api-{uuid4()}@example.com",
+        password_hash="test-password-hash",
+    )
+    db.add(user)
+    db.flush()
+    resume = Resume(id=uuid4(), user_id=user.id, filename="r.pdf")
+    db.add(resume)
+    db.flush()
+    parent = ResumeVersion(
+        id=uuid4(), resume_id=resume.id, name="Original", content_text="a",
+        content_fingerprint=compute_content_fingerprint("a"),
+        original_filename="r.pdf", storage_path="/tmp/r.pdf", is_master=True,
+    )
+    db.add(parent)
+    db.flush()
+    child = ResumeVersion(
+        id=uuid4(), resume_id=resume.id, name="Refined 1", content_text="b",
+        content_fingerprint=compute_content_fingerprint("b"),
+        original_filename="r.pdf", storage_path=None,
+        parent_version_id=parent.id, source="general_improvement",
+        is_master=False,
+    )
+    db.add(child)
+    db.flush()
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        response = TestClient(app).get(f"/resumes/{resume.id}/versions")
+    finally:
+        _clear_overrides()
+
+    listed = {item["id"]: item for item in response.json()}
+    assert response.status_code == 200
+    assert listed[str(child.id)]["source"] == "general_improvement"
+    assert listed[str(child.id)]["parent_version_id"] == str(parent.id)
+    assert listed[str(child.id)]["has_file"] is False
+    assert listed[str(child.id)]["is_master"] is False
