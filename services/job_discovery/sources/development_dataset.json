@@ -1,0 +1,471 @@
+{
+  "dataset": "nero_development_dataset",
+  "version": "1",
+  "notice": "SYNTHETIC DEVELOPMENT DATA (AJI-030). Every company, posting and salary in this file is invented for NERO development and testing. None of it is a real job, none of it was copied or scraped from a job site, and no record carries a posting or application URL. Dates are relative offsets (days before / after the day a run happens), resolved by DevelopmentDatasetJobSource, so the active/expired mix never goes stale.",
+  "records": [
+    {
+      "id": "dev-1001",
+      "title": "Senior Backend Engineer",
+      "company": "Harborline Health (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Austin, TX",
+      "country": "USA",
+      "salary": {"min": 150000, "max": 185000, "currency": "USD"},
+      "description": "Harborline Health is building a patient scheduling platform used by clinics across the country. As a Senior Backend Engineer you will design and operate the Python services behind appointment booking, reminders and clinic analytics.",
+      "responsibilities": [
+        "Design, build and operate REST APIs in Python and FastAPI.",
+        "Own PostgreSQL schema design, migrations and query performance.",
+        "Deploy services to AWS with Docker and Terraform.",
+        "Review code and mentor two mid-level engineers."
+      ],
+      "requirements": [
+        "5+ years of professional software engineering experience.",
+        "Strong Python and SQL skills.",
+        "Experience with PostgreSQL in production.",
+        "Experience with Docker and AWS.",
+        "Nice to have: Kubernetes."
+      ],
+      "posted_days_ago": 2,
+      "expires_in_days": 28
+    },
+    {
+      "id": "dev-1002",
+      "title": "Machine Learning Engineer",
+      "company": "Lumen Ridge Analytics (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Remote",
+      "location": "Remote, United States",
+      "country": "United States",
+      "salary": {"min": 160000, "max": 200000, "currency": "USD"},
+      "description": "Lumen Ridge Analytics builds demand-forecasting products for retailers. You will train, evaluate and ship machine learning models that forecast inventory needs for thousands of stores.",
+      "responsibilities": [
+        "Train and evaluate forecasting models with PyTorch and scikit-learn.",
+        "Build feature pipelines with pandas and Spark.",
+        "Deploy models behind Python services on AWS.",
+        "Monitor model quality and retrain when data drifts."
+      ],
+      "requirements": [
+        "3+ years of experience building machine learning systems.",
+        "Proficiency in Python, pandas and scikit-learn.",
+        "Experience with PyTorch or TensorFlow.",
+        "Experience deploying models to production on AWS or GCP.",
+        "Preferred: experience with Spark."
+      ],
+      "posted_days_ago": 1,
+      "expires_in_days": 30
+    },
+    {
+      "id": "dev-1003",
+      "title": "Frontend Engineer",
+      "company": "Cedar & Pine Commerce (demo)",
+      "employment_type": "Full Time",
+      "workplace": "On-site",
+      "location": "New York, NY",
+      "country": "USA",
+      "salary": {"min": 130000, "max": 160000, "currency": "USD"},
+      "description": "Cedar & Pine Commerce runs an online marketplace for independent furniture makers. You will build fast, accessible shopping experiences in React and TypeScript from our Manhattan office.",
+      "responsibilities": [
+        "Build product listing, cart and checkout interfaces in React.",
+        "Improve accessibility and page performance.",
+        "Work with designers to turn prototypes into production UI.",
+        "Write unit and end-to-end tests."
+      ],
+      "requirements": [
+        "3+ years of frontend development experience.",
+        "Strong JavaScript and TypeScript skills.",
+        "Experience with React.",
+        "Understanding of web accessibility standards."
+      ],
+      "posted_days_ago": 5,
+      "expires_in_days": 25
+    },
+    {
+      "id": "dev-1004",
+      "title": "Data Engineer (Contract)",
+      "company": "Meridian Freight Systems (demo)",
+      "employment_type": "Contract",
+      "workplace": "Remote",
+      "location": "Remote, United States",
+      "country": "USA",
+      "contract_duration": "6 months",
+      "contract_worker_type": "w2",
+      "description": "Meridian Freight Systems needs a contract data engineer for a six-month project consolidating shipment tracking data into a new analytics warehouse.",
+      "responsibilities": [
+        "Build batch data pipelines in SQL and Python.",
+        "Orchestrate pipelines with Airflow.",
+        "Model warehouse tables for the analytics team.",
+        "Document pipelines and hand them over at the end of the contract."
+      ],
+      "requirements": [
+        "4+ years of data engineering experience.",
+        "Expert SQL and strong Python.",
+        "Experience with Airflow or a similar orchestrator.",
+        "Experience with a cloud data warehouse."
+      ],
+      "posted_days_ago": 3,
+      "expires_in_days": 14
+    },
+    {
+      "id": "dev-1005",
+      "title": "DevOps Engineer",
+      "company": "Bluewater Civic Software (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Denver, CO",
+      "country": "USA",
+      "salary": {"min": 125000, "max": 150000, "currency": "USD"},
+      "description": "Bluewater Civic Software builds permitting and licensing software for city governments. You will run the infrastructure that keeps those services available for residents.",
+      "responsibilities": [
+        "Maintain Kubernetes clusters and CI/CD pipelines.",
+        "Manage infrastructure as code with Terraform.",
+        "Improve monitoring, alerting and incident response.",
+        "Harden systems to meet government security requirements."
+      ],
+      "requirements": [
+        "4+ years of DevOps or site reliability experience.",
+        "Experience with Kubernetes, Docker and Terraform.",
+        "Experience with AWS or Azure.",
+        "Scripting in Python or Go.",
+        "Ability to obtain a public trust clearance is preferred."
+      ],
+      "posted_days_ago": 7,
+      "expires_in_days": 21
+    },
+    {
+      "id": "dev-1006",
+      "title": "Junior Software Engineer",
+      "company": "Harborline Health (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Austin, TX",
+      "country": "USA",
+      "salary": {"min": 85000, "max": 105000, "currency": "USD"},
+      "description": "An entry-level role on Harborline Health's clinic tools team. You will learn our Python and React stack while shipping features with support from a mentor.",
+      "responsibilities": [
+        "Fix bugs and ship small features across the stack.",
+        "Write tests for new and existing code.",
+        "Take part in code review and team planning."
+      ],
+      "requirements": [
+        "0-2 years of professional experience; recent graduates welcome.",
+        "Familiarity with Python or JavaScript.",
+        "Basic understanding of SQL.",
+        "Bachelor's degree in computer science or equivalent practical experience."
+      ],
+      "posted_days_ago": 4,
+      "expires_in_days": 26
+    },
+    {
+      "id": "dev-1007",
+      "title": "Data Analyst",
+      "company": "Lakeshore Mutual Insurance (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Onsite",
+      "location": "Chicago, IL",
+      "country": "USA",
+      "salary": {"min": 80000, "max": 98000, "currency": "USD"},
+      "description": "Lakeshore Mutual Insurance is looking for a data analyst to turn claims data into dashboards and recommendations for the operations team.",
+      "responsibilities": [
+        "Write SQL queries to analyze claims and policy data.",
+        "Build and maintain Tableau dashboards.",
+        "Present findings to operations managers."
+      ],
+      "requirements": [
+        "2+ years of experience in a data analysis role.",
+        "Strong SQL and Excel skills.",
+        "Experience with Tableau or Power BI.",
+        "Nice to have: Python or R."
+      ],
+      "posted_days_ago": 6,
+      "expires_in_days": 24
+    },
+    {
+      "id": "dev-1008",
+      "title": "Cloud Security Engineer (Contract)",
+      "company": "Ironbridge Payments (demo)",
+      "employment_type": "contractor",
+      "workplace": "Remote",
+      "location": "Remote, United States",
+      "country": "USA",
+      "contract_duration": "12 months",
+      "contract_worker_type": "c2c",
+      "description": "Ironbridge Payments is hiring a 12-month contract cloud security engineer to strengthen the security of its AWS payment infrastructure ahead of a compliance audit. No salary range is stated for this contract.",
+      "responsibilities": [
+        "Review and harden AWS IAM policies and network configuration.",
+        "Automate security checks in the CI pipeline.",
+        "Support the team through a PCI DSS audit."
+      ],
+      "requirements": [
+        "5+ years of security engineering experience.",
+        "Deep experience with AWS security services.",
+        "Experience with Terraform.",
+        "Familiarity with PCI DSS."
+      ],
+      "posted_days_ago": 2,
+      "expires_in_days": 18
+    },
+    {
+      "id": "dev-1009",
+      "title": "Full Stack Engineer",
+      "company": "Cedar & Pine Commerce (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Remote",
+      "location": "Remote, United States",
+      "country": "USA",
+      "salary": {"min": 135000, "max": 165000, "currency": "USD"},
+      "description": "Join Cedar & Pine Commerce's seller tools team to build the dashboards independent makers use to manage their shops, orders and payouts.",
+      "responsibilities": [
+        "Build features end to end in TypeScript, React and Node.js.",
+        "Design APIs backed by PostgreSQL.",
+        "Own features from design through release and monitoring."
+      ],
+      "requirements": [
+        "4+ years of full stack development experience.",
+        "Strong TypeScript skills.",
+        "Experience with React and Node.js.",
+        "Experience with PostgreSQL."
+      ],
+      "posted_days_ago": 9,
+      "expires_in_days": null
+    },
+    {
+      "id": "dev-1010",
+      "title": "Site Reliability Engineer",
+      "company": "Northgate Streaming (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Seattle, WA",
+      "country": "USA",
+      "salary": {"min": 165000, "max": 195000, "currency": "USD"},
+      "description": "Northgate Streaming delivers live sports video to millions of viewers. As an SRE you will keep our streaming platform reliable during the biggest events of the year.",
+      "responsibilities": [
+        "Define and track service level objectives.",
+        "Lead incident response and blameless postmortems.",
+        "Automate capacity planning for live events.",
+        "Improve observability across Kubernetes services."
+      ],
+      "requirements": [
+        "5+ years of site reliability or infrastructure experience.",
+        "Experience running Kubernetes at scale.",
+        "Proficiency in Go or Python.",
+        "Experience with Prometheus or a similar monitoring stack."
+      ],
+      "posted_days_ago": 3,
+      "expires_in_days": 27
+    },
+    {
+      "id": "dev-1011",
+      "title": "QA Automation Engineer (Contract)",
+      "company": "Meridian Freight Systems (demo)",
+      "employment_type": "Contract",
+      "workplace": "Onsite",
+      "location": "Atlanta, GA",
+      "country": "USA",
+      "contract_duration": "3 months",
+      "contract_worker_type": "1099",
+      "description": "A three-month onsite contract to build an automated regression suite for Meridian Freight Systems' dispatch application before a major release.",
+      "responsibilities": [
+        "Write automated UI and API tests.",
+        "Integrate the test suite into CI.",
+        "Report and triage defects with the development team."
+      ],
+      "requirements": [
+        "3+ years of QA automation experience.",
+        "Experience with Selenium or Playwright.",
+        "Scripting in Python or JavaScript."
+      ],
+      "posted_days_ago": 1,
+      "expires_in_days": 10
+    },
+    {
+      "id": "dev-1012",
+      "title": "AI Engineer",
+      "company": "Lumen Ridge Analytics (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Boston, MA",
+      "country": "USA",
+      "salary": {"min": 155000, "max": 190000, "currency": "USD"},
+      "description": "Lumen Ridge Analytics is adding generative AI assistants to its forecasting products. You will build LLM-powered features that explain forecasts to store managers.",
+      "responsibilities": [
+        "Build LLM applications with retrieval-augmented generation.",
+        "Evaluate model outputs for accuracy and grounding.",
+        "Ship Python services that serve AI features to production."
+      ],
+      "requirements": [
+        "3+ years of software engineering experience.",
+        "Strong Python skills.",
+        "Experience building applications with large language models.",
+        "Experience with Docker and a major cloud provider."
+      ],
+      "posted_days_ago": 2,
+      "expires_in_days": 30
+    },
+    {
+      "id": "dev-1013",
+      "title": "Mobile Engineer (iOS)",
+      "company": "Northgate Streaming (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "On-site",
+      "location": "Los Angeles, CA",
+      "country": "USA",
+      "salary": {"min": 145000, "max": 175000, "currency": "USD"},
+      "description": "Build the Northgate Streaming iPhone and iPad apps that fans use to watch live games, from video playback to personalized recommendations.",
+      "responsibilities": [
+        "Build features in Swift and SwiftUI.",
+        "Improve video playback reliability and app performance.",
+        "Collaborate with backend engineers on API design."
+      ],
+      "requirements": [
+        "3+ years of iOS development experience.",
+        "Strong Swift skills.",
+        "Experience shipping apps to the App Store."
+      ],
+      "posted_days_ago": 8,
+      "expires_in_days": 22
+    },
+    {
+      "id": "dev-1014",
+      "title": "Product Data Scientist",
+      "company": "Ironbridge Payments (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Remote",
+      "location": "Remote, United States",
+      "country": "USA",
+      "description": "Help Ironbridge Payments understand how merchants use its products. You will design experiments and build models that guide product decisions. Compensation is not listed for this role.",
+      "responsibilities": [
+        "Design and analyze A/B tests.",
+        "Build predictive models for merchant churn.",
+        "Partner with product managers on metrics and roadmaps."
+      ],
+      "requirements": [
+        "3+ years of experience as a data scientist.",
+        "Strong SQL and Python.",
+        "Experience with statistics and experiment design.",
+        "Experience with scikit-learn or XGBoost."
+      ],
+      "posted_days_ago": 12,
+      "expires_in_days": 18
+    },
+    {
+      "id": "dev-1015",
+      "title": "Java Backend Developer",
+      "company": "Lakeshore Mutual Insurance (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Charlotte, NC",
+      "country": "USA",
+      "salary": {"min": 115000, "max": 140000, "currency": "USD"},
+      "description": "Modernize Lakeshore Mutual Insurance's policy administration system by moving it to Java microservices.",
+      "responsibilities": [
+        "Build Java and Spring Boot microservices.",
+        "Migrate legacy batch jobs to event-driven services.",
+        "Write integration tests and maintain CI pipelines."
+      ],
+      "requirements": [
+        "4+ years of Java development experience.",
+        "Experience with Spring Boot.",
+        "Experience with SQL databases.",
+        "Nice to have: Kafka."
+      ],
+      "posted_days_ago": 10,
+      "expires_in_days": 20
+    },
+    {
+      "id": "dev-1016",
+      "title": "Platform Engineer",
+      "company": "Bluewater Civic Software (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Remote",
+      "location": "Remote, United States",
+      "country": "USA",
+      "salary": {"min": 135000, "max": 160000, "currency": "USD"},
+      "description": "This posting has closed. Bluewater Civic Software was hiring a platform engineer to build internal developer tooling on Kubernetes.",
+      "responsibilities": [
+        "Build internal developer tooling.",
+        "Maintain shared Kubernetes platform services."
+      ],
+      "requirements": [
+        "4+ years of platform or infrastructure experience.",
+        "Experience with Kubernetes and Terraform."
+      ],
+      "posted_days_ago": 45,
+      "expires_in_days": -5
+    },
+    {
+      "id": "dev-1017",
+      "title": "Business Intelligence Developer (Contract)",
+      "company": "Lakeshore Mutual Insurance (demo)",
+      "employment_type": "Contract",
+      "workplace": "Hybrid",
+      "location": "Chicago, IL",
+      "country": "USA",
+      "contract_duration": "4 months",
+      "contract_worker_type": "w2",
+      "description": "This contract has closed. Lakeshore Mutual Insurance was hiring a BI developer to rebuild its underwriting reports in Power BI.",
+      "responsibilities": [
+        "Rebuild underwriting reports in Power BI."
+      ],
+      "requirements": [
+        "3+ years of BI development experience.",
+        "Strong SQL and Power BI skills."
+      ],
+      "posted_days_ago": 60,
+      "expires_in_days": -1
+    },
+    {
+      "id": "dev-1001",
+      "title": "Senior Backend Engineer",
+      "company": "Harborline Health (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Austin, TX",
+      "country": "USA",
+      "salary": {"min": 150000, "max": 185000, "currency": "USD"},
+      "description": "Harborline Health is building a patient scheduling platform used by clinics across the country. As a Senior Backend Engineer you will design and operate the Python services behind appointment booking, reminders and clinic analytics.",
+      "responsibilities": [
+        "Design, build and operate REST APIs in Python and FastAPI.",
+        "Own PostgreSQL schema design, migrations and query performance.",
+        "Deploy services to AWS with Docker and Terraform.",
+        "Review code and mentor two mid-level engineers."
+      ],
+      "requirements": [
+        "5+ years of professional software engineering experience.",
+        "Strong Python and SQL skills.",
+        "Experience with PostgreSQL in production.",
+        "Experience with Docker and AWS.",
+        "Nice to have: Kubernetes."
+      ],
+      "posted_days_ago": 2,
+      "expires_in_days": 28
+    },
+    {
+      "id": "dev-1018",
+      "title": "Backend Engineer",
+      "company": "Maple Harbor Games (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Hybrid",
+      "location": "Toronto, ON",
+      "country": "Canada",
+      "salary": {"min": 120000, "max": 140000, "currency": "CAD"},
+      "description": "A Canada-based backend role building multiplayer game services. Outside NERO's current U.S.-only scope, so validation rejects it.",
+      "responsibilities": ["Build multiplayer game services in Go."],
+      "requirements": ["3+ years of backend experience."],
+      "posted_days_ago": 2,
+      "expires_in_days": 28
+    },
+    {
+      "id": "dev-1019",
+      "title": "Operations Associate",
+      "company": "Harborline Health (demo)",
+      "employment_type": "Full-Time",
+      "workplace": "Onsite",
+      "location": "Austin, TX",
+      "country": "USA",
+      "description": "TBD",
+      "posted_days_ago": 1,
+      "expires_in_days": 29
+    }
+  ]
+}

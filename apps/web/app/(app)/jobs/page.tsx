@@ -1383,8 +1383,8 @@ function JobsPageInner() {
             </Badge>
             <p className="text-xs leading-5 text-app-danger-text">
               Development test mode is on. Jobs marked Test data come from
-              NERO&apos;s synthetic fixture provider and are not real
-              postings.
+              NERO&apos;s synthetic development data (the test fixture or
+              the development dataset) and are not real postings.
             </p>
           </div>
         )}

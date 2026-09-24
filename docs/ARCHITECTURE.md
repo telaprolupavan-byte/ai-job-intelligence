@@ -3469,3 +3469,114 @@ rejection carry-forward and its limit, ownership, AI failure);
   text on "View Extracted Text" and disables Download for it. AJI-021
   `Improved N` versions were left as they were (for a `.pdf` original,
   "View Resume" still reports that the file could not be retrieved).
+
+## Job Intelligence Development Dataset (AJI-030)
+
+No production job provider is approved yet (AJI-029). AJI-030 lets the
+job-intelligence workflow be developed end to end on **controlled,
+synthetic** data, through exactly the path a future approved provider
+will use. It adds no pipeline, model, table or AI framework.
+
+```
+development_dataset.json ──► DevelopmentDatasetJobSource   (adapter, like any provider)
+                               fetch_raw_jobs / normalize_raw_job
+                                        │
+        existing AJI-024/028 pipeline: validate ► deduplicate ► persist (jobs)
+                                        │
+   active_jobs_filter ► GET /jobs (search/filters) ► GET /jobs/{id} (details)
+        ► POST /jobs/{id}/intelligence (AJI-012) ► POST /jobs/{id}/match
+        ► POST/PATCH /applications (existing tracking)
+```
+
+### The dataset
+
+`services/job_discovery/sources/development_dataset.json`: 20 records.
+17 are distinct, realistic U.S. jobs across 8 invented companies (all
+named "… (demo)"): full-time and contract; remote, hybrid and onsite;
+9 U.S. cities plus remote; entry to senior experience; salaries where stated;
+contract length and worker type on contracts; description,
+responsibilities and requirements on every job. Two of them have
+already closed. The other three records are there to exercise the
+pipeline: an exact in-batch duplicate, a Canadian job (rejected, since
+scope is U.S.-only), and a placeholder description (rejected).
+
+Nothing in it is a real posting, copied or scraped. Records carry no
+posting or application URL, so a development job can never link out as
+if it were live.
+
+Dates are stated as `posted_days_ago` / `expires_in_days` (`null` means no
+stated expiry, and a negative value means already closed).
+`fetch_raw_jobs` resolves them against the start of the current UTC day,
+or against an injected `now` in tests. The active/expired mix therefore
+never goes stale, same-day runs are identical, and
+`normalize_raw_job` stays deterministic. `expires_at` is still only
+what the dataset states (the AJI-028 rule).
+
+Contract rates are hourly, and `DiscoveredJob`/`jobs` have no pay-period
+field. Contract records therefore state no salary rather than store an
+hourly figure that would read as annual (see Known limitations).
+
+### Isolation
+
+- `JOB_DISCOVERY_PROVIDER=development_dataset` builds the adapter only
+  when `JOB_DISCOVERY_ENABLE_TEST_PROVIDER=true`, exactly like
+  `test_fixture`; otherwise it fails with a 503. It needs no API key,
+  account, network or paid service.
+- `services/job_discovery/sources/non_production.py::NON_PRODUCTION_SOURCES`
+  (`nero_test_fixture`, `nero_development_dataset`) replaces the single
+  fixture constant in the three places that keep synthetic data out of
+  production: `visible_jobs_filter()` hides these rows whenever test mode
+  is off, the Jobs API's `is_test_data` flag, and the discovery status.
+  This is the only change to AJI-024/028 code. It was needed because
+  those checks named one source, so a second synthetic source would
+  otherwise have shown as production data.
+- The source is not registered for attribution: there is no one to
+  credit.
+
+### What the UI shows
+
+`is_test_data` drives every indication. The Jobs list shows the "Test
+data" badge and the test-mode banner, which now names the development
+dataset. The origin line reads "Synthetic · development data". Job
+Details shows a note that the job is synthetic and not a real posting.
+The Applications list and detail show a "Test data" badge, from a new
+additive `is_test_data` field on the application job summary.
+
+### Loading it locally
+
+```
+JOB_DISCOVERY_PROVIDER=development_dataset
+JOB_DISCOVERY_ENABLE_TEST_PROVIDER=true   # never in production
+JOB_DISCOVERY_TRIGGER_TOKEN=<any local secret>
+
+curl -X POST localhost:8000/internal/job-discovery/run \
+  -H "X-Discovery-Trigger-Token: <same secret>"
+# -> fetched 20, inserted 17, duplicates 1, rejected 2; a rerun updates 17
+```
+
+### Replacing it with an approved provider
+
+Add the provider's adapter, add a branch in `build_configured_source()`,
+and register its attribution. Nothing downstream changes. Do not add a
+real provider to `NON_PRODUCTION_SOURCES`.
+
+### Testing
+
+`tests/test_development_dataset.py` covers dataset labelling and
+coverage, relative dates, determinism, isolation and the gate, run
+counters, dedupe and stable ids, search filters, the active/expired
+split, details, Job Intelligence (grounded evidence, and a partial
+snapshot with no AI provider), Resume ↔ Job Match, and Application
+Tracking across re-runs. `tests/test_job_source_contract.py` runs the
+shared adapter contract over the new adapter. Frontend tests cover the
+Job Details note, the Jobs list labels and the Applications badges.
+
+### Known limitations
+
+- No pay-period field in the canonical schema. Hourly contract rates
+  cannot be represented without being read as annual. This is a schema
+  decision for a future ticket.
+- The existing Job Match extractor treats "X or Y" requirements
+  ("PyTorch or TensorFlow", "AWS or GCP") as separate must-haves. It
+  reports the unmet alternative as a gap even when the other one is met.
+  This is pre-existing matcher behavior and was not changed here.

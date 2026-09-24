@@ -78,6 +78,18 @@ export default function JobDetails({ job }: { job: Job }) {
         is marked, never guessed.
       </p>
 
+      {/* AJI-030: synthetic jobs (test fixture, development dataset) must
+          never read as a real, live opening. */}
+      {job.is_test_data && (
+        <p
+          role="note"
+          className="mt-3 rounded-md border border-app-danger-border bg-app-danger-bg px-3 py-2 text-xs leading-5 text-app-danger-text"
+        >
+          Development data: this job is synthetic, created for testing NERO.
+          It is not a real posting and there is no employer to apply to.
+        </p>
+      )}
+
       <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
         {facts.map((fact) => (
           <div key={fact.label} className="min-w-0">

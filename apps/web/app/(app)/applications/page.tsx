@@ -124,8 +124,15 @@ export default function ApplicationsPage() {
                   <Panel padding="lg" interactive>
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="truncate text-base font-semibold text-app-text">
-                          {application.job.title}
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="truncate text-base font-semibold text-app-text">
+                            {application.job.title}
+                          </div>
+                          {application.job.is_test_data && (
+                            <Badge tone="danger" className="shrink-0">
+                              Test data
+                            </Badge>
+                          )}
                         </div>
                         <div className="mt-1 truncate text-sm text-app-muted">
                           {application.job.company ?? "Unknown company"}

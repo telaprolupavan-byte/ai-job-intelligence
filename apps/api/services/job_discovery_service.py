@@ -19,6 +19,10 @@ each one deterministically (a malformed record is a rejection, not a
 failed run), then the shared validate/deduplicate/persist pipeline. The
 synthetic `test_fixture` provider exists for tests and local development
 and is double-gated - see `build_configured_source`.
+
+AJI-030: the synthetic `development_dataset` provider (a realistic,
+controlled U.S. dataset for developing the job-intelligence workflow while
+no production provider is approved) is gated exactly like the fixture.
 """
 
 from __future__ import annotations
@@ -43,11 +47,14 @@ from services.job_discovery.sources.base import (
     JobSourceAdapter,
     JobSourceFetchError,
 )
-from services.job_discovery.sources.greenhouse import GreenhouseJobSource
-from services.job_discovery.sources.test_fixture import (
-    TEST_FIXTURE_SOURCE,
-    TestFixtureJobSource,
+from services.job_discovery.sources.development_dataset import (
+    DevelopmentDatasetJobSource,
 )
+from services.job_discovery.sources.greenhouse import GreenhouseJobSource
+from services.job_discovery.sources.non_production import (
+    NON_PRODUCTION_SOURCES,
+)
+from services.job_discovery.sources.test_fixture import TestFixtureJobSource
 
 
 logger = logging.getLogger(__name__)
@@ -74,9 +81,9 @@ class JobDiscoveryNotConfiguredError(JobDiscoveryServiceError):
 
 
 class JobDiscoveryTestProviderDisabledError(JobDiscoveryServiceError):
-    def __init__(self) -> None:
+    def __init__(self, provider: str = "test_fixture") -> None:
         super().__init__(
-            "JOB_DISCOVERY_PROVIDER=test_fixture selects the synthetic test "
+            f"JOB_DISCOVERY_PROVIDER={provider} selects a synthetic test "
             "provider, which only runs when "
             "JOB_DISCOVERY_ENABLE_TEST_PROVIDER=true is also set. It must "
             "never be enabled in production.",
@@ -117,7 +124,13 @@ _discovery_lock = threading.Lock()
 
 PROVIDER_GREENHOUSE = "greenhouse"
 PROVIDER_TEST_FIXTURE = "test_fixture"
-SUPPORTED_PROVIDERS = {PROVIDER_GREENHOUSE, PROVIDER_TEST_FIXTURE}
+PROVIDER_DEVELOPMENT_DATASET = "development_dataset"
+# Synthetic providers: never production data, only built in test mode.
+TEST_PROVIDERS = {
+    PROVIDER_TEST_FIXTURE: TestFixtureJobSource,
+    PROVIDER_DEVELOPMENT_DATASET: DevelopmentDatasetJobSource,
+}
+SUPPORTED_PROVIDERS = {PROVIDER_GREENHOUSE, *TEST_PROVIDERS}
 
 
 @dataclass
@@ -161,17 +174,17 @@ def build_configured_source() -> JobSourceAdapter:
 
     - unset / "greenhouse": Greenhouse, if its board settings are present
       (the pre-AJI-024 behavior), else JobDiscoveryNotConfiguredError.
-    - "test_fixture": the synthetic fixture provider, only when
-      JOB_DISCOVERY_ENABLE_TEST_PROVIDER is true.
+    - "test_fixture" / "development_dataset" (AJI-030): a synthetic
+      provider, only when JOB_DISCOVERY_ENABLE_TEST_PROVIDER is true.
     - anything else: JobDiscoveryUnknownProviderError - never a fallback.
     """
     provider = _configured_provider()
 
-    if provider == PROVIDER_TEST_FIXTURE:
+    if provider in TEST_PROVIDERS:
         if not is_test_provider_enabled():
-            raise JobDiscoveryTestProviderDisabledError()
+            raise JobDiscoveryTestProviderDisabledError(provider)
 
-        return TestFixtureJobSource()
+        return TEST_PROVIDERS[provider]()
 
     if provider not in (None, PROVIDER_GREENHOUSE):
         raise JobDiscoveryUnknownProviderError(provider)
@@ -308,7 +321,9 @@ def get_discovery_status(db: Session) -> DiscoveryStatus:
     query = db.query(DiscoveryRun)
 
     if not is_test_provider_enabled():
-        query = query.filter(DiscoveryRun.source != TEST_FIXTURE_SOURCE)
+        query = query.filter(
+            DiscoveryRun.source.notin_(NON_PRODUCTION_SOURCES)
+        )
 
     last_run = query.order_by(DiscoveryRun.started_at.desc()).first()
 

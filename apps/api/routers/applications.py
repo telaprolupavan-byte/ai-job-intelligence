@@ -20,6 +20,9 @@ from apps.api.services.application_service import (
     remove_saved_job,
     update_application_status,
 )
+from services.job_discovery.sources.non_production import (
+    is_non_production_source,
+)
 
 
 router = APIRouter(
@@ -39,6 +42,7 @@ def _job_summary(saved_job: SavedJob) -> ApplicationJobSummary:
         employment_type=job.employment_type,
         remote_type=job.remote_type,
         application_url=job.application_url,
+        is_test_data=is_non_production_source(job.source),
     )
 
 

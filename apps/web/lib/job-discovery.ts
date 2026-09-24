@@ -9,7 +9,7 @@ import { getAuthToken } from "./auth";
  */
 export type DiscoveryStatus = {
   source_configured: boolean;
-  /** The synthetic test-fixture provider is enabled (dev/test only). */
+  /** A synthetic provider (test fixture / development dataset) is enabled (dev/test only). */
   test_mode: boolean;
   last_run: {
     status: "running" | "succeeded" | "failed" | string;
