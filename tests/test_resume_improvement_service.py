@@ -21,7 +21,6 @@ from apps.api.models import (
     JobIntelligence,
     Preference,
     Profile,
-    RequirementIntelligence,
     Resume,
     ResumeImprovement,
     ResumeVersion,
@@ -30,9 +29,6 @@ from apps.api.models import (
 from apps.api.services.ats_alignment_service import ATSAlignmentServiceError
 from apps.api.services.gap_analysis import service as gap_analysis_service
 from apps.api.services.gap_analysis.service import generate_gap_analysis
-from apps.api.services.requirement_intelligence.contracts import (
-    RequirementIntelligenceResult,
-)
 from apps.api.services.resume_fingerprint import compute_content_fingerprint
 from apps.api.services.resume_improvement import service as improvement_service
 from apps.api.services.resume_improvement.service import (
@@ -40,6 +36,11 @@ from apps.api.services.resume_improvement.service import (
     create_resume_improvement,
     get_latest_resume_improvement,
     run_recheck,
+)
+
+from tests.support.requirement_intelligence import (
+    make_requirement_intelligence,
+    ri_skill_item,
 )
 
 
@@ -161,57 +162,6 @@ def make_job(db) -> Job:
     db.flush()
 
     return job
-
-
-def ri_skill_item(canonical_skill: str, *, importance: str = "required") -> dict:
-    return {
-        "id": f"req-skill-{canonical_skill}",
-        "requirement_type": "skill",
-        "importance": importance,
-        "statement": f"{canonical_skill} ({importance})",
-        "canonical_terms": [canonical_skill],
-        "raw_text": f"{canonical_skill} {importance}.",
-        "confidence": "high",
-    }
-
-
-def make_requirement_intelligence(
-    db, *, job: Job, user: User, requirements: list[dict]
-) -> RequirementIntelligence:
-    payload = {
-        "analysis_version": "1.0",
-        "analyzer_version": "1.0",
-        "prompt_version": "1.0",
-        "model_provider": None,
-        "model_name": None,
-        "extraction_status": "complete",
-        "source_id": str(job.id),
-        "identity": {"original_title": job.title},
-        "domain": {},
-        "requirements": requirements,
-        "relationships": [],
-        "screening_constraints": [],
-        "quality": {},
-        "security": {},
-    }
-    validated = RequirementIntelligenceResult.model_validate(payload)
-
-    record = RequirementIntelligence(
-        id=uuid4(),
-        user_id=user.id,
-        job_id=job.id,
-        content_fingerprint=f"fingerprint-{uuid4()}",
-        raw_jd_snapshot={"title": job.title},
-        analysis_version="1.0",
-        analyzer_version="1.0",
-        prompt_version="1.0",
-        extraction_status="complete",
-        structured_intelligence=validated.model_dump(mode="json"),
-    )
-    db.add(record)
-    db.flush()
-
-    return record
 
 
 def setup_gap_analysis(db, *, user: User) -> tuple[Job, ResumeVersion, GapAnalysis]:

@@ -11,8 +11,12 @@ from apps.api.models import ResumeVersion
 from apps.api.security import create_access_token
 from apps.api.services.general_resume import service as general_service
 
-from tests.general_resume_fixtures import WEAK_BULLET_1, WEAK_RESUME
-from tests.test_general_resume_service import FakeProvider, make_user, make_version
+from tests.support.general_resume import (
+    WEAK_BULLET_1,
+    FakeProvider,
+    make_user,
+    make_version,
+)
 
 
 @pytest.fixture

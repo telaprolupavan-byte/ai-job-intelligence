@@ -27,7 +27,7 @@ from apps.api.services.requirement_intelligence.persistence_service import (
 )
 from apps.api.services.resume_fingerprint import compute_content_fingerprint
 
-from tests.test_ats_alignment_service import (
+from tests.support.requirement_intelligence import (
     make_requirement_intelligence,
     ri_skill_item,
 )

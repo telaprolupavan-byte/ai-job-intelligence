@@ -33,7 +33,7 @@ from services.job_discovery.sources.test_fixture import (
     TEST_FIXTURE_SOURCE,
     TestFixtureJobSource,
 )
-from tests.job_discovery_fakes import (
+from tests.support.job_discovery import (
     ExamplePagedSource,
     PagedTransport,
     example_record,

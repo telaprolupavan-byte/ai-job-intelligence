@@ -1,15 +1,11 @@
 """AJI-027 General Resume Intelligence: DB-level guarantees."""
 
-from uuid import uuid4
-
 import pytest
 
 from apps.api.models import (
     GeneralResumeAssessment,
     GeneralResumeReview,
-    Resume,
     ResumeVersion,
-    User,
 )
 from apps.api.services.general_resume import service as general_service
 from apps.api.services.general_resume.service import (
@@ -22,25 +18,14 @@ from apps.api.services.general_resume.service import (
     serialize_assessment,
     serialize_review,
 )
-from apps.api.services.resume_fingerprint import compute_content_fingerprint
 
-from tests.general_resume_fixtures import (
+from tests.support.general_resume import (
     STRONG_RESUME,
     WEAK_BULLET_1,
-    WEAK_RESUME,
+    FakeProvider,
+    make_user,
+    make_version,
 )
-
-
-class FakeProvider:
-    provider_name = "fake"
-    model_name = "fake-model"
-
-    def __init__(self):
-        self.calls = 0
-
-    def generate_improvement_explanations(self, *, items):
-        self.calls += 1
-        return {"items": []}
 
 
 class FailingProvider:
@@ -58,36 +43,6 @@ def fake_provider(monkeypatch):
         general_service, "create_general_resume_provider", lambda: provider
     )
     return provider
-
-
-def make_user(db) -> User:
-    user = User(
-        id=uuid4(),
-        email=f"general-resume-{uuid4()}@example.com",
-        password_hash="test-password-hash",
-    )
-    db.add(user)
-    db.flush()
-    return user
-
-
-def make_version(db, user, text=WEAK_RESUME) -> ResumeVersion:
-    resume = Resume(id=uuid4(), user_id=user.id, filename="resume.pdf", original_text=text)
-    db.add(resume)
-    db.flush()
-    version = ResumeVersion(
-        id=uuid4(),
-        resume_id=resume.id,
-        name="Original",
-        content_text=text,
-        content_fingerprint=compute_content_fingerprint(text),
-        original_filename="resume.pdf",
-        storage_path=f"/tmp/{uuid4()}.pdf",
-        is_master=True,
-    )
-    db.add(version)
-    db.flush()
-    return version
 
 
 def _improvement(assessment, **match):
