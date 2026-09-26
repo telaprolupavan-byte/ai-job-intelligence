@@ -14,8 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import NeroJobIntelligenceVisual from "@/components/app/nero-job-intelligence-visual";
-import SectionHeading from "@/components/app/section-heading";
+import NeroJobIntelligenceVisual from "@/components/landing/nero-job-intelligence-visual";
+import SectionHeading from "@/components/landing/section-heading";
 
 const inputPanels: {
   icon: LucideIcon;

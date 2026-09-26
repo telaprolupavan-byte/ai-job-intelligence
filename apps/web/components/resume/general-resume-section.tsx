@@ -13,10 +13,10 @@ import {
   type ReviewDecisionInput,
   type SuggestionType,
 } from "@/lib/general-resume";
-import AppButton from "./app-button";
-import Badge from "./badge";
-import ErrorState from "./error-state";
-import { PanelSkeleton } from "./skeleton";
+import AppButton from "@/components/app/app-button";
+import Badge from "@/components/app/badge";
+import ErrorState from "@/components/app/error-state";
+import { PanelSkeleton } from "@/components/app/skeleton";
 
 // AJI-027 — General Resume Intelligence, rendered on the Resume page for
 // the selected version. Uses the existing NERO application components

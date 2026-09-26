@@ -10,7 +10,7 @@ import ErrorState from "@/components/app/error-state";
 import EmptyState from "@/components/app/empty-state";
 import Badge from "@/components/app/badge";
 import { PanelSkeleton } from "@/components/app/skeleton";
-import GeneralResumeSection from "@/components/app/general-resume-section";
+import GeneralResumeSection from "@/components/resume/general-resume-section";
 import { FileText, UploadCloud } from "lucide-react";
 
 type Resume = {
