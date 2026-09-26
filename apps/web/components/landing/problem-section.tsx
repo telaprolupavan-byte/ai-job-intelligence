@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import SectionHeading from "@/components/app/section-heading";
+import SectionHeading from "@/components/landing/section-heading";
 
 const questions: { text: string; rotate: number }[] = [
   { text: "Is my resume ready?", rotate: -5 },

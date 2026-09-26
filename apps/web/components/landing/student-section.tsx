@@ -10,7 +10,7 @@ import {
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
-import SectionHeading from "@/components/app/section-heading";
+import SectionHeading from "@/components/landing/section-heading";
 
 const path: { icon: LucideIcon; title: string }[] = [
   { icon: FileText, title: "Resume" },

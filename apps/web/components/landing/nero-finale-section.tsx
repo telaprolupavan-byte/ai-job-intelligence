@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import NeroFinaleVisual from "@/components/app/nero-finale-visual";
-import NeroFinaleFigure from "@/components/app/nero-finale-figure";
+import NeroFinaleVisual from "@/components/landing/nero-finale-visual";
+import NeroFinaleFigure from "@/components/landing/nero-finale-figure";
 
 /**
  * "Same You. A Brighter Tomorrow." — the page's cinematic finale and
