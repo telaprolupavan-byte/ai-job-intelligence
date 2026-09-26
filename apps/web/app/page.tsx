@@ -14,20 +14,20 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NeroBrand from "@/components/app/nero-brand";
-import LandingNav from "@/components/app/landing-nav";
-import ParallaxController from "@/components/app/parallax-controller";
-import ScrollCue from "@/components/app/scroll-cue";
-import SectionHeading from "@/components/app/section-heading";
-import NeroHeroVisual from "@/components/app/nero-hero-visual";
-import NeroSystemVisual from "@/components/app/nero-system-visual";
-import DiscoverJobsSection from "@/components/app/discover-jobs-section";
-import NeroJobIntelligenceSection from "@/components/app/nero-job-intelligence-section";
-import NeroFinaleSection from "@/components/app/nero-finale-section";
-import ProblemSection from "@/components/app/problem-section";
-import ResumeIntelligenceSection from "@/components/app/resume-intelligence-section";
-import NeroJourneySection from "@/components/app/nero-journey-section";
-import StudentSection from "@/components/app/student-section";
-import ConsultancySection from "@/components/app/consultancy-section";
+import LandingNav from "@/components/landing/landing-nav";
+import ParallaxController from "@/components/landing/parallax-controller";
+import ScrollCue from "@/components/landing/scroll-cue";
+import SectionHeading from "@/components/landing/section-heading";
+import NeroHeroVisual from "@/components/landing/nero-hero-visual";
+import NeroSystemVisual from "@/components/landing/nero-system-visual";
+import DiscoverJobsSection from "@/components/landing/discover-jobs-section";
+import NeroJobIntelligenceSection from "@/components/landing/nero-job-intelligence-section";
+import NeroFinaleSection from "@/components/landing/nero-finale-section";
+import ProblemSection from "@/components/landing/problem-section";
+import ResumeIntelligenceSection from "@/components/landing/resume-intelligence-section";
+import NeroJourneySection from "@/components/landing/nero-journey-section";
+import StudentSection from "@/components/landing/student-section";
+import ConsultancySection from "@/components/landing/consultancy-section";
 
 const systemBlocks: {
   number: string;

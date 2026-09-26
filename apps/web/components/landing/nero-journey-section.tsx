@@ -11,7 +11,7 @@ import {
   Target,
   type LucideIcon,
 } from "lucide-react";
-import SectionHeading from "@/components/app/section-heading";
+import SectionHeading from "@/components/landing/section-heading";
 
 const stages: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: FileText, title: "Resume", text: "Start with where you stand today." },

@@ -56,7 +56,7 @@ vi.mock("@/lib/resumes", () => ({
   ],
 }));
 
-vi.mock("@/components/app/resume-version-selector", () => ({
+vi.mock("@/components/resume/resume-version-selector", () => ({
   default: ({ onSelect }: { onSelect: (id: string) => void }) => (
     <button type="button" onClick={() => onSelect("version-2")}>
       pick version 2

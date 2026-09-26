@@ -72,7 +72,7 @@ vi.mock("@/lib/resumes", () => ({
 // tests Base UI, not this page. What matters here is what the page does
 // when a selection is made, so the selector is reduced to a button that
 // reports one.
-vi.mock("@/components/app/resume-version-selector", () => ({
+vi.mock("@/components/resume/resume-version-selector", () => ({
   default: ({ onSelect }: { onSelect: (id: string) => void }) => (
     <button type="button" onClick={() => onSelect("version-2")}>
       pick version 2

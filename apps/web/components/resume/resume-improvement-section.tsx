@@ -9,9 +9,9 @@ import type {
   RequirementTransition,
   ResumeImprovementResult,
 } from "@/lib/jobs";
-import AppButton from "./app-button";
-import Badge from "./badge";
-import { Skeleton } from "./skeleton";
+import AppButton from "@/components/app/app-button";
+import Badge from "@/components/app/badge";
+import { Skeleton } from "@/components/app/skeleton";
 
 // AJI-021 — Resume Improvement Approval & Recheck (Figma section 09) and
 // its responsive/interaction states (section 09.1).

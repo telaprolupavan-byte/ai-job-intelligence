@@ -8,10 +8,10 @@ import type {
   StageStatus,
 } from "@/lib/job-decision";
 import type { AtsRequirementResult, EligibilityCheck } from "@/lib/jobs";
-import AppButton from "./app-button";
-import Badge from "./badge";
-import NeroCharacterState from "./nero-character-state";
-import Panel from "./panel";
+import AppButton from "@/components/app/app-button";
+import Badge from "@/components/app/badge";
+import NeroCharacterState from "@/components/app/nero-character-state";
+import Panel from "@/components/app/panel";
 
 // AJI-023 — the job decision workflow for one opened job. Renders
 // buildJobDecision() (lib/job-decision.ts): an ordered view of results the

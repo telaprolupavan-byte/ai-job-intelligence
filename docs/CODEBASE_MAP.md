@@ -160,7 +160,10 @@ themselves import nothing job-specific.
 | `app/page.tsx` | Landing page |
 | `app/login`, `register`, `forgot-password`, `reset-password` | Auth pages |
 | `app/(app)/` | Authenticated shell (`layout.tsx`, `auth-gate.tsx`): `dashboard` (with its own `components/`), `jobs` (+ `submit`), `resume`, `applications` (+ `[id]`), `settings`, `ats` (static placeholder) |
-| `components/app/` | 38 components in one folder, of three kinds: shared primitives (badge, panel, container, app-button, empty/error states, skeleton, page-header, …), landing-page sections (`landing-nav`, `parallax-controller`, `nero-*-section`/`-visual`, `problem-section`, `student-section`, `consultancy-section`, `discover-jobs-section`, `resume-intelligence-section`), and job/resume feature components (`job-*`, `gap-analysis-section`, `resume-improvement-section`, `resume-version-selector`, `source-attribution-link`, `general-resume-section`) |
+| `components/app/` | Application-wide primitives shared across pages: `app-button`, `badge`, `container`, `panel`, `skeleton`, `empty-state`, `error-state`, `page-header`, `section-label`, `nero-brand`, `mobile-nav`, `nero-character-state`, `nero-error-card` |
+| `components/landing/` | Landing-page sections and visuals, used only by `app/page.tsx`: `landing-nav`, `parallax-controller`, `scroll-cue`, `section-heading`, `nero-*-section`/`-visual`/`-figure`, `problem-section`, `student-section`, `consultancy-section`, `discover-jobs-section`, `resume-intelligence-section` |
+| `components/jobs/` | Job feature components for the Jobs page: `job-details`, `job-priority-list`, `job-decision-panel`, `gap-analysis-section`, `source-attribution-link` |
+| `components/resume/` | Resume feature components: `general-resume-section` (Resume page), `resume-improvement-section` and `resume-version-selector` (Jobs page) |
 | `components/ui/button.tsx` | shadcn button; currently not imported anywhere |
 | `lib/` | API clients, types and pure helpers. `api.ts` (`apiRequest`), `auth.ts`, `jobs.ts`, `job-*.ts`, `general-resume.ts`, `resumes.ts`, `applications.ts`, `dashboard.ts`, `nav-items.ts`, `utils.ts` |
 
@@ -239,9 +242,6 @@ Project Owner approval:
 - Split `routers/jobs.py` by capability. `/priority` must stay registered
   before `/{job_id}`, and new router names must be added to
   `tests/test_general_resume_boundaries.py`.
-- Move the frontend landing-page sections and the job/resume feature
-  components out of `components/app/`. Two tests `vi.mock` the
-  `resume-version-selector` path.
 - Share one OpenAI call helper and one evidence-grounding helper across
   the AI capabilities. Each capability's current `max_retries` must be
   kept, or deliberately changed.

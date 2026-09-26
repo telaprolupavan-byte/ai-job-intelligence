@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Badge from "@/components/app/badge";
-import SectionHeading from "@/components/app/section-heading";
+import SectionHeading from "@/components/landing/section-heading";
 
 const stages: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: FileText, title: "Resume", text: "Your resume, as it stands today." },

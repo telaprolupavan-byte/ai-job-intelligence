@@ -17,7 +17,7 @@ import { getJobs, type Job } from "@/lib/jobs";
 import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
 import { Skeleton } from "@/components/app/skeleton";
-import SectionHeading from "@/components/app/section-heading";
+import SectionHeading from "@/components/landing/section-heading";
 import { cn } from "@/lib/utils";
 
 type EmploymentFilter = "" | "full_time" | "contract" | "internship";

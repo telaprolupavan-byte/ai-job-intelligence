@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, Eye, Lock, Users, type LucideIcon } from "lucide-react";
-import SectionHeading from "@/components/app/section-heading";
+import SectionHeading from "@/components/landing/section-heading";
 
 // Deterministic per-dot offsets (not random per render) so each dot's
 // "settle" reveal is stable across renders — the illusion of many

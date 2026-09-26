@@ -74,20 +74,20 @@ import Panel, { PanelHeader } from "@/components/app/panel";
 import Badge from "@/components/app/badge";
 import AppButton from "@/components/app/app-button";
 import EmptyState from "@/components/app/empty-state";
-import SourceAttributionLink from "@/components/app/source-attribution-link";
+import SourceAttributionLink from "@/components/jobs/source-attribution-link";
 import ErrorState from "@/components/app/error-state";
 import { Skeleton } from "@/components/app/skeleton";
 import ResumeVersionSelector, {
   type ResumeVersionOption,
-} from "@/components/app/resume-version-selector";
-import GapAnalysisSection from "@/components/app/gap-analysis-section";
-import ResumeImprovementSection from "@/components/app/resume-improvement-section";
-import JobDecisionPanel from "@/components/app/job-decision-panel";
+} from "@/components/resume/resume-version-selector";
+import GapAnalysisSection from "@/components/jobs/gap-analysis-section";
+import ResumeImprovementSection from "@/components/resume/resume-improvement-section";
+import JobDecisionPanel from "@/components/jobs/job-decision-panel";
 import JobPriorityList, {
   type JobPriorityListStatus,
-} from "@/components/app/job-priority-list";
+} from "@/components/jobs/job-priority-list";
 import NeroErrorCard from "@/components/app/nero-error-card";
-import JobDetails from "@/components/app/job-details";
+import JobDetails from "@/components/jobs/job-details";
 
 type JobFilters = {
   search: string;

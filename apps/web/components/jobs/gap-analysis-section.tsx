@@ -1,9 +1,9 @@
 "use client";
 
 import type { GapAnalysisResult, GapSuggestion } from "@/lib/jobs";
-import AppButton from "./app-button";
-import Badge from "./badge";
-import { Skeleton } from "./skeleton";
+import AppButton from "@/components/app/app-button";
+import Badge from "@/components/app/badge";
+import { Skeleton } from "@/components/app/skeleton";
 
 // AJI-015 — Gap Analysis & Job-Specific Suggestions (Figma node 116:15).
 // Renders the existing GET/POST /jobs/{job_id}/gap-analysis result

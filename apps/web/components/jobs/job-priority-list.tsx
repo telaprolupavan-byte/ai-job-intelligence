@@ -15,13 +15,13 @@ import {
   type JobPriorityItem,
   type JobPriorityResponse,
 } from "@/lib/job-priority";
-import AppButton from "./app-button";
-import Badge from "./badge";
-import EmptyState from "./empty-state";
-import ErrorState from "./error-state";
-import Panel from "./panel";
+import AppButton from "@/components/app/app-button";
+import Badge from "@/components/app/badge";
+import EmptyState from "@/components/app/empty-state";
+import ErrorState from "@/components/app/error-state";
+import Panel from "@/components/app/panel";
 import SourceAttributionLink from "./source-attribution-link";
-import { Skeleton } from "./skeleton";
+import { Skeleton } from "@/components/app/skeleton";
 
 // AJI-025 — the Jobs page's Priority view. Renders GET /jobs/priority as
 // the server ordered it: jobs the user has analyzed, gated by Hard
