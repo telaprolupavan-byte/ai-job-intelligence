@@ -9,7 +9,7 @@ from apps.api.services.resume_ai.deterministic import (
     analyze_resume_deterministically,
 )
 
-from tests.general_resume_fixtures import STRONG_RESUME, WEAK_RESUME
+from tests.support.general_resume import STRONG_RESUME, WEAK_RESUME
 
 
 def _score(text):

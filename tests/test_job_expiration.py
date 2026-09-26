@@ -25,7 +25,7 @@ from services.job_discovery.pipeline import (
     normalize_raw_jobs,
     run_discovery_pipeline,
 )
-from tests.job_discovery_fakes import (
+from tests.support.job_discovery import (
     ExamplePagedSource,
     PagedTransport,
     example_record,

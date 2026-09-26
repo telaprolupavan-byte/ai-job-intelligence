@@ -122,7 +122,7 @@ Rules that come with it (see `sources/base.py`):
   U.S.-eligible jobs, with no keyword filtering.
 - The scheduler interval is unchanged (every 6 hours).
 
-`tests/job_discovery_fakes.py` has a synthetic paged adapter built only
+`tests/support/job_discovery.py` has a synthetic paged adapter built only
 from these pieces; `tests/test_job_source_contract.py` runs one contract
 over every adapter (Greenhouse, the test fixture, and that double).
 

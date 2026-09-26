@@ -9,7 +9,7 @@ from apps.api.services.general_resume.service import (
     compute_deterministic_assessment,
 )
 
-from tests.general_resume_fixtures import (
+from tests.support.general_resume import (
     STRONG_RESUME,
     WEAK_BULLET_1,
     WEAK_RESUME,

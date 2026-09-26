@@ -8,7 +8,7 @@ from apps.api.services.general_resume.validator import (
     merge_ai_explanations,
 )
 
-from tests.general_resume_fixtures import WEAK_BULLET_1, WEAK_RESUME
+from tests.support.general_resume import WEAK_BULLET_1, WEAK_RESUME
 
 
 def _improvements():
