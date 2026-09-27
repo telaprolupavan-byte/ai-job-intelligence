@@ -1,4 +1,4 @@
-import { apiRequest } from "./api";
+import { ApiError, apiRequest, API_URL } from "./api";
 import { getAuthToken } from "./auth";
 
 export type Resume = {
@@ -31,19 +31,24 @@ export type ResumeVersion = {
   has_file: boolean;
 };
 
-function authenticatedRequest<T>(
+export async function authenticatedRequest<T>(
   path: string,
   options: RequestInit = {},
+  timeoutMs?: number,
 ): Promise<T> {
   const token = getAuthToken();
 
-  return apiRequest<T>(path, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers ?? {}),
+  return apiRequest<T>(
+    path,
+    {
+      ...options,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers ?? {}),
+      },
     },
-  });
+    timeoutMs,
+  );
 }
 
 export function getResumes(): Promise<Resume[]> {
@@ -56,4 +61,26 @@ export function getResumeVersions(
   return authenticatedRequest<ResumeVersion[]>(
     `/resumes/${resumeId}/versions`,
   );
+}
+
+export async function fetchResumeVersionFile(
+  versionId: string,
+): Promise<Blob> {
+  const token = getAuthToken();
+
+  const response = await fetch(
+    `${API_URL}/resumes/versions/${versionId}/file`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
+
+  if (!response.ok) {
+    throw new ApiError(
+      "Unable to retrieve the resume file.",
+      response.status,
+    );
+  }
+
+  return response.blob();
 }
