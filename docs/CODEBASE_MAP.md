@@ -31,16 +31,21 @@ The backend is imported from the repository root as `apps.api.*` and
 | `database.py`, `dependencies.py` | Engine, `get_db`, `get_current_user` / `get_optional_current_user` |
 | `security.py`, `rate_limit.py` | Password hashing, JWT, reset tokens; in-memory auth rate limits |
 | `models.py` | All ORM tables (one metadata source for Alembic) |
-| `schemas.py` | Pydantic request/response models for auth, profile, preferences, resumes, applications, job submission. AI features keep their result contracts in `services/<capability>/contracts.py`; jobs responses are built as dicts in `routers/jobs.py` |
+| `schemas.py` | Pydantic request/response models for auth, profile, preferences, resumes, applications, job submission. AI features keep their result contracts in `services/<capability>/contracts.py`; jobs responses are built as dicts in `routers/jobs/` |
 | `alembic/versions/` | Migrations (single head, enforced in CI) |
 | `routers/` | HTTP layer: `auth`, `profile`, `preferences`, `resumes`, `general_resume`, `jobs`, `job_discovery`, `applications`, `dashboard` |
 | `services/` | Orchestration (database access around the pure engines) and every AI capability (sections 4–6) |
 
 Router notes:
-- `routers/jobs.py` serves the job catalog plus every per-job capability
-  (match, eligibility, intelligence, requirement intelligence, ATS, gap
-  analysis, resume improvement, priority, submissions). It is the largest
-  router.
+- `routers/jobs/` serves the job catalog plus every per-job capability,
+  one module each (AJI-034): `search` (`GET /jobs`), `submissions`,
+  `priority`, `details` (`GET /jobs/{job_id}`), `match`, `eligibility`,
+  `intelligence` (Job and Requirement Intelligence), `alignment` (ATS and
+  Gap Analysis), `resume_improvement`. `common.py` holds the shared
+  visibility check and job response. `__init__.py` includes them in a
+  fixed order, and that order is behavior: `priority` must stay before
+  `details`, or "priority" is read as a job id.
+  `tests/test_jobs_routes.py` pins the route table and resolution.
 - `routers/resumes.py::upload_resume` holds the upload, duplicate-detection
   and version-naming flow directly in the route.
 - `routers/dashboard.py` aggregates existing results only; it never
@@ -130,7 +135,7 @@ Provider -> adapter -> normalize -> validate -> deduplicate -> persist (jobs)
 | Expiration | `jobs.expires_at` + `job_access.active_jobs_filter()` (evaluated at query time) |
 | Attribution | `services/job_discovery/attribution.py` |
 | User-submitted jobs | `apps/api/services/job_submission/` (reuses the discovery normalizer and persistence) |
-| Job API | `routers/jobs.py`, `job_listing.py` |
+| Job API | `routers/jobs/`, `job_listing.py` |
 | Applications | `application_service.py`, `routers/applications.py` (`SavedJob`, `ApplicationStatusEvent`) |
 
 ## 6. Resume flow
@@ -240,9 +245,6 @@ Moving them would put protected work or path-sensitive code at risk.
 
 Follow-up opportunities, not done here, each requiring its own ticket and
 Project Owner approval:
-- Split `routers/jobs.py` by capability. `/priority` must stay registered
-  before `/{job_id}`, and new router names must be added to
-  `tests/test_general_resume_boundaries.py`.
 - Share one OpenAI call helper and one evidence-grounding helper across
   the AI capabilities. Each capability's current `max_retries` must be
   kept, or deliberately changed.

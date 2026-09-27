@@ -1,7 +1,7 @@
 import uuid
 
 from apps.api.models import Company, Job
-from apps.api.routers.jobs import list_jobs
+from apps.api.routers.jobs.search import list_jobs
 
 
 def create_job(

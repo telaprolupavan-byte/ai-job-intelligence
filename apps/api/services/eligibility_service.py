@@ -15,7 +15,7 @@ Performance: evaluate_jobs_eligibility() builds the user's
 UserEligibilityCriteria exactly once and reuses it across every job, and
 never issues a database query per job — callers are expected to have
 already loaded the ``jobs`` list (e.g. from the existing paginated job
-listing query in apps/api/routers/jobs.py).
+listing query in apps/api/routers/jobs/search.py).
 
 Persistence: evaluate_job_eligibility()/evaluate_jobs_eligibility() stay
 pure (no DB writes) so existing callers/tests are unaffected.
