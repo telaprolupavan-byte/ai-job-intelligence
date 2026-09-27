@@ -165,13 +165,14 @@ themselves import nothing job-specific.
 | `components/jobs/` | Job feature components for the Jobs page: `job-details`, `job-priority-list`, `job-decision-panel`, `gap-analysis-section`, `source-attribution-link` |
 | `components/resume/` | Resume feature components: `general-resume-section` (Resume page), `resume-improvement-section` and `resume-version-selector` (Jobs page) |
 | `components/ui/button.tsx` | shadcn button; currently not imported anywhere |
-| `lib/` | API clients, types and pure helpers. `api.ts` (`apiRequest`), `auth.ts`, `jobs.ts`, `job-*.ts`, `general-resume.ts`, `resumes.ts`, `applications.ts`, `dashboard.ts`, `nav-items.ts`, `utils.ts` |
+| `lib/` | API clients, types and pure helpers. `api.ts` (`apiRequest`), `auth.ts`, `jobs.ts`, `job-*.ts`, `general-resume.ts`, `resumes.ts` (including `authenticatedRequest` and `fetchResumeVersionFile`, used by the Resume page), `profile.ts` and `preferences.ts` (Settings page), `applications.ts`, `dashboard.ts`, `nav-items.ts`, `utils.ts`. Pages call the API through `lib/`, not directly (AJI-033) |
 
 Note that `resume-intelligence-section.tsx` is a landing-page section,
 not the Resume Intelligence feature. The jobs and resume pages keep many
 sub-components inline (`app/(app)/jobs/page.tsx` is the largest file in
 the frontend). `lib/jobs.ts` and `lib/general-resume.ts` make their own
-`fetch` calls instead of going through `apiRequest`.
+`fetch` calls instead of going through `apiRequest`, and so does
+`lib/resumes.ts::fetchResumeVersionFile` (it reads the file as a Blob).
 
 ## 8. Tests
 
@@ -247,8 +248,6 @@ Project Owner approval:
   kept, or deliberately changed.
 - Unify the three frontend fetch clients. This changes behavior (error
   parsing, timeouts, env default), so it needs a decision.
-- Move the profile/preferences calls out of `settings/page.tsx` and the
-  resume request helper out of `resume/page.tsx` into `lib/`.
 - Consolidate the remaining per-file test builders (`_make_user`,
   `_make_job`, auth headers, `_make_resume_version`, discovery settings).
   Their variants differ, for example some create a `Profile`.

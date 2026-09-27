@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest, ApiError, API_URL } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
+import {
+  authenticatedRequest,
+  fetchResumeVersionFile,
+} from "@/lib/resumes";
 import Container from "@/components/app/container";
 import AppButton from "@/components/app/app-button";
 import ErrorState from "@/components/app/error-state";
@@ -142,26 +146,6 @@ type ResumeAnalysis = {
   position_identification: PositionIdentification;
 };
 
-async function authenticatedRequest<T>(
-  path: string,
-  options: RequestInit = {},
-  timeoutMs?: number,
-): Promise<T> {
-  const token = getAuthToken();
-
-  return apiRequest<T>(
-    path,
-    {
-      ...options,
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options.headers ?? {}),
-      },
-    },
-    timeoutMs,
-  );
-}
-
 // The backend bounds its own OpenAI call to a 60s timeout with one retry
 // (see apps/api/services/resume_ai/providers/openai_provider.py), so a
 // legitimate in-progress analysis can take up to ~120s before the backend
@@ -195,28 +179,6 @@ function formatSectionList(sections: string[]): string {
   }
 
   return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
-}
-
-async function fetchResumeVersionFile(
-  versionId: string,
-): Promise<Blob> {
-  const token = getAuthToken();
-
-  const response = await fetch(
-    `${API_URL}/resumes/versions/${versionId}/file`,
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    },
-  );
-
-  if (!response.ok) {
-    throw new ApiError(
-      "Unable to retrieve the resume file.",
-      response.status,
-    );
-  }
-
-  return response.blob();
 }
 
 export default function Page() {

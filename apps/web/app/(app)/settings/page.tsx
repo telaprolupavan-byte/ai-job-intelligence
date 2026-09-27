@@ -2,35 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-import { apiRequest, ApiError } from "@/lib/api";
-import { getAuthToken } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
+import { getProfile, updateProfile, type Profile } from "@/lib/profile";
+import {
+  getPreferences,
+  updatePreferences,
+  type Preferences,
+} from "@/lib/preferences";
 import Container from "@/components/app/container";
 import AppButton from "@/components/app/app-button";
 import { Skeleton } from "@/components/app/skeleton";
-
-type Profile = {
-  full_name: string | null;
-  phone: string | null;
-  location: string | null;
-  summary: string | null;
-  years_experience: number | null;
-  target_titles: string[] | null;
-};
-
-type Preferences = {
-  employment_types: string[] | null;
-  locations: string[] | null;
-  remote_preference: string | null;
-  target_titles: string[] | null;
-  // Hard eligibility fields (AJI-011). Unlike the soft preferences
-  // above, these can make a job INELIGIBLE outright, independent of any
-  // Job Match score. Leaving one unset never excludes a job.
-  excluded_locations: string[] | null;
-  requires_sponsorship: boolean | null;
-  is_us_citizen: boolean | null;
-  has_security_clearance: boolean | null;
-  enforce_minimum_experience: boolean;
-};
 
 const emptyProfile: Profile = {
   full_name: "",
@@ -52,11 +33,6 @@ const emptyPreferences: Preferences = {
   has_security_clearance: null,
   enforce_minimum_experience: false,
 };
-
-function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 function splitList(value: string) {
   return value
@@ -96,10 +72,9 @@ export default function SettingsPage() {
 
     async function loadSettings() {
       try {
-        const headers = authHeaders();
         const [profileData, preferenceData] = await Promise.all([
-          apiRequest<Profile | null>("/profile/me", { headers }),
-          apiRequest<Preferences | null>("/preferences/me", { headers }),
+          getProfile(),
+          getPreferences(),
         ]);
 
         if (!cancelled) {
@@ -135,22 +110,9 @@ export default function SettingsPage() {
     setMessage(null);
 
     try {
-      const headers = {
-        ...authHeaders(),
-        "Content-Type": "application/json",
-      };
-
       const [savedProfile, savedPreferences] = await Promise.all([
-        apiRequest<Profile>("/profile/me", {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(profile),
-        }),
-        apiRequest<Preferences>("/preferences/me", {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(preferences),
-        }),
+        updateProfile(profile),
+        updatePreferences(preferences),
       ]);
 
       setProfile(savedProfile);
