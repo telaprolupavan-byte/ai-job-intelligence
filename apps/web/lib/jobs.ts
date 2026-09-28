@@ -1,4 +1,5 @@
-import { ApiError, apiRequest } from "./api";
+import { ApiError, apiRequest, requestJson } from "./api";
+import { authHeaders } from "./auth";
 
 export type Job = {
   id: string;
@@ -274,29 +275,21 @@ export type JobEligibilityResult = {
   evaluated_at: string;
 };
 
-function authHeaders(): Record<string, string> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("ai_job_intelligence_token")
-      : null;
-
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export async function getJobIntelligence(
   jobId: string,
 ): Promise<JobIntelligenceResponse> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/intelligence`, {
-    headers: authHeaders(),
-    cache: "no-store",
-  });
-
-  const data = await response.json().catch(() => null);
+  const { response, data } = await requestJson(
+    `${API_BASE_URL}/jobs/${jobId}/intelligence`,
+    {
+      headers: authHeaders(),
+      cache: "no-store",
+    },
+  );
 
   if (!response.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
+      typeof (data as { detail?: unknown } | null)?.detail === "string"
+        ? (data as { detail: string }).detail
         : "Unable to load Job Intelligence.";
 
     throw new Error(message);
@@ -308,21 +301,22 @@ export async function getJobIntelligence(
 export async function generateJobIntelligence(
   jobId: string,
 ): Promise<JobIntelligenceResponse> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/intelligence`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
+  const { response, data } = await requestJson(
+    `${API_BASE_URL}/jobs/${jobId}/intelligence`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      cache: "no-store",
     },
-    cache: "no-store",
-  });
-
-  const data = await response.json().catch(() => null);
+  );
 
   if (!response.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
+      typeof (data as { detail?: unknown } | null)?.detail === "string"
+        ? (data as { detail: string }).detail
         : "Unable to generate Job Intelligence.";
 
     throw new Error(message);
@@ -334,17 +328,18 @@ export async function generateJobIntelligence(
 export async function getJobEligibility(
   jobId: string,
 ): Promise<JobEligibilityResult> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/eligibility`, {
-    headers: authHeaders(),
-    cache: "no-store",
-  });
-
-  const data = await response.json().catch(() => null);
+  const { response, data } = await requestJson(
+    `${API_BASE_URL}/jobs/${jobId}/eligibility`,
+    {
+      headers: authHeaders(),
+      cache: "no-store",
+    },
+  );
 
   if (!response.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
+      typeof (data as { detail?: unknown } | null)?.detail === "string"
+        ? (data as { detail: string }).detail
         : "Unable to check eligibility.";
 
     throw new Error(message);
@@ -410,7 +405,7 @@ export async function calculateAtsAlignment(
   }
   const query = searchParams.toString();
 
-  const response = await fetch(
+  const { response, data } = await requestJson(
     `${API_BASE_URL}/jobs/${jobId}/ats${query ? `?${query}` : ""}`,
     {
       method: "POST",
@@ -422,12 +417,10 @@ export async function calculateAtsAlignment(
     },
   );
 
-  const data = await response.json().catch(() => null);
-
   if (!response.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
+      typeof (data as { detail?: unknown } | null)?.detail === "string"
+        ? (data as { detail: string }).detail
         : "Unable to calculate ATS Alignment.";
 
     throw new Error(message);
@@ -440,39 +433,28 @@ export async function calculateJobMatch(
   jobId: string,
   resumeVersionId?: string,
 ): Promise<JobMatchResult> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("ai_job_intelligence_token")
-      : null;
-
   const searchParams = new URLSearchParams();
   if (resumeVersionId) {
     searchParams.set("resume_version_id", resumeVersionId);
   }
   const query = searchParams.toString();
 
-  const response = await fetch(
+  const { response, data } = await requestJson(
     `${API_BASE_URL}/jobs/${jobId}/match${query ? `?${query}` : ""}`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {}),
+        ...authHeaders(),
       },
       cache: "no-store",
     },
   );
 
-  const data = await response.json().catch(() => null);
-
   if (!response.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
+      typeof (data as { detail?: unknown } | null)?.detail === "string"
+        ? (data as { detail: string }).detail
         : "Unable to calculate job match.";
 
     throw new Error(message);
@@ -530,7 +512,7 @@ export async function getGapAnalysis(
   }
   const query = searchParams.toString();
 
-  const response = await fetch(
+  const { response, data } = await requestJson(
     `${API_BASE_URL}/jobs/${jobId}/gap-analysis${query ? `?${query}` : ""}`,
     {
       headers: authHeaders(),
@@ -538,12 +520,10 @@ export async function getGapAnalysis(
     },
   );
 
-  const data = await response.json().catch(() => null);
-
   if (!response.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
+      typeof (data as { detail?: unknown } | null)?.detail === "string"
+        ? (data as { detail: string }).detail
         : "Unable to load Gap Analysis.";
 
     throw new Error(message);
@@ -562,7 +542,7 @@ export async function calculateGapAnalysis(
   }
   const query = searchParams.toString();
 
-  const response = await fetch(
+  const { response, data } = await requestJson(
     `${API_BASE_URL}/jobs/${jobId}/gap-analysis${query ? `?${query}` : ""}`,
     {
       method: "POST",
@@ -574,12 +554,10 @@ export async function calculateGapAnalysis(
     },
   );
 
-  const data = await response.json().catch(() => null);
-
   if (!response.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
+      typeof (data as { detail?: unknown } | null)?.detail === "string"
+        ? (data as { detail: string }).detail
         : "Unable to calculate Gap Analysis.";
 
     throw new Error(message);
@@ -725,15 +703,13 @@ export async function getResumeImprovement(
   }
   const query = searchParams.toString();
 
-  const response = await fetch(
+  const { response, data } = await requestJson(
     `${API_BASE_URL}/jobs/${jobId}/resume-improvement${query ? `?${query}` : ""}`,
     {
       headers: authHeaders(),
       cache: "no-store",
     },
   );
-
-  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw toImprovementError(data, "Unable to load your approved improvements.");
@@ -747,7 +723,7 @@ export async function createResumeImprovement(
   gapAnalysisId: string,
   decisions: ImprovementDecisionInput[],
 ): Promise<ResumeImprovementResult> {
-  const response = await fetch(
+  const { response, data } = await requestJson(
     `${API_BASE_URL}/jobs/${jobId}/resume-improvement`,
     {
       method: "POST",
@@ -762,8 +738,6 @@ export async function createResumeImprovement(
       cache: "no-store",
     },
   );
-
-  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw toImprovementError(
@@ -785,7 +759,7 @@ export async function runResumeImprovementRecheck(
   jobId: string,
   improvementId: string,
 ): Promise<ResumeImprovementResult> {
-  const response = await fetch(
+  const { response, data } = await requestJson(
     `${API_BASE_URL}/jobs/${jobId}/resume-improvement/${improvementId}/recheck`,
     {
       method: "POST",
@@ -796,8 +770,6 @@ export async function runResumeImprovementRecheck(
       cache: "no-store",
     },
   );
-
-  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw toImprovementError(data, "Unable to recheck your new version.");
