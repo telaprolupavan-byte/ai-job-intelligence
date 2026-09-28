@@ -4,6 +4,7 @@ let token: string | null = "token-123";
 
 vi.mock("./auth", () => ({
   getAuthToken: () => token,
+  authHeaders: () => (token ? { Authorization: `Bearer ${token}` } : {}),
 }));
 
 import { ApiError } from "./api";

@@ -75,6 +75,18 @@ export function getAuthToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+// AJI-035 — the one shared "silent, optional auth" header builder: no
+// token means an empty header object (the request proceeds unauthenticated
+// rather than failing), matching the behavior every one of its callers
+// already had independently. This does NOT cover the small number of
+// call sites (lib/applications.ts, lib/dashboard.ts, lib/job-discovery.ts)
+// that deliberately throw "Not authenticated" instead - that is a
+// different, intentional contract and stays as its own local code.
+export function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 type MessageResponse = {
   message: string;
 };

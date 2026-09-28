@@ -105,4 +105,59 @@ describe("general resume API client", () => {
     expect(url).toMatch(/\/resumes\/general-reviews\/r1\/recheck$/);
     expect(init.method).toBe("POST");
   });
+
+  // AJI-035 — this fixed 150s timeout was not previously covered: every
+  // General Resume call aborts on its own after REQUEST_TIMEOUT_MS, unlike
+  // lib/jobs.ts's untimed calls, and this value is intentionally not
+  // configurable per call (see docs/CODEBASE_MAP.md).
+  it("rejects with GeneralResumeError once its fixed 150-second timeout elapses on a hung request", async () => {
+    vi.useFakeTimers();
+    const hungFetch = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        }),
+    );
+    vi.stubGlobal("fetch", hungFetch);
+
+    const pending = createGeneralAssessment("v1");
+    const assertion = expect(pending).rejects.toMatchObject({
+      message: "The request took too long to respond. Please try again.",
+      code: "network_error",
+      status: 0,
+    });
+
+    await vi.advanceTimersByTimeAsync(150_000);
+    await assertion;
+    vi.useRealTimers();
+  });
+
+  it("does not time out before 150 seconds", async () => {
+    vi.useFakeTimers();
+    const hungFetch = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        }),
+    );
+    vi.stubGlobal("fetch", hungFetch);
+
+    const pending = createGeneralAssessment("v1");
+    const settled = { done: false };
+    pending.catch(() => {
+      settled.done = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(149_000);
+    expect(settled.done).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await pending.catch(() => undefined);
+    expect(settled.done).toBe(true);
+    vi.useRealTimers();
+  });
 });

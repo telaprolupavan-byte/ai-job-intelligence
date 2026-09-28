@@ -1,5 +1,5 @@
-import { ApiError, apiRequest, API_URL } from "./api";
-import { getAuthToken } from "./auth";
+import { apiRequest, API_URL, blobRequest } from "./api";
+import { authHeaders } from "./auth";
 
 export type Resume = {
   id: string;
@@ -36,14 +36,12 @@ export async function authenticatedRequest<T>(
   options: RequestInit = {},
   timeoutMs?: number,
 ): Promise<T> {
-  const token = getAuthToken();
-
   return apiRequest<T>(
     path,
     {
       ...options,
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...authHeaders(),
         ...(options.headers ?? {}),
       },
     },
@@ -66,21 +64,9 @@ export function getResumeVersions(
 export async function fetchResumeVersionFile(
   versionId: string,
 ): Promise<Blob> {
-  const token = getAuthToken();
-
-  const response = await fetch(
+  return blobRequest(
     `${API_URL}/resumes/versions/${versionId}/file`,
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    },
+    { headers: authHeaders() },
+    "Unable to retrieve the resume file.",
   );
-
-  if (!response.ok) {
-    throw new ApiError(
-      "Unable to retrieve the resume file.",
-      response.status,
-    );
-  }
-
-  return response.blob();
 }

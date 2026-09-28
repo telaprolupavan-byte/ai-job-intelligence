@@ -11,6 +11,48 @@ export class ApiError extends Error {
   }
 }
 
+// AJI-035 — shared JSON transport primitive: the one place every JSON
+// client (apiRequest below, lib/jobs.ts, lib/general-resume.ts) does the
+// actual `fetch` + safe JSON parse. It takes the caller's fully-assembled
+// URL and RequestInit (headers, signal, body, cache, ...) as-is and makes
+// no decisions about auth, timeouts, base-URL/env resolution, or what
+// counts as success - those stay with each caller, since they differ
+// (deliberately, see docs/CODEBASE_MAP.md) across clients. A non-ok HTTP
+// response is returned, not thrown, so each caller can build its own
+// domain error (ApiError, GeneralResumeError, ResumeImprovementError, or a
+// plain Error) from `data`. Only a genuine transport failure (network
+// error, or the caller's own AbortController firing) throws here, and it
+// throws unmodified - callers already decide how to interpret that.
+export async function requestJson(
+  url: string,
+  options: RequestInit = {},
+): Promise<{ response: Response; data: unknown }> {
+  const response = await fetch(url, options);
+  const data = await response.json().catch(() => null);
+  return { response, data };
+}
+
+// AJI-035 — shared Blob transport primitive, kept separate from
+// `requestJson` because a file response is never JSON: parsing it as JSON
+// would corrupt the downloaded file. `errorMessage` is supplied by the
+// caller (never read from the response body) so today's one caller,
+// lib/resumes.ts's fetchResumeVersionFile, keeps producing exactly
+// `ApiError("Unable to retrieve the resume file.", status)` on failure,
+// never exposing the backend's own error detail.
+export async function blobRequest(
+  url: string,
+  options: RequestInit,
+  errorMessage: string,
+): Promise<Blob> {
+  const response = await fetch(url, options);
+
+  if (!response.ok) {
+    throw new ApiError(errorMessage, response.status);
+  }
+
+  return response.blob();
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -30,10 +72,10 @@ export async function apiRequest<T>(
     ? setTimeout(() => controller.abort(), timeoutMs)
     : null;
 
-  let response: Response;
+  let result: { response: Response; data: unknown };
 
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    result = await requestJson(`${API_URL}${path}`, {
       ...options,
       signal: controller?.signal ?? options.signal,
       headers: {
@@ -56,16 +98,18 @@ export async function apiRequest<T>(
     }
   }
 
-  const data = await response.json().catch(() => null);
+  const { response, data } = result;
 
   if (!response.ok) {
     const message =
-      data?.detail ?? "Something went wrong. Please try again.";
+      (data as { detail?: unknown } | null)?.detail ??
+      "Something went wrong. Please try again.";
 
     throw new ApiError(
       typeof message === "string"
         ? message
-        : message?.message ?? "Something went wrong. Please try again.",
+        : (message as { message?: string } | null)?.message ??
+            "Something went wrong. Please try again.",
       response.status,
     );
   }
