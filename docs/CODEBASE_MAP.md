@@ -170,14 +170,62 @@ themselves import nothing job-specific.
 | `components/jobs/` | Job feature components for the Jobs page: `job-details`, `job-priority-list`, `job-decision-panel`, `gap-analysis-section`, `source-attribution-link` |
 | `components/resume/` | Resume feature components: `general-resume-section` (Resume page), `resume-improvement-section` and `resume-version-selector` (Jobs page) |
 | `components/ui/button.tsx` | shadcn button; currently not imported anywhere |
-| `lib/` | API clients, types and pure helpers. `api.ts` (`apiRequest`), `auth.ts`, `jobs.ts`, `job-*.ts`, `general-resume.ts`, `resumes.ts` (including `authenticatedRequest` and `fetchResumeVersionFile`, used by the Resume page), `profile.ts` and `preferences.ts` (Settings page), `applications.ts`, `dashboard.ts`, `nav-items.ts`, `utils.ts`. Pages call the API through `lib/`, not directly (AJI-033) |
+| `lib/` | API clients, types and pure helpers. `api.ts` (`apiRequest`, and the shared transport primitives below), `auth.ts`, `jobs.ts`, `job-*.ts`, `general-resume.ts`, `resumes.ts` (including `authenticatedRequest` and `fetchResumeVersionFile`, used by the Resume page), `profile.ts` and `preferences.ts` (Settings page), `applications.ts`, `dashboard.ts`, `nav-items.ts`, `utils.ts`. Pages call the API through `lib/`, not directly (AJI-033) |
 
 Note that `resume-intelligence-section.tsx` is a landing-page section,
 not the Resume Intelligence feature. The jobs and resume pages keep many
 sub-components inline (`app/(app)/jobs/page.tsx` is the largest file in
-the frontend). `lib/jobs.ts` and `lib/general-resume.ts` make their own
-`fetch` calls instead of going through `apiRequest`, and so does
-`lib/resumes.ts::fetchResumeVersionFile` (it reads the file as a Blob).
+the frontend).
+
+### Frontend request transport (AJI-035)
+
+`apps/web/lib/api.ts` holds two shared low-level primitives that every
+JSON/Blob-returning client in `lib/` is built on — `grep -rn "fetch("
+apps/web/lib` finds raw `fetch()` calls only in this one file:
+
+- **`requestJson(url, options)`** — `fetch` plus a safe
+  `.json().catch(() => null)` parse. It takes a fully-assembled URL and
+  `RequestInit` and returns `{ response, data }` without throwing on a
+  non-ok HTTP response; only a genuine transport failure (network error,
+  or a caller's own `AbortController` firing) throws, unmodified. It has
+  no opinion on auth headers, timeouts, base-URL/env resolution, or what
+  counts as success — those stay with each caller, on purpose, since they
+  differ across clients (see below).
+- **`blobRequest(url, options, errorMessage)`** — the separate Blob
+  transport for file responses, which must never be JSON-parsed. On a
+  non-ok response it throws `ApiError(errorMessage, status)` using the
+  caller-supplied message, never the backend's own error detail.
+
+`apps/web/lib/auth.ts` holds one shared, "silent, optional auth" header
+builder, `authHeaders()`: no token means `{}` (the request proceeds
+unauthenticated) rather than an error. `lib/jobs.ts`, `lib/profile.ts`,
+`lib/preferences.ts`, `lib/general-resume.ts` and
+`lib/resumes.ts::fetchResumeVersionFile` all build on it instead of each
+defining or inlining their own copy. `lib/applications.ts`,
+`lib/dashboard.ts` and `lib/job-discovery.ts` deliberately keep their own,
+different, throwing behavior ("Not authenticated" when signed out) —
+that is an intentional second contract, not leftover duplication, and was
+not touched.
+
+**What stayed deliberately different, per capability, even after this
+consolidation** — none of this was "cleanup," each is a preserved,
+observable behavior:
+
+| Client | Timeout | Thrown error type |
+|---|---|---|
+| `apiRequest` (`api.ts`) | optional per-call `timeoutMs`, none by default | `ApiError` (carries `status`) |
+| `lib/jobs.ts`'s `getJobs` | 20s (fixed) | `ApiError`, via `apiRequest` |
+| `lib/jobs.ts`'s `submitJob` | 300s (fixed) | `ApiError`, via `apiRequest` |
+| `lib/jobs.ts`'s other 10 functions (Job/Requirement Intelligence, Eligibility, ATS, Job Match, Gap Analysis) | none | plain `Error` (no status), or `ResumeImprovementError(message, code)` for the three Resume Improvement calls |
+| `lib/general-resume.ts` | 150s (fixed, not configurable) | `GeneralResumeError(message, code, status)` |
+| `lib/resumes.ts::fetchResumeVersionFile` | none | `ApiError` with a fixed generic message, never the backend's own detail |
+
+`lib/jobs.ts` also keeps its own `API_BASE_URL` constant
+(`process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"`, `||`),
+separate from `api.ts`'s `API_URL` (`?? "http://localhost:8000"`, `??`).
+`requestJson` takes a full URL rather than owning env resolution itself,
+so this divergence did not need to be resolved to share the fetch
+mechanics — it is unchanged, not overlooked.
 
 ## 8. Tests
 
@@ -248,8 +296,6 @@ Project Owner approval:
 - Share one OpenAI call helper and one evidence-grounding helper across
   the AI capabilities. Each capability's current `max_retries` must be
   kept, or deliberately changed.
-- Unify the three frontend fetch clients. This changes behavior (error
-  parsing, timeouts, env default), so it needs a decision.
 - Consolidate the remaining per-file test builders (`_make_user`,
   `_make_job`, auth headers, `_make_resume_version`, discovery settings).
   Their variants differ, for example some create a `Profile`.

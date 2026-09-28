@@ -1,5 +1,5 @@
 import { apiRequest } from "./api";
-import { getAuthToken } from "./auth";
+import { authHeaders } from "./auth";
 
 export type Profile = {
   full_name: string | null;
@@ -9,11 +9,6 @@ export type Profile = {
   years_experience: number | null;
   target_titles: string[] | null;
 };
-
-function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 // null when the user has not saved a profile yet.
 export function getProfile(): Promise<Profile | null> {

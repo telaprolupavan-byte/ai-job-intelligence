@@ -1,5 +1,5 @@
 import { apiRequest } from "./api";
-import { getAuthToken } from "./auth";
+import { authHeaders } from "./auth";
 
 export type Preferences = {
   employment_types: string[] | null;
@@ -15,11 +15,6 @@ export type Preferences = {
   has_security_clearance: boolean | null;
   enforce_minimum_experience: boolean;
 };
-
-function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 // null when the user has not saved preferences yet.
 export function getPreferences(): Promise<Preferences | null> {
