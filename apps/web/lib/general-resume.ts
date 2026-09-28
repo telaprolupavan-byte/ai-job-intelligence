@@ -1,5 +1,5 @@
-import { API_URL } from "./api";
-import { getAuthToken } from "./auth";
+import { API_URL, requestJson } from "./api";
+import { authHeaders } from "./auth";
 
 // AJI-027 — General Resume Intelligence. Job-independent: none of these
 // calls takes a job, and the General Resume Score is not an ATS score.
@@ -152,19 +152,18 @@ async function request<T>(
   fallback: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const token = getAuthToken();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let response: Response;
+  let result: { response: Response; data: unknown };
 
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    result = await requestJson(`${API_URL}${path}`, {
       ...init,
       cache: "no-store",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...authHeaders(),
       },
     });
   } catch {
@@ -179,7 +178,7 @@ async function request<T>(
     clearTimeout(timer);
   }
 
-  const data = await response.json().catch(() => null);
+  const { response, data } = result;
 
   if (!response.ok) {
     const detail = (data as { detail?: unknown } | null)?.detail;
